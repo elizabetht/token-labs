@@ -46,14 +46,25 @@ jobs:
       - name: Set image name
         id: vars
         run: |
-          REPO_OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-          echo "IMAGE=ghcr.io/${REPO_OWNER}/million-token-lab/vllm-serve" >> "$GITHUB_OUTPUT"
+          # lowercase owner
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/million-token-lab/vllm-serve"
 
+          # If this is a tag like "v0.0.1", pull out "0.0.1"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            # fallback for branch builds – you can choose what you want here
+            VERSION="latest"
+          fi
+
+          echo "IMAGE=$IMAGE"   >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
+            ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
             ${{ steps.vars.outputs.IMAGE }}:latest
-            ${{ steps.vars.outputs.IMAGE }}:${{ github.sha }}
