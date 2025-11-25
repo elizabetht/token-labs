@@ -10,6 +10,9 @@ permissions:
   packages: write   # needed for GHCR
   id-token: write
 
+env:
+  IMAGE_REPO: ghcr.io/elizabetht/million-token-lab/vllm-serve
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
