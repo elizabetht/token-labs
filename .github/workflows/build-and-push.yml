@@ -75,37 +75,30 @@ jobs:
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_POD_ID: ${{ secrets.RUNPOD_POD_ID }}
-          RUNPOD_REGISTRY_AUTH_ID: ${{ secrets.RUNPOD_REGISTRY_AUTH_ID }} # can be empty if public
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          set -euo pipefail
+
           IMAGE_TAG="${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}"
 
-          echo "Updating RunPod pod $RUNPOD_POD_ID to image $IMAGE_TAG"
+          echo "Updating RunPod pod ${RUNPOD_POD_ID} to image ${IMAGE_TAG}"
 
-          # Build JSON payload for /pods/{podId}/update
+          # Minimal JSON body: just change the imageName
           cat <<EOF > body.json
           {
-            "imageName": "${IMAGE_TAG}",
-            "containerDiskInGb": 50,
-            "volumeInGb": 20,
-            "volumeMountPath": "/workspace",
-            "ports": ["8000/http"],
-            "env": {
-              "MODEL_NAME": "meta-llama/Llama-3.1-8B-Instruct",
-              "HF_TOKEN": "${HF_TOKEN}"
-            }
-            $(if [ -n "$RUNPOD_REGISTRY_AUTH_ID" ]; then
-                echo ,"containerRegistryAuthId": "\"$RUNPOD_REGISTRY_AUTH_ID\""
-              fi)
+            "imageName": "${IMAGE_TAG}"
           }
           EOF
 
-          # Call RunPod REST API to update the pod
-          curl --fail --request POST \
+          echo "Request body:"
+          cat body.json
+
+          echo "Calling RunPod..."
+          curl -i \
+            --request POST \
             --url "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}/update" \
             --header "Authorization: Bearer ${RUNPOD_API_KEY}" \
             --header "Content-Type: application/json" \
             --data @body.json
-
-          echo "RunPod pod update request sent."
+          
+      
 
