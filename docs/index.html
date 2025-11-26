@@ -405,13 +405,7 @@ Content-Type: application/json</code></pre>
     <!-- Right: chat UI -->
     <div class="card">
       <div class="chat-wrapper">
-        <div class="inline-label" style="margin-bottom: 4px;">
-          <span>API key</span>
-          <span style="font-size: 10px;">Used for Authorization header · not stored</span>
-        </div>
-        <input type="text" id="api-key" placeholder="Paste your API key here" />
-
-        <div class="section-title" style="margin-top: 12px;">Chat with the selected model</div>
+        <div class="section-title">Chat with the selected model</div>
         <div class="inline-label" style="margin-bottom: 4px;">
           <span class="small">Model:</span>
           <span class="small"><code id="chat-model-label">llama-8b-instruct</code></span>
@@ -507,7 +501,6 @@ Content-Type: application/json</code></pre>
     const chatModelLabel = document.getElementById("chat-model-label");
     const chatLogEl = document.getElementById("chat-log");
     const userInputEl = document.getElementById("user-input");
-    const apiKeyEl = document.getElementById("api-key");
     const sendBtn = document.getElementById("send-btn");
     const resetBtn = document.getElementById("reset-btn");
     const statusEl = document.getElementById("status");
@@ -631,18 +624,12 @@ Content-Type: application/json`;
     // ============================
 
     async function sendMessage() {
-      const apiKey = apiKeyEl.value.trim();
       const userText = userInputEl.value.trim();
       const cfg = getCurrentModelConfig();
       const baseUrl = getApiBaseUrl();
 
       if (!cfg || !baseUrl) {
         setStatus("Model or API base URL not configured.", true);
-        return;
-      }
-
-      if (!apiKey) {
-        setStatus("API key is required.", true);
         return;
       }
 
@@ -663,7 +650,6 @@ Content-Type: application/json`;
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer " + apiKey,
           },
           body: JSON.stringify({
             model: cfg.backendName,
