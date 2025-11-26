@@ -9,11 +9,65 @@ BASE_URL = os.environ["BENCH_BASE_URL"].rstrip("/")  # e.g. https://<pod>-8000.p
 MODEL = os.environ.get("BENCH_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
 GPU_COST_PER_HOUR = float(os.environ.get("GPU_COST_PER_HOUR", "0.26"))  # dollars/hour
 
+# Retry configuration for transient failures
+MAX_RETRIES = 3
+RETRY_DELAY = 5  # seconds
+
 HEADERS = {
     "Content-Type": "application/json",
     # If you front this with LiteLLM or require an API key, add auth here:
     # "Authorization": f"Bearer {os.environ.get('BENCH_API_KEY')}",
 }
+
+
+def make_request_with_retry(url, payload, timeout, request_name="request"):
+    """
+    Make a POST request with retry logic for transient failures.
+    Returns (response_data, elapsed_time) on success.
+    """
+    last_error = None
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            t0 = time.time()
+            resp = requests.post(
+                url,
+                headers=HEADERS,
+                json=payload,
+                timeout=timeout,
+            )
+            t1 = time.time()
+            
+            # Handle non-200 responses
+            if resp.status_code != 200:
+                error_text = resp.text[:500] if resp.text else "(empty response)"
+                if resp.status_code in (404, 502, 503, 504) and attempt < MAX_RETRIES - 1:
+                    print(f"  {request_name}: Got {resp.status_code}, retrying in {RETRY_DELAY}s... (attempt {attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                raise RuntimeError(f"{request_name} failed: {resp.status_code} {error_text}")
+            
+            # Try to parse JSON
+            try:
+                data = resp.json()
+            except Exception:
+                if attempt < MAX_RETRIES - 1:
+                    print(f"  {request_name}: JSON parse failed, retrying in {RETRY_DELAY}s... (attempt {attempt + 1}/{MAX_RETRIES})")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                raise RuntimeError(f"{request_name} failed: status={resp.status_code}, invalid JSON: {resp.text[:500]}")
+            
+            return data, (t1 - t0)
+            
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            if attempt < MAX_RETRIES - 1:
+                print(f"  {request_name}: Network error ({e}), retrying in {RETRY_DELAY}s... (attempt {attempt + 1}/{MAX_RETRIES})")
+                time.sleep(RETRY_DELAY)
+                continue
+            raise RuntimeError(f"{request_name} failed after {MAX_RETRIES} attempts: {e}")
+    
+    raise RuntimeError(f"{request_name} failed after {MAX_RETRIES} attempts: {last_error}")
 
 
 def run_prefill_bench(num_requests=20, prompt_repetitions=512):
@@ -34,25 +88,17 @@ def run_prefill_bench(num_requests=20, prompt_repetitions=512):
             "max_tokens": 1,
             "temperature": 0.0,
         }
-        t0 = time.time()
-        resp = requests.post(
+        
+        data, elapsed = make_request_with_retry(
             f"{BASE_URL}/v1/chat/completions",
-            headers=HEADERS,
-            json=payload,
+            payload,
             timeout=120,
+            request_name=f"Prefill request {i+1}/{num_requests}"
         )
-        t1 = time.time()
-        try:
-            data = resp.json()
-        except Exception:
-            raise RuntimeError(f"Prefill request {i} failed: status={resp.status_code}, text={resp.text}")
-
-        if resp.status_code != 200:
-            raise RuntimeError(f"Prefill request {i} failed: {resp.status_code} {data}")
 
         usage = data.get("usage", {})
         total_prompt_tokens += usage.get("prompt_tokens", 0)
-        total_time += (t1 - t0)
+        total_time += elapsed
 
     if total_time == 0:
         return 0.0, total_prompt_tokens, total_time
@@ -78,25 +124,17 @@ def run_decode_bench(num_requests=20, max_tokens=256):
             "max_tokens": max_tokens,
             "temperature": 0.0,
         }
-        t0 = time.time()
-        resp = requests.post(
+        
+        data, elapsed = make_request_with_retry(
             f"{BASE_URL}/v1/chat/completions",
-            headers=HEADERS,
-            json=payload,
+            payload,
             timeout=300,
+            request_name=f"Decode request {i+1}/{num_requests}"
         )
-        t1 = time.time()
-        try:
-            data = resp.json()
-        except Exception:
-            raise RuntimeError(f"Decode request {i} failed: status={resp.status_code}, text={resp.text}")
-
-        if resp.status_code != 200:
-            raise RuntimeError(f"Decode request {i} failed: {resp.status_code} {data}")
 
         usage = data.get("usage", {})
         total_completion_tokens += usage.get("completion_tokens", 0)
-        total_time += (t1 - t0)
+        total_time += elapsed
 
     if total_time == 0:
         return 0.0, total_completion_tokens, total_time
