@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 env:
-  IMAGE_REPO: ghcr.io/elizabetht/million-token-lab/vllm-serve
+  IMAGE_REPO: ghcr.io/elizabetht/token-labs/vllm-serve
 
 jobs:
   build-and-push:
@@ -51,7 +51,7 @@ jobs:
         run: |
           # lowercase owner
           OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER}/million-token-lab/vllm-serve"
+          IMAGE="ghcr.io/${OWNER}/token-labs/vllm-serve"
 
           # If this is a tag like "v0.0.1", pull out "0.0.1"
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
