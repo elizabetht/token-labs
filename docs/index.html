@@ -398,10 +398,6 @@
         <p style="font-size: 13px; margin: 4px 0 6px;">
           OpenAI-compatible <code class="inline">/v1/chat/completions</code>:
         </p>
-        <pre><code id="endpoint-code">POST https://xv28w4892bizfd-8000.proxy.runpod.net/v1/chat/completions
-Content-Type: application/json</code></pre>
-
-        <p style="font-size: 13px; margin: 4px 0 6px;">Example request:</p>
         <pre><code id="curl-example">curl https://xv28w4892bizfd-8000.proxy.runpod.net/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
@@ -529,7 +525,6 @@ Content-Type: application/json</code></pre>
     // DOM references
     // ============================
 
-    const endpointCode = document.getElementById("endpoint-code");
     const curlExample = document.getElementById("curl-example");
     const modelSelect = document.getElementById("model-select");
     const pillContext = document.getElementById("pill-context");
@@ -619,11 +614,6 @@ Content-Type: application/json</code></pre>
       }
       if (chatModelLabel) {
         chatModelLabel.textContent = cfg.fullModelName;
-      }
-
-      if (endpointCode && baseUrl) {
-        endpointCode.textContent = `POST ${baseUrl}/v1/chat/completions
-Content-Type: application/json`;
       }
 
       if (curlExample && baseUrl) {
