@@ -139,7 +139,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          pip install httpx
+          pip install "httpx[http2]"
           python scripts/bench_inference.py
 
       - name: Update index.html with benchmark pricing
