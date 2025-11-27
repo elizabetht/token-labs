@@ -357,12 +357,10 @@
           OpenAI-compatible <code class="inline">/v1/chat/completions</code>:
         </p>
         <pre><code id="endpoint-code">POST https://your-api-base.example.com/v1/chat/completions
-Authorization: Bearer &lt;your_api_key&gt;
 Content-Type: application/json</code></pre>
 
         <p style="font-size: 13px; margin: 4px 0 6px;">Example request:</p>
         <pre><code id="curl-example">curl https://your-api-base.example.com/v1/chat/completions \
-  -H "Authorization: Bearer $YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "llama-8b-instruct",
@@ -576,14 +574,12 @@ Content-Type: application/json</code></pre>
 
       if (endpointCode && baseUrl) {
         endpointCode.textContent = `POST ${baseUrl}/v1/chat/completions
-Authorization: Bearer <your_api_key>
 Content-Type: application/json`;
       }
 
       if (curlExample && baseUrl) {
         curlExample.textContent =
 `curl ${baseUrl}/v1/chat/completions \\
-  -H "Authorization: Bearer $YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "${cfg.backendName}",
