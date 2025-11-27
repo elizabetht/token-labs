@@ -363,7 +363,7 @@ Content-Type: application/json</code></pre>
         <pre><code id="curl-example">curl https://xv28w4892bizfd-8000.proxy.runpod.net/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "llama-8b-instruct",
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
     "messages": [
       {"role": "user", "content": "Say hello from MillionTokenLab."}
     ]
@@ -447,7 +447,7 @@ Content-Type: application/json</code></pre>
     const MODELS = {
       "llama-8b-instruct": {
         backendName: "llama-8b-instruct",
-        label: "Llama-3.1-8B Instruct",
+        fullModelName: "meta-llama/Llama-3.1-8B-Instruct",
         context: "8K tokens",
         gpu: "RTX A4500 · 20GB",
         instanceLabel: "Primary A4500",
@@ -459,7 +459,7 @@ Content-Type: application/json</code></pre>
       },
       "mistral-7b-instruct": {
         backendName: "mistral-7b-instruct",
-        label: "Mistral-7B Instruct",
+        fullModelName: "mistralai/Mistral-7B-Instruct-v0.3",
         context: "8K tokens",
         gpu: "RTX A4500 · 20GB",
         instanceLabel: "Secondary A4500",
@@ -470,7 +470,7 @@ Content-Type: application/json</code></pre>
       },
       "qwen-1.5b-instruct": {
         backendName: "qwen-1.5b-instruct",
-        label: "Qwen-1.5B Instruct",
+        fullModelName: "Qwen/Qwen2.5-1.5B-Instruct",
         context: "4K tokens",
         gpu: "RTX 4000 SFF · 8GB",
         instanceLabel: "Small instance",
@@ -518,6 +518,13 @@ Content-Type: application/json</code></pre>
       return (cfg && cfg.baseUrl) || DEFAULT_API_BASE_URL;
     }
 
+    function getDisplayName(fullModelName) {
+      // Extract display name from full model name (e.g., "meta-llama/Llama-3.1-8B-Instruct" -> "Llama-3.1-8B Instruct")
+      if (!fullModelName) return "Unknown";
+      const name = fullModelName.split("/").pop() || fullModelName;
+      return name.replace(/-/g, " ").replace(/\s+/g, " ");
+    }
+
     function setStatus(text, isError = false) {
       statusEl.textContent = text || "";
       statusEl.className = "status" + (isError ? " error" : "");
@@ -558,7 +565,7 @@ Content-Type: application/json</code></pre>
 
       if (modelDetails) {
         modelDetails.innerHTML =
-          `<strong>${cfg.label}</strong> · ` +
+          `<strong>${getDisplayName(cfg.fullModelName)}</strong> · ` +
           `${cfg.description || ""}`;
       }
 
@@ -569,7 +576,7 @@ Content-Type: application/json</code></pre>
         priceOutputEl.textContent = `$${cfg.outputPricePerM.toFixed(4)}`;
       }
       if (chatModelLabel) {
-        chatModelLabel.textContent = cfg.backendName;
+        chatModelLabel.textContent = cfg.fullModelName;
       }
 
       if (endpointCode && baseUrl) {
@@ -582,7 +589,7 @@ Content-Type: application/json`;
 `curl ${baseUrl}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "${cfg.backendName}",
+    "model": "${cfg.fullModelName}",
     "messages": [
       {"role": "user", "content": "Say hello from MillionTokenLab."}
     ]
@@ -598,7 +605,7 @@ Content-Type: application/json`;
       Object.entries(MODELS).forEach(([key, cfg]) => {
         const opt = document.createElement("option");
         opt.value = key;
-        opt.textContent = `${cfg.label} (${cfg.backendName})`;
+        opt.textContent = `${getDisplayName(cfg.fullModelName)} (${cfg.backendName})`;
         if (key === currentModelKey) opt.selected = true;
         modelSelect.appendChild(opt);
       });
