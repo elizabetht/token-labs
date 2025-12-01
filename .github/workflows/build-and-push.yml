@@ -77,26 +77,18 @@ jobs:
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
           RUNPOD_POD_ID: ${{ secrets.RUNPOD_POD_ID }}
+          IMAGE_TAG: ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
         run: |
           set -euo pipefail
 
-          IMAGE_TAG="${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}"
-
           echo "Updating RunPod pod ${RUNPOD_POD_ID} to image ${IMAGE_TAG}"
 
-          # Minimal JSON body: just change the imageName
-          BODY='{"imageName": "'"${IMAGE_TAG}"'"}'
-
-          echo "Request body:"
-          echo "${BODY}"
-
           echo "Calling RunPod..."
-          curl -i \
-            --request POST \
-            --url "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}/update" \
-            --header "Authorization: Bearer ${RUNPOD_API_KEY}" \
-            --header "Content-Type: application/json" \
-            --data "${BODY}"
+          curl -i -X POST \
+            "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}/update" \
+            -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageName\": \"${IMAGE_TAG}\"}"
 
       - name: Wait for vLLM to be ready
         env:
