@@ -6,9 +6,8 @@ on:
     tags: [ "v*" ]
 
 permissions:
-  contents: write   # needed for committing pricing updates
-  packages: write   # needed for GHCR
-  id-token: write
+  contents: read
+  packages: write
 
 env:
   IMAGE_REPO: ghcr.io/elizabetht/token-labs/vllm-serve
@@ -39,6 +38,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -57,107 +62,38 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            # fallback for branch builds – you can choose what you want here
+            # fallback for branch builds
             VERSION="latest"
           fi
 
           echo "IMAGE=$IMAGE"   >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push (multi-arch)
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
             ${{ steps.vars.outputs.IMAGE }}:latest
 
-      - name: Update RunPod pod to new image
-        env:
-          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
-          RUNPOD_POD_ID: ${{ secrets.RUNPOD_POD_ID }}
-          IMAGE_TAG: ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
+      - name: Summary
         run: |
-          set -euo pipefail
-
-          echo "Updating RunPod pod ${RUNPOD_POD_ID} to image ${IMAGE_TAG}"
-
-          # Write JSON to file to avoid escaping issues
-          echo "{\"imageName\": \"${IMAGE_TAG}\"}" > /tmp/body.json
-          echo "Request body:"
-          cat /tmp/body.json
-
-          echo "Calling RunPod..."
-          curl -i --request POST \
-            --url "https://rest.runpod.io/v1/pods/${RUNPOD_POD_ID}/update" \
-            --header 'Content-Type: application/json' \
-            --header "Authorization: Bearer ${RUNPOD_API_KEY}" \
-            --data-binary @/tmp/body.json
-
-      - name: Wait for vLLM to be ready
-        env:
-          RUNPOD_BASE_URL: ${{ secrets.RUNPOD_BASE_URL }}   # e.g. https://<pod>-8000.proxy.runpod.net
-        run: |
-          set -euo pipefail
-
-          echo "Waiting for vLLM at ${RUNPOD_BASE_URL}/v1/models"
-
-          # Try for ~5 minutes (30 * 10s)
-          for i in {1..30}; do
-            STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" "${RUNPOD_BASE_URL}/v1/models" || true)
-
-            if [ "$STATUS" = "200" ]; then
-              echo "vLLM is ready (status 200)."
-              exit 0
-            fi
-
-            echo "Attempt $i: status=${STATUS}, retrying in 10s..."
-            sleep 10
-          done
-
-          echo "vLLM did not become ready in time."
-          exit 1
-
-      - name: Run vLLM benchmark and compute cost per 1M tokens
-        env:
-          BENCH_BASE_URL: ${{ secrets.RUNPOD_BASE_URL }}   # e.g. https://<pod>-8000.proxy.runpod.net
-          BENCH_MODEL: "meta-llama/Llama-3.1-8B-Instruct"                      # must match served model name
-          GPU_COST_PER_HOUR: "0.26"
-          BENCH_IMAGE_TAG: "${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}"
-          BENCH_RESULTS_PATH: "bench_results.json"
-          CONCURRENCY: "32"
-          NUM_REQUESTS: "64"
-          MAX_NEW_TOKENS: "128"
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          pip install "httpx[http2]"
-          python scripts/bench_inference.py
-
-      - name: Update index.html with benchmark pricing
-        env:
-          BENCH_RESULTS_PATH: "bench_results.json"
-          HTML_PATH: "docs/index.html"
-        run: |
-          python scripts/update_pricing.py
-
-      - name: Commit updated pricing to index.html
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
-          if git diff --staged --quiet; then
-            echo "No pricing changes to commit"
-          else
-            git commit -m "chore: update model pricing from benchmark [skip ci]"
-            git push
-          fi
-
-      - name: Upload benchmark results artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vllm-benchmark-${{ github.sha }}
-          path: bench_results.json
-          retention-days: 90
-
+          echo "## 🚀 Multi-arch Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms:** linux/amd64, linux/arm64 (DGX Spark)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deploy to DGX Spark" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker stop vllm-serve 2>/dev/null || true" >> $GITHUB_STEP_SUMMARY
+          echo "docker rm vllm-serve 2>/dev/null || true" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d --gpus '\"device=0\"' --name vllm-serve \\\\" >> $GITHUB_STEP_SUMMARY
+          echo "  --restart unless-stopped -p 8000:8000 \\\\" >> $GITHUB_STEP_SUMMARY
+          echo "  ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }} \\\\" >> $GITHUB_STEP_SUMMARY
+          echo "  --gpu-memory-utilization 0.7" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
