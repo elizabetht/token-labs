@@ -2,53 +2,21 @@ name: Build and push vLLM image
 
 on:
   push:
-    branches: [ main ]
     tags: [ "v*" ]
 
 permissions:
   contents: read
   packages: write
 
-env:
-  IMAGE_REPO: ghcr.io/elizabetht/token-labs/vllm-serve
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Show initial disk usage
+      - name: Free up disk space
         run: |
-          echo "Initial disk usage:"
-          df -h
-
-      - name: Free up disk space on runner
-        run: |
-          # Remove big preinstalled SDKs and tools we don't need
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /opt/hostedtoolcache || true
-          
-          # Remove additional large packages
-          sudo rm -rf /usr/local/share/boost || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /usr/local/julia* || true
-          sudo rm -rf /usr/local/share/chromium || true
-          sudo rm -rf /usr/local/lib/node_modules || true
-          sudo rm -rf /opt/microsoft || true
-          sudo rm -rf /opt/az || true
-          sudo rm -rf /opt/pipx || true
-          sudo rm -rf /imagegeneration || true
-          
-          # Remove cached package managers
-          sudo rm -rf /var/cache/apt/archives || true
-          sudo apt-get clean || true
-
-          # Clean any existing Docker stuff (if present)
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache || true
+          sudo rm -rf /usr/local/share/boost /usr/share/swift /opt/microsoft /opt/az || true
           docker system prune -af --volumes || true
-
-          echo "Disk usage after cleanup:"
-          df -h
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,25 +34,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set image name
+      - name: Extract version from tag
         id: vars
         run: |
-          # lowercase owner
           OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${OWNER}/token-labs/vllm-serve"
+          echo "IMAGE=ghcr.io/${OWNER}/token-labs/vllm-serve" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-          # If this is a tag like "v0.0.1", pull out "0.0.1"
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            # fallback for branch builds
-            VERSION="latest"
-          fi
-
-          echo "IMAGE=$IMAGE"   >> "$GITHUB_OUTPUT"
-          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push (arm64 for DGX Spark)
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -94,22 +51,3 @@ jobs:
           tags: |
             ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
             ${{ steps.vars.outputs.IMAGE }}:latest
-
-      - name: Summary
-        run: |
-          echo "## 🚀 ARM64 Image Published (DGX Spark)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Platforms:** linux/amd64, linux/arm64 (DGX Spark)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deploy to DGX Spark" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "docker stop vllm-serve 2>/dev/null || true" >> $GITHUB_STEP_SUMMARY
-          echo "docker rm vllm-serve 2>/dev/null || true" >> $GITHUB_STEP_SUMMARY
-          echo "docker run -d --gpus '\"device=0\"' --name vllm-serve \\\\" >> $GITHUB_STEP_SUMMARY
-          echo "  --restart unless-stopped -p 8000:8000 \\\\" >> $GITHUB_STEP_SUMMARY
-          echo "  ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }} \\\\" >> $GITHUB_STEP_SUMMARY
-          echo "  --gpu-memory-utilization 0.7" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

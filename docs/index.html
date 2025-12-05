@@ -398,7 +398,7 @@
         <p style="font-size: 13px; margin: 4px 0 6px;">
           OpenAI-compatible <code class="inline">/v1/chat/completions</code>:
         </p>
-        <pre><code id="curl-example">curl https://fsbt1ro4nvwgwf-8000.proxy.runpod.net/v1/chat/completions \
+        <pre><code id="curl-example">curl https://api.tokenlabs.run/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "meta-llama/Llama-3.1-8B-Instruct",
@@ -477,7 +477,7 @@
     // ============================
 
     // If you have a single shared vLLM endpoint, set this and omit baseUrl per model:
-    const DEFAULT_API_BASE_URL = "https://fsbt1ro4nvwgwf-8000.proxy.runpod.net";
+    const DEFAULT_API_BASE_URL = "https://api.tokenlabs.run";
 
     // Models & instances.
     // backendName must match what your vLLM server expects in the `model` field
