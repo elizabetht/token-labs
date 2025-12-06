@@ -78,8 +78,12 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy vLLM source (needed for editable install)
 COPY --from=builder /vllm /vllm
 
-ENV PATH="/opt/venv/bin:$PATH"
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+# Set up environment
+ENV PATH="/opt/venv/bin:/usr/local/cuda/bin:$PATH"
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/compat:$LD_LIBRARY_PATH
+ENV CUDA_HOME=/usr/local/cuda
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 EXPOSE 8000
 
