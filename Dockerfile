@@ -9,13 +9,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Create venv
+# Create venv and set up PATH (venv must come first!)
 RUN python3.12 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
 
-# CUDA env
+# CUDA and Python env - venv bin MUST be first in PATH
 ENV CUDA_HOME=/usr/local/cuda
-ENV PATH=/usr/local/cuda/bin:/usr/bin:/bin:${PATH}
+ENV PATH="/opt/venv/bin:/usr/local/cuda/bin:${PATH}"
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 ENV TORCH_CUDA_ARCH_LIST=12.0
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
