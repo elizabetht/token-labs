@@ -3,7 +3,7 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 # Install essentials
 RUN apt-get update && apt-get install -y \
     python3.12 python3.12-dev python3.12-venv python3-pip \
-    git wget cmake build-essential ninja-build \
+    git wget cmake curl build-essential ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -47,4 +47,4 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 EXPOSE 8000
 
-ENTRYPOINT ["vllm", "serve"]
+ENTRYPOINT []
