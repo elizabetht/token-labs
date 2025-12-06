@@ -61,7 +61,8 @@ RUN rm -rf /vllm/.git \
 # ============================================
 # STAGE 2: RUNTIME
 # ============================================
-FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04 AS runtime
+# Using devel image because vLLM requires full CUDA libraries (libcudart, etc.)
+FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04 AS runtime
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
