@@ -1,0 +1,182 @@
+name: Deploy and Benchmark on DGX Spark
+
+on:
+  workflow_run:
+    workflows: ["Build and push vLLM image"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: latest)'
+        required: false
+        default: 'latest'
+
+permissions:
+  contents: write
+  packages: read
+
+env:
+  CONTAINER_NAME: vllm-server
+  VLLM_PORT: 8000
+  MODEL: meta-llama/Llama-3.1-8B-Instruct
+  # DGX Spark economics: $4000 hardware / 26280 hours (3yr) = $0.15/hr + ~$0.01/hr electricity = $0.16/hr
+  DGX_COST_PER_HOUR: "0.16"
+  DGX_TAILSCALE_IP: "100.64.38.13"
+
+jobs:
+  deploy-and-benchmark:
+    runs-on: [self-hosted, DGX-Spark]
+    # Only run if build succeeded or manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: vars
+        run: |
+          OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER}/token-labs/vllm-serve"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            # Get tag from the workflow that triggered this
+            TAG="latest"
+          fi
+          
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "FULL_IMAGE=${IMAGE}:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest image
+        run: |
+          echo "Pulling image: ${{ steps.vars.outputs.FULL_IMAGE }}"
+          docker pull ${{ steps.vars.outputs.FULL_IMAGE }}
+
+      - name: Stop existing vLLM container (if running)
+        run: |
+          if docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+            echo "Stopping existing container..."
+            docker stop ${{ env.CONTAINER_NAME }}
+          fi
+          if docker ps -aq -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+            echo "Removing existing container..."
+            docker rm ${{ env.CONTAINER_NAME }}
+          fi
+
+      - name: Start vLLM server
+        run: |
+          echo "Starting vLLM server with model: ${{ env.MODEL }}"
+          docker run -d \
+            --gpus all \
+            --name ${{ env.CONTAINER_NAME }} \
+            -p ${{ env.VLLM_PORT }}:8000 \
+            -e HF_TOKEN=${{ secrets.HF_TOKEN }} \
+            -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+            ${{ steps.vars.outputs.FULL_IMAGE }} \
+            ${{ env.MODEL }} \
+            --gpu-memory-utilization 0.3
+            --host ${{ env.DGX_TAILSCALE_IP }} \
+            --port 8000
+
+      - name: Wait for vLLM server to be ready
+        run: |
+          echo "Waiting for vLLM server to be ready..."
+          MAX_ATTEMPTS=120
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -s http://localhost:${{ env.VLLM_PORT }}/health > /dev/null 2>&1; then
+              echo "✅ vLLM server is ready!"
+              exit 0
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Waiting for server... ($ATTEMPT/$MAX_ATTEMPTS)"
+            
+            # Check if container is still running
+            if ! docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+              echo "❌ Container stopped unexpectedly!"
+              docker logs ${{ env.CONTAINER_NAME }} --tail 100
+              exit 1
+            fi
+            
+            sleep 5
+          done
+          
+          echo "❌ Server failed to start within timeout"
+          docker logs ${{ env.CONTAINER_NAME }} --tail 100
+          exit 1
+
+      - name: Set up Python
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install httpx h2
+
+      - name: Run performance benchmark
+        env:
+          BENCH_BASE_URL: "http://localhost:${{ env.VLLM_PORT }}"
+          BENCH_MODEL: ${{ env.MODEL }}
+          DGX_COST_PER_HOUR: ${{ env.DGX_COST_PER_HOUR }}
+          CONCURRENCY: "32"
+          NUM_REQUESTS: "64"
+          MAX_NEW_TOKENS: "128"
+          BENCH_RESULTS_PATH: "bench_results.json"
+          BENCH_IMAGE_TAG: ${{ steps.vars.outputs.FULL_IMAGE }}
+        run: |
+          source .venv/bin/activate
+          python scripts/bench_inference.py
+
+      - name: Update pricing in docs
+        run: |
+          source .venv/bin/activate
+          python scripts/update_pricing.py \
+            --results bench_results.json \
+            --html docs/index.html
+
+      - name: Commit and push pricing updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet docs/index.html; then
+            echo "No pricing changes to commit"
+          else
+            git add docs/index.html
+            git commit -m "Update pricing from benchmark results [skip ci]"
+            git push
+            echo "✅ Pricing updated and pushed"
+          fi
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench_results.json
+
+      - name: Add summary
+        run: |
+          echo "## 🚀 Deployment and Benchmark Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ steps.vars.outputs.FULL_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Model:** \`${{ env.MODEL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Container:** \`${{ env.CONTAINER_NAME }}\` running on port ${{ env.VLLM_PORT }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f bench_results.json ]; then
+            echo "### Benchmark Results" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+            cat bench_results.json >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi

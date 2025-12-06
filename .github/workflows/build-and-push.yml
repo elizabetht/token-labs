@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build-and-push:
-    runs-on: [self-hosted, , DGX-Spark]
+    runs-on: [self-hosted, DGX-Spark]
     steps:
       - name: Free up disk space
         run: |

@@ -18,7 +18,13 @@ import httpx
 # Configuration from environment
 BASE_URL = os.environ["BENCH_BASE_URL"].rstrip("/")
 MODEL = os.environ.get("BENCH_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
-GPU_COST_PER_HOUR = float(os.environ.get("GPU_COST_PER_HOUR", "0.26"))
+
+# DGX Spark economics:
+# - Hardware: $4,000 amortized over 3 years 24/7 = $4000 / 26280 hours ≈ $0.15/hour
+# - Electricity: 48.5W × $0.135/kWh ≈ $0.0066/hour  
+# - Total: ~$0.16/hour (dominated by hardware amortization)
+# Cost per 1M tokens = ($0.16/hour ÷ tokens_per_second) × 1,000,000 / 3600
+DGX_COST_PER_HOUR = float(os.environ.get("DGX_COST_PER_HOUR", "0.16"))
 
 # Concurrency settings
 CONCURRENCY = int(os.environ.get("CONCURRENCY", "32"))  # Parallel requests
@@ -243,11 +249,16 @@ async def run_decode_benchmark() -> BenchmarkResult:
     )
 
 
-def cost_per_million_tokens(tokens_per_second: float, gpu_cost_per_hour: float) -> float:
-    """Calculate cost per 1M tokens based on throughput."""
+def cost_per_million_tokens(tokens_per_second: float, cost_per_hour: float) -> float:
+    """
+    Calculate cost per 1M tokens based on throughput and hourly cost.
+    
+    Formula: (cost_per_hour / tokens_per_second) × 1,000,000 / 3600
+    This converts $/hour to $/token, then scales to per-million.
+    """
     if tokens_per_second <= 0:
         return math.inf
-    return gpu_cost_per_hour * 1_000_000 / (tokens_per_second * 3600.0)
+    return cost_per_hour * 1_000_000 / (tokens_per_second * 3600.0)
 
 
 async def main_async():
@@ -256,7 +267,7 @@ async def main_async():
     print("=" * 60)
     print(f"Model: {MODEL}")
     print(f"Base URL: {BASE_URL}")
-    print(f"GPU Cost: ${GPU_COST_PER_HOUR}/hour")
+    print(f"DGX Spark Cost: ${DGX_COST_PER_HOUR}/hour")
     print(f"Concurrency: {CONCURRENCY}")
     print(f"Requests per benchmark: {NUM_REQUESTS}")
     print(f"Max new tokens (decode): {MAX_NEW_TOKENS}")
@@ -266,12 +277,12 @@ async def main_async():
     prefill_result = await run_prefill_benchmark()
     decode_result = await run_decode_benchmark()
     
-    # Calculate costs
+    # Calculate costs based on DGX Spark economics
     prefill_tps = prefill_result.prompt_tokens_per_sec
     decode_tps = decode_result.completion_tokens_per_sec
     
-    cost_in = cost_per_million_tokens(prefill_tps, GPU_COST_PER_HOUR)
-    cost_out = cost_per_million_tokens(decode_tps, GPU_COST_PER_HOUR)
+    cost_in = cost_per_million_tokens(prefill_tps, DGX_COST_PER_HOUR)
+    cost_out = cost_per_million_tokens(decode_tps, DGX_COST_PER_HOUR)
     
     # Print summary
     print("\n" + "=" * 60)
@@ -302,7 +313,7 @@ async def main_async():
     result = {
         "model": MODEL,
         "base_url": BASE_URL,
-        "gpu_cost_per_hour": GPU_COST_PER_HOUR,
+        "dgx_cost_per_hour": DGX_COST_PER_HOUR,
         "concurrency": CONCURRENCY,
         "num_requests": NUM_REQUESTS,
         "commit_sha": commit_sha,
@@ -350,7 +361,7 @@ async def main_async():
             f.write(f"- Base URL: `{BASE_URL}`\n")
             f.write(f"- Image: `{image_tag}`\n")
             f.write(f"- Commit: `{commit_sha}` (`{ref_name}`)\n")
-            f.write(f"- GPU cost: `${GPU_COST_PER_HOUR}/hour`\n")
+            f.write(f"- DGX Spark cost: `${DGX_COST_PER_HOUR}/hour`\n")
             f.write(f"- Concurrency: `{CONCURRENCY}` | Requests: `{NUM_REQUESTS}`\n\n")
             f.write("### Prefill (input tokens)\n")
             f.write(f"- Throughput: **{prefill_tps:.2f} tok/s**\n")
