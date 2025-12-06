@@ -3,8 +3,9 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 # Install essentials
 RUN apt-get update && apt-get install -y \
     python3.12 python3.12-dev python3.12-venv python3-pip \
-    git wget cmake curl build-essential ninja-build \
-    && rm -rf /var/lib/apt/lists/*
+    git wget cmake curl ca-certificates build-essential ninja-build \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --version
 
 WORKDIR /app
 
@@ -14,7 +15,7 @@ ENV PATH="/opt/venv/bin:${PATH}"
 
 # CUDA env
 ENV CUDA_HOME=/usr/local/cuda
-ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV PATH=/usr/local/cuda/bin:/usr/bin:/bin:${PATH}
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 ENV TORCH_CUDA_ARCH_LIST=12.0
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
