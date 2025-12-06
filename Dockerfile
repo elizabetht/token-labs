@@ -3,49 +3,60 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 # Install essentials
 RUN apt-get update && apt-get install -y \
     python3.12 python3.12-dev python3.12-venv python3-pip \
-    git wget cmake curl ca-certificates build-essential ninja-build \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl --version
+    git wget patch curl ca-certificates cmake build-essential ninja-build \
+    && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /app
 
-# Create venv and set up PATH (venv must come first!)
+# Create virtual env
 RUN python3.12 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# CUDA and Python env - venv bin MUST be first in PATH
-ENV CUDA_HOME=/usr/local/cuda
-ENV PATH="/opt/venv/bin:/usr/local/cuda/bin:${PATH}"
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
-ENV TORCH_CUDA_ARCH_LIST=12.0
-ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+# Upgrade pip (use explicit path to ensure venv pip is used)
+RUN /opt/venv/bin/pip install --upgrade pip
 
-# Install PyTorch + deps (same as host)
-RUN pip install --upgrade pip
+# Install PyTorch + CUDA
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
-RUN pip install xgrammar triton flashinfer-python --pre
+
+# Install pre-release deps
+RUN pip install xgrammar triton
+
+# Install flashinfer for ARM64/CUDA 13.0
+RUN pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps
+RUN pip install flashinfer-python
+RUN pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly
+RUN pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
 
 # Clone vLLM
-ARG VLLM_VERSION=main
-RUN git clone --depth 1 --branch ${VLLM_VERSION} https://github.com/vllm-project/vllm.git /app/vllm
+RUN git clone https://github.com/vllm-project/vllm.git
 
 WORKDIR /app/vllm
 
-# Same build steps as host
+# Merge PR #26844 for ARM64/Grace Hopper support
+RUN git fetch origin pull/26844/head:pr-26844
+RUN git -c user.name="CI Bot" -c user.email="ci@example.com" merge --no-ff --no-edit pr-26844
+
 RUN python3 use_existing_torch.py
+RUN sed -i "/flashinfer/d" requirements/cuda.txt
 RUN pip install -r requirements/build.txt
 
-# Build vLLM from source (no precompiled wheels for ARM64/aarch64)
-RUN rm -rf build dist vllm.egg-info
-ENV VLLM_MAIN_CUDA_VERSION=13.0
-# Full source build - this will take a while on ARM64
+# Set essential environment variables
+ENV TORCH_CUDA_ARCH_LIST=12.1a
+ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+ENV TIKTOKEN_ENCODINGS_BASE=/app/tiktoken_encodings
+ENV CUDA_HOME=/usr/local/cuda
+
+# Install vLLM with local build (source build for ARM64)
 RUN pip install --no-build-isolation -e . -v --pre
 
-# Clean up (optional)
+# Clean up
 RUN rm -rf .git && rm -rf /root/.cache/pip && rm -rf /tmp/*
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
+# Expose port
 EXPOSE 8000
 
-ENTRYPOINT []
+ENTRYPOINT ["vllm", "serve"]
