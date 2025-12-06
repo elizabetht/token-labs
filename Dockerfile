@@ -33,9 +33,9 @@ RUN git clone https://github.com/vllm-project/vllm.git
 
 WORKDIR /app/vllm
 
-# Merge PR #26844 for ARM64/Grace Hopper support
-RUN git fetch origin pull/26844/head:pr-26844
-RUN git -c user.name="CI Bot" -c user.email="ci@example.com" merge --no-ff --no-edit pr-26844
+# # Merge PR #26844 for ARM64/Grace Hopper support
+# RUN git fetch origin pull/26844/head:pr-26844
+# RUN git -c user.name="CI Bot" -c user.email="ci@example.com" merge --no-ff --no-edit pr-26844
 
 RUN python3 use_existing_torch.py
 RUN sed -i "/flashinfer/d" requirements/cuda.txt
