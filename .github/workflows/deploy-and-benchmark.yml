@@ -79,13 +79,12 @@ jobs:
           docker run -d \
             --gpus all \
             --name ${{ env.CONTAINER_NAME }} \
-            -p ${{ env.VLLM_PORT }}:8000 \
+            -p ${{ env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}:8000 \
             -e HF_TOKEN=${{ secrets.HF_TOKEN }} \
             -v $HOME/.cache/huggingface:/root/.cache/huggingface \
             ${{ steps.vars.outputs.FULL_IMAGE }} \
             ${{ env.MODEL }} \
             --gpu-memory-utilization 0.3
-            --host ${{ env.DGX_TAILSCALE_IP }} \
             --port 8000
 
       - name: Wait for vLLM server to be ready
