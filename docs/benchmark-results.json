@@ -10,5 +10,27 @@
     "tokens_per_second": 520.02,
     "cost_per_million_tokens": 0.0373
   },
-  "timestamp": "2025-12-08T06:38:52.290185Z"
+  "timestamp": "2025-12-08T06:38:52.290185Z",
+  "vllm_server_args": {
+    "gpu_memory_utilization": 0.3
+  },
+  "benchmark_args": {
+    "prefill_test": {
+      "num_prompts": 50,
+      "request_rate": 5,
+      "input_len": 2048,
+      "output_len": 16
+    },
+    "decode_test": {
+      "num_prompts": 50,
+      "request_rate": 5,
+      "input_len": 64,
+      "output_len": 512
+    }
+  },
+  "hardware": {
+    "platform": "NVIDIA DGX Spark",
+    "gpu": "Grace Hopper",
+    "architecture": "ARM64"
+  }
 }

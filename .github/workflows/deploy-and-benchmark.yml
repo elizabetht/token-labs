@@ -237,7 +237,29 @@ jobs:
                   'tokens_per_second': float('${OUTPUT_TPS}' or '0'),
                   'cost_per_million_tokens': float('${COST_OUT}' or '0')
               },
-              'timestamp': datetime.utcnow().isoformat() + 'Z'
+              'timestamp': datetime.utcnow().isoformat() + 'Z',
+              'vllm_server_args': {
+                  'gpu_memory_utilization': 0.3
+              },
+              'benchmark_args': {
+                  'prefill_test': {
+                      'num_prompts': 50,
+                      'request_rate': 5,
+                      'input_len': 2048,
+                      'output_len': 16
+                  },
+                  'decode_test': {
+                      'num_prompts': 50,
+                      'request_rate': 5,
+                      'input_len': 64,
+                      'output_len': 512
+                  }
+              },
+              'hardware': {
+                  'platform': 'NVIDIA DGX Spark',
+                  'gpu': 'Grace Hopper',
+                  'architecture': 'ARM64'
+              }
           }
           
           with open('bench_results.json', 'w') as f:

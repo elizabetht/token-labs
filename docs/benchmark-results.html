@@ -330,6 +330,79 @@
                             </tbody>
                         </table>
                     </div>
+                    
+                    ${data.vllm_server_args ? `
+                    <div class="card">
+                        <h2>🖥️ vLLM Server Arguments</h2>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td>GPU Memory Utilization</td>
+                                    <td><code>${data.vllm_server_args.gpu_memory_utilization}</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
+                    
+                    ${data.benchmark_args ? `
+                    <div class="card">
+                        <h2>🧪 Benchmark Test Parameters</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Prefill Test</th>
+                                    <th>Decode Test</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Number of Prompts</td>
+                                    <td>${data.benchmark_args.prefill_test.num_prompts}</td>
+                                    <td>${data.benchmark_args.decode_test.num_prompts}</td>
+                                </tr>
+                                <tr>
+                                    <td>Request Rate</td>
+                                    <td>${data.benchmark_args.prefill_test.request_rate} req/s</td>
+                                    <td>${data.benchmark_args.decode_test.request_rate} req/s</td>
+                                </tr>
+                                <tr>
+                                    <td>Input Length</td>
+                                    <td>${data.benchmark_args.prefill_test.input_len} tokens</td>
+                                    <td>${data.benchmark_args.decode_test.input_len} tokens</td>
+                                </tr>
+                                <tr>
+                                    <td>Output Length</td>
+                                    <td>${data.benchmark_args.prefill_test.output_len} tokens</td>
+                                    <td>${data.benchmark_args.decode_test.output_len} tokens</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
+                    
+                    ${data.hardware ? `
+                    <div class="card">
+                        <h2>🔧 Hardware</h2>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td>Platform</td>
+                                    <td>${data.hardware.platform}</td>
+                                </tr>
+                                <tr>
+                                    <td>GPU</td>
+                                    <td>${data.hardware.gpu}</td>
+                                </tr>
+                                <tr>
+                                    <td>Architecture</td>
+                                    <td>${data.hardware.architecture}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
                 `;
                 
                 if (data.timestamp) {
