@@ -195,28 +195,28 @@ jobs:
           echo "DEBUG: INPUT_TPS='$INPUT_TPS' OUTPUT_TPS='$OUTPUT_TPS' COST_IN='$COST_IN' COST_OUT='$COST_OUT'"
           
           # Save results to JSON using Python for proper JSON formatting
-          python3 << PYEOF
-import json
-
-data = {
-    "model": "${{ env.MODEL }}",
-    "dgx_cost_per_hour": float("${DGX_COST}" or "0"),
-    "image_tag": "${{ steps.vars.outputs.FULL_IMAGE }}",
-    "prefill": {
-        "tokens_per_second": float("${INPUT_TPS}" or "0"),
-        "cost_per_million_tokens": float("${COST_IN}" or "0")
-    },
-    "decode": {
-        "tokens_per_second": float("${OUTPUT_TPS}" or "0"),
-        "cost_per_million_tokens": float("${COST_OUT}" or "0")
-    }
-}
-
-with open("bench_results.json", "w") as f:
-    json.dump(data, f, indent=2)
-
-print(json.dumps(data, indent=2))
-PYEOF
+          python3 -c "
+          import json
+          
+          data = {
+              'model': '${{ env.MODEL }}',
+              'dgx_cost_per_hour': float('${DGX_COST}' or '0'),
+              'image_tag': '${{ steps.vars.outputs.FULL_IMAGE }}',
+              'prefill': {
+                  'tokens_per_second': float('${INPUT_TPS}' or '0'),
+                  'cost_per_million_tokens': float('${COST_IN}' or '0')
+              },
+              'decode': {
+                  'tokens_per_second': float('${OUTPUT_TPS}' or '0'),
+                  'cost_per_million_tokens': float('${COST_OUT}' or '0')
+              }
+          }
+          
+          with open('bench_results.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          
+          print(json.dumps(data, indent=2))
+          "
           
           # Set outputs for summary
           echo "prefill_tps=$INPUT_TPS" >> $GITHUB_OUTPUT
