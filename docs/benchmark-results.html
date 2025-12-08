@@ -452,7 +452,136 @@
             }
         }
         
+        async function loadHistory() {
+            const historySection = document.getElementById('history-section');
+            
+            try {
+                const response = await fetch('benchmark-history.json');
+                if (!response.ok) throw new Error('No history available');
+                
+                const history = await response.json();
+                
+                if (!history || history.length === 0) {
+                    historySection.innerHTML = '';
+                    return;
+                }
+                
+                // Sort by timestamp (newest first for table, oldest first for chart)
+                const sortedHistory = [...history].sort((a, b) => 
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+                
+                const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
+                const prefillData = sortedHistory.map(h => h.prefill?.tokens_per_second || 0);
+                const decodeData = sortedHistory.map(h => h.decode?.tokens_per_second || 0);
+                
+                historySection.innerHTML = \`
+                    <div class="card">
+                        <h2>📈 Performance History</h2>
+                        <div class="chart-container">
+                            <canvas id="historyChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>📜 Release History</h2>
+                        <div class="history-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Date</th>
+                                        <th>Prefill (tok/s)</th>
+                                        <th>Decode (tok/s)</th>
+                                        <th>Input Cost</th>
+                                        <th>Output Cost</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    \${[...sortedHistory].reverse().map((h, i, arr) => {
+                                        const prev = arr[i + 1];
+                                        const prefillTrend = prev ? (h.prefill?.tokens_per_second > prev.prefill?.tokens_per_second ? '↑' : h.prefill?.tokens_per_second < prev.prefill?.tokens_per_second ? '↓' : '') : '';
+                                        const decodeTrend = prev ? (h.decode?.tokens_per_second > prev.decode?.tokens_per_second ? '↑' : h.decode?.tokens_per_second < prev.decode?.tokens_per_second ? '↓' : '') : '';
+                                        const prefillClass = prefillTrend === '↑' ? 'trend-up' : prefillTrend === '↓' ? 'trend-down' : '';
+                                        const decodeClass = decodeTrend === '↑' ? 'trend-up' : decodeTrend === '↓' ? 'trend-down' : '';
+                                        
+                                        return \`
+                                            <tr>
+                                                <td><span class="version-badge">\${h.version || 'N/A'}</span></td>
+                                                <td>\${h.timestamp ? new Date(h.timestamp).toLocaleDateString() : 'N/A'}</td>
+                                                <td class="\${prefillClass}">\${h.prefill?.tokens_per_second?.toLocaleString() || 'N/A'} \${prefillTrend}</td>
+                                                <td class="\${decodeClass}">\${h.decode?.tokens_per_second?.toLocaleString() || 'N/A'} \${decodeTrend}</td>
+                                                <td>$\${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}</td>
+                                                <td>$\${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}</td>
+                                            </tr>
+                                        \`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="benchmark-history.json" class="json-link">
+                            📄 View Full History JSON
+                        </a>
+                    </div>
+                \`;
+                
+                // Create chart
+                const ctx = document.getElementById('historyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Prefill Throughput (tok/s)',
+                                data: prefillData,
+                                borderColor: '#6366f1',
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Decode Throughput (tok/s)',
+                                data: decodeData,
+                                borderColor: '#22c55e',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#94a3b8'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                // No history yet, that's okay
+                historySection.innerHTML = '';
+            }
+        }
+        
         loadResults();
+        loadHistory();
     </script>
 </body>
 </html>

@@ -129,7 +129,7 @@ jobs:
           
           # === PREFILL-HEAVY BENCHMARK ===
           # 3:1 input:output ratio to measure prefill (input) performance
-          # Using max-model-len 131072: 98304 input + 32768 output = 131072 total
+          # 3072 input + 1024 output = 4096 total tokens per request
           echo "=== PREFILL-HEAVY BENCHMARK (3:1 input:output ratio) ==="
           docker exec ${{ env.CONTAINER_NAME }} \
             bash -c "source /opt/venv/bin/activate && \
@@ -137,10 +137,10 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 50 \
-            --request-rate 5 \
-            --random-input-len 98304 \
-            --random-output-len 32768" \
+            --num-prompts 100 \
+            --request-rate 10 \
+            --random-input-len 3072 \
+            --random-output-len 1024" \
             2>&1 | tee prefill_bench.txt
           
           cat prefill_bench.txt
@@ -155,7 +155,7 @@ jobs:
           
           # === DECODE-HEAVY BENCHMARK ===
           # 1:3 input:output ratio to measure decode (output) performance
-          # Using max-model-len 131072: 32768 input + 98304 output = 131072 total
+          # 1024 input + 3072 output = 4096 total tokens per request
           echo ""
           echo "=== DECODE-HEAVY BENCHMARK (1:3 input:output ratio) ==="
           docker exec ${{ env.CONTAINER_NAME }} \
@@ -164,10 +164,10 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 50 \
-            --request-rate 5 \
-            --random-input-len 32768 \
-            --random-output-len 98304" \
+            --num-prompts 100 \
+            --request-rate 10 \
+            --random-input-len 1024 \
+            --random-output-len 3072" \
             2>&1 | tee decode_bench.txt
           
           cat decode_bench.txt
@@ -247,20 +247,20 @@ jobs:
               },
               'benchmark_args': {
                   'prefill_test': {
-                      'num_prompts': 50,
-                      'request_rate': 5,
-                      'input_len': 98304,
-                      'output_len': 32768,
+                      'num_prompts': 100,
+                      'request_rate': 10,
+                      'input_len': 3072,
+                      'output_len': 1024,
                       'ratio': '3:1 input:output',
-                      'total_tokens': 131072
+                      'total_tokens': 4096
                   },
                   'decode_test': {
-                      'num_prompts': 50,
-                      'request_rate': 5,
-                      'input_len': 32768,
-                      'output_len': 98304,
+                      'num_prompts': 100,
+                      'request_rate': 10,
+                      'input_len': 1024,
+                      'output_len': 3072,
                       'ratio': '1:3 input:output',
-                      'total_tokens': 131072
+                      'total_tokens': 4096
                   }
               },
               'hardware': {
