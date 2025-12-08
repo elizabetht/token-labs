@@ -122,45 +122,71 @@ jobs:
       - name: Run vLLM serving benchmark
         id: benchmark
         run: |
-          # Run vllm bench serve inside the running container using its venv
-          echo "Running vLLM serving benchmark..."
+          # Run separate benchmarks for prefill-heavy and decode-heavy workloads
+          echo "Running vLLM serving benchmarks..."
+          DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
-          echo "=== SERVING BENCHMARK ==="
+          # === PREFILL-HEAVY BENCHMARK ===
+          # Long input, short output to measure prefill (input) performance
+          echo "=== PREFILL-HEAVY BENCHMARK (long input, short output) ==="
           docker exec ${{ env.CONTAINER_NAME }} \
             bash -c "source /opt/venv/bin/activate && \
             FLASHINFER_DISABLE_VERSION_CHECK=1 \
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 100 \
-            --request-rate 10 \
-            --random-input-len 512 \
-            --random-output-len 256" \
-            2>&1 | tee serve_bench.txt
+            --num-prompts 50 \
+            --request-rate 5 \
+            --random-input-len 2048 \
+            --random-output-len 16" \
+            2>&1 | tee prefill_bench.txt
           
-          cat serve_bench.txt
+          cat prefill_bench.txt
           
-          # Extract metrics from output
-          # vllm bench serve outputs: "Total Token throughput (tok/s):          1650.72"
-          # We use Total Token throughput for both input and output pricing as an approximation
-          TOTAL_TPS=$(grep -oP 'Total Token throughput \(tok/s\):\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
-          
-          # If total not found, try alternate patterns
-          if [ "$TOTAL_TPS" = "0" ] || [ -z "$TOTAL_TPS" ]; then
-            TOTAL_TPS=$(grep -oP 'Output throughput:\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
+          # Extract prefill throughput (input tokens/s)
+          PREFILL_TPS=$(grep -oP 'Input throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
+          if [ "$PREFILL_TPS" = "0" ] || [ -z "$PREFILL_TPS" ]; then
+            # Fallback to total throughput if input not found
+            PREFILL_TPS=$(grep -oP 'Total Token throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
           fi
+          echo "Prefill throughput: $PREFILL_TPS tokens/s"
           
-          echo "Total throughput: $TOTAL_TPS tokens/s"
+          # === DECODE-HEAVY BENCHMARK ===
+          # Short input, long output to measure decode (output) performance
+          echo ""
+          echo "=== DECODE-HEAVY BENCHMARK (short input, long output) ==="
+          docker exec ${{ env.CONTAINER_NAME }} \
+            bash -c "source /opt/venv/bin/activate && \
+            FLASHINFER_DISABLE_VERSION_CHECK=1 \
+            vllm bench serve \
+            --model ${{ env.MODEL }} \
+            --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+            --num-prompts 50 \
+            --request-rate 5 \
+            --random-input-len 64 \
+            --random-output-len 512" \
+            2>&1 | tee decode_bench.txt
           
-          # Use total throughput for both input and output pricing
-          INPUT_TPS=$TOTAL_TPS
-          OUTPUT_TPS=$TOTAL_TPS
+          cat decode_bench.txt
           
-          echo "Input throughput: $INPUT_TPS tokens/s"
-          echo "Output throughput: $OUTPUT_TPS tokens/s"
+          # Extract decode throughput (output tokens/s)
+          DECODE_TPS=$(grep -oP 'Output throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
+          if [ "$DECODE_TPS" = "0" ] || [ -z "$DECODE_TPS" ]; then
+            # Fallback to total throughput if output not found
+            DECODE_TPS=$(grep -oP 'Total Token throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
+          fi
+          echo "Decode throughput: $DECODE_TPS tokens/s"
+          
+          # Use extracted values
+          INPUT_TPS=$PREFILL_TPS
+          OUTPUT_TPS=$DECODE_TPS
+          
+          echo ""
+          echo "=== FINAL RESULTS ==="
+          echo "Input (prefill) throughput: $INPUT_TPS tokens/s"
+          echo "Output (decode) throughput: $OUTPUT_TPS tokens/s"
           
           # Calculate cost per 1M tokens: (cost_per_hour / tokens_per_sec) * 1_000_000 / 3600
-          DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
           if [ "$INPUT_TPS" != "0" ] && [ -n "$INPUT_TPS" ]; then
             # Use awk to ensure proper decimal formatting (bc outputs .xxx instead of 0.xxx)
