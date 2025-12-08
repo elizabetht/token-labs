@@ -18,10 +18,12 @@ permissions:
 env:
   CONTAINER_NAME: vllm-server
   VLLM_PORT: 8000
-  MODEL: meta-llama/Llama-3.1-8B-Instruct
+  MODEL: Qwen/Qwen2.5-0.5B-Instruct
   # DGX Spark economics: $4000 hardware / 26280 hours (3yr) with 0.3 utilization = $0.05/hr + ~$0.02/hr electricity = $0.07/hr
   DGX_COST_PER_HOUR: "0.07"
   DGX_TAILSCALE_IP: "100.64.38.13"
+  # LMCache settings
+  LMCACHE_ENABLED: "true"
 
 jobs:
   deploy-and-benchmark:
@@ -78,16 +80,23 @@ jobs:
 
       - name: Start vLLM server
         run: |
-          echo "Starting vLLM server with model: ${{ env.MODEL }}"
+          echo "Starting vLLM server with model: ${{ env.MODEL }} (LMCache enabled)"
           docker run -d \
             --gpus all \
             --name ${{ env.CONTAINER_NAME }} \
             -p ${{ env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}:8000 \
             -e HF_TOKEN=${{ secrets.HF_TOKEN }} \
             -e FLASHINFER_DISABLE_VERSION_CHECK=1 \
+            -e LMCACHE_CONFIG_FILE=/app/config/lmcache-cpu-offload.yaml \
+            -e LMCACHE_USE_EXPERIMENTAL=True \
             -v $HOME/.cache/huggingface:/root/.cache/huggingface \
+            -v ${{ github.workspace }}/config:/app/config:ro \
             ${{ steps.vars.outputs.FULL_IMAGE }} \
             ${{ env.MODEL }} \
+            --port 8000 \
+            --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
+            --download-dir /root/.cache/huggingface/hub \
+            --no-enable-prefix-caching \
             --gpu-memory-utilization 0.3
 
       - name: Wait for vLLM server to be ready
@@ -151,6 +160,10 @@ jobs:
           fi
           echo "Prefill throughput: $PREFILL_TPS tokens/s"
           
+          # Extract cached input tokens throughput (for LMCache)
+          CACHED_TPS=$(grep -oP 'Cached input throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
+          echo "Cached input throughput: $CACHED_TPS tokens/s"
+          
           # === DECODE-HEAVY BENCHMARK ===
           # Short input, long output to measure decode (output) performance
           echo ""
@@ -184,6 +197,7 @@ jobs:
           echo ""
           echo "=== FINAL RESULTS ==="
           echo "Input (prefill) throughput: $INPUT_TPS tokens/s"
+          echo "Cached input throughput: $CACHED_TPS tokens/s"
           echo "Output (decode) throughput: $OUTPUT_TPS tokens/s"
           
           # Calculate cost per 1M tokens: (cost_per_hour / tokens_per_sec) * 1_000_000 / 3600
@@ -201,24 +215,36 @@ jobs:
             COST_OUT="0"
           fi
           
+          # Calculate cost for cached tokens (should be cheaper)
+          if [ "$CACHED_TPS" != "0" ] && [ -n "$CACHED_TPS" ]; then
+            COST_CACHED=$(echo "scale=4; $DGX_COST * 1000000 / ($CACHED_TPS * 3600)" | bc | awk '{printf "%.4f", $0}')
+          else
+            COST_CACHED="0"
+          fi
+          
           echo "Cost per 1M input tokens: \$$COST_IN"
+          echo "Cost per 1M cached tokens: \$$COST_CACHED"
           echo "Cost per 1M output tokens: \$$COST_OUT"
           
           # Ensure variables have valid numeric values for JSON
           # Default to 0 if empty or unset
           INPUT_TPS="${INPUT_TPS:-0}"
           OUTPUT_TPS="${OUTPUT_TPS:-0}"
+          CACHED_TPS="${CACHED_TPS:-0}"
           COST_IN="${COST_IN:-0}"
           COST_OUT="${COST_OUT:-0}"
+          COST_CACHED="${COST_CACHED:-0}"
           
           # Handle empty strings explicitly
           [[ -z "$INPUT_TPS" || "$INPUT_TPS" == "" ]] && INPUT_TPS="0"
           [[ -z "$OUTPUT_TPS" || "$OUTPUT_TPS" == "" ]] && OUTPUT_TPS="0"
+          [[ -z "$CACHED_TPS" || "$CACHED_TPS" == "" ]] && CACHED_TPS="0"
           [[ -z "$COST_IN" || "$COST_IN" == "" ]] && COST_IN="0"
           [[ -z "$COST_OUT" || "$COST_OUT" == "" ]] && COST_OUT="0"
+          [[ -z "$COST_CACHED" || "$COST_CACHED" == "" ]] && COST_CACHED="0"
           
           # Debug: print values before JSON generation
-          echo "DEBUG: INPUT_TPS='$INPUT_TPS' OUTPUT_TPS='$OUTPUT_TPS' COST_IN='$COST_IN' COST_OUT='$COST_OUT'"
+          echo "DEBUG: INPUT_TPS='$INPUT_TPS' OUTPUT_TPS='$OUTPUT_TPS' CACHED_TPS='$CACHED_TPS' COST_IN='$COST_IN' COST_OUT='$COST_OUT' COST_CACHED='$COST_CACHED'"
           
           # Save results to JSON using Python for proper JSON formatting
           python3 -c "
@@ -233,13 +259,28 @@ jobs:
                   'tokens_per_second': float('${INPUT_TPS}' or '0'),
                   'cost_per_million_tokens': float('${COST_IN}' or '0')
               },
+              'cached': {
+                  'tokens_per_second': float('${CACHED_TPS}' or '0'),
+                  'cost_per_million_tokens': float('${COST_CACHED}' or '0')
+              },
               'decode': {
                   'tokens_per_second': float('${OUTPUT_TPS}' or '0'),
                   'cost_per_million_tokens': float('${COST_OUT}' or '0')
               },
               'timestamp': datetime.utcnow().isoformat() + 'Z',
               'vllm_server_args': {
-                  'gpu_memory_utilization': 0.3
+                  'gpu_memory_utilization': 0.3,
+                  'kv_transfer_config': {
+                      'kv_connector': 'LMCacheConnectorV1',
+                      'kv_role': 'kv_both'
+                  },
+                  'prefix_caching': False
+              },
+              'lmcache_config': {
+                  'enabled': True,
+                  'chunk_size': 8,
+                  'local_cpu': True,
+                  'max_local_cpu_size': 5.0
               },
               'benchmark_args': {
                   'prefill_test': {
@@ -270,8 +311,10 @@ jobs:
           
           # Set outputs for summary
           echo "prefill_tps=$INPUT_TPS" >> $GITHUB_OUTPUT
+          echo "cached_tps=$CACHED_TPS" >> $GITHUB_OUTPUT
           echo "decode_tps=$OUTPUT_TPS" >> $GITHUB_OUTPUT
           echo "cost_in=$COST_IN" >> $GITHUB_OUTPUT
+          echo "cost_cached=$COST_CACHED" >> $GITHUB_OUTPUT
           echo "cost_out=$COST_OUT" >> $GITHUB_OUTPUT
 
       - name: Update pricing in docs
@@ -318,13 +361,14 @@ jobs:
           echo "- **Model:** \`${{ env.MODEL }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Container:** \`${{ env.CONTAINER_NAME }}\` running on port ${{ env.VLLM_PORT }}" >> $GITHUB_STEP_SUMMARY
           echo "- **DGX Spark Cost:** \`\$${{ env.DGX_COST_PER_HOUR }}/hour\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **LMCache:** Enabled (CPU offload)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Benchmark Results (vllm bench latency)" >> $GITHUB_STEP_SUMMARY
+          echo "### Benchmark Results (vllm bench serve)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Prefill (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-----------------|-----------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Throughput | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost per 1M tokens | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Prefill (Input) | Cached (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------------|----------------|-----------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Throughput | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.cached_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost per 1M tokens | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_cached }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f bench_results.json ]; then

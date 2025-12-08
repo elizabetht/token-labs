@@ -280,6 +280,21 @@
                                 <div class="stat-value">$${data.decode.cost_per_million_tokens.toFixed(4)}<span class="stat-unit">/1M</span></div>
                             </div>
                         </div>
+                        ${data.cache_metrics ? `
+                        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                            <h3 style="font-size: 1rem; color: var(--text-secondary); margin-bottom: 1rem;">💾 LMCache Performance</h3>
+                            <div class="stats-grid">
+                                <div class="stat">
+                                    <div class="stat-label">Prefill Cached</div>
+                                    <div class="stat-value">${data.cache_metrics.prefill_cached_tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-label">Decode Cached</div>
+                                    <div class="stat-value">${data.cache_metrics.decode_cached_tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     
                     <div class="card">
@@ -298,6 +313,13 @@
                                     <td class="highlight">${data.prefill.tokens_per_second.toLocaleString()} tok/s</td>
                                     <td class="highlight">${data.decode.tokens_per_second.toLocaleString()} tok/s</td>
                                 </tr>
+                                ${data.cache_metrics ? `
+                                <tr>
+                                    <td>Cached Input Tokens</td>
+                                    <td>${data.cache_metrics.prefill_cached_tokens_per_second.toLocaleString()} tok/s</td>
+                                    <td>${data.cache_metrics.decode_cached_tokens_per_second.toLocaleString()} tok/s</td>
+                                </tr>
+                                ` : ''}
                                 <tr>
                                     <td>Cost per 1M tokens</td>
                                     <td>$${data.prefill.cost_per_million_tokens.toFixed(4)}</td>
@@ -340,6 +362,48 @@
                                     <td>GPU Memory Utilization</td>
                                     <td><code>${data.vllm_server_args.gpu_memory_utilization}</code></td>
                                 </tr>
+                                ${data.vllm_server_args.kv_transfer_config ? `
+                                <tr>
+                                    <td>KV Connector</td>
+                                    <td><code>${data.vllm_server_args.kv_transfer_config.kv_connector}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>KV Role</td>
+                                    <td><code>${data.vllm_server_args.kv_transfer_config.kv_role}</code></td>
+                                </tr>
+                                ` : ''}
+                                ${data.vllm_server_args.prefix_caching !== undefined ? `
+                                <tr>
+                                    <td>Prefix Caching</td>
+                                    <td><code>${data.vllm_server_args.prefix_caching}</code></td>
+                                </tr>
+                                ` : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                    ` : ''}
+                    
+                    ${data.lmcache_config ? `
+                    <div class="card">
+                        <h2>💾 LMCache Configuration</h2>
+                        <table>
+                            <tbody>
+                                <tr>
+                                    <td>Enabled</td>
+                                    <td><code>${data.lmcache_config.enabled}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Chunk Size</td>
+                                    <td><code>${data.lmcache_config.chunk_size}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Local CPU</td>
+                                    <td><code>${data.lmcache_config.local_cpu}</code></td>
+                                </tr>
+                                <tr>
+                                    <td>Max Local CPU Size</td>
+                                    <td><code>${data.lmcache_config.max_local_cpu_size} GB</code></td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -377,7 +441,7 @@
                                     <td>${data.benchmark_args.prefill_test.output_len} tokens</td>
                                     <td>${data.benchmark_args.decode_test.output_len} tokens</td>
                                 </tr>
-                            </tbody>
+                            </tbody>>
                         </table>
                     </div>
                     ` : ''}
