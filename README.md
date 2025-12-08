@@ -10,8 +10,8 @@ Self-hosted LLM inference on NVIDIA DGX Spark with automated benchmarking and co
 
 | Metric | Prefill (Input) | Decode (Output) |
 |--------|-----------------|-----------------|
-| Throughput | See [results](https://elizabetht.github.io/token-labs/benchmark-results.html) | See [results](https://elizabetht.github.io/token-labs/benchmark-results.html) |
-| Cost/1M tokens | ~$0.01 | ~$0.01 |
+| Throughput | 3,203 tok/s | 520 tok/s |
+| Cost/1M tokens | $0.006 | $0.037 |
 
 👉 **[View Full Benchmark Results](https://elizabetht.github.io/token-labs/benchmark-results.html)**
 
