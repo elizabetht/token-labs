@@ -20,7 +20,7 @@ env:
   VLLM_PORT: 8000
   MODEL: meta-llama/Llama-3.1-8B-Instruct
   # DGX Spark economics: $4000 hardware / 26280 hours (3yr) = $0.15/hr + ~$0.01/hr electricity = $0.16/hr
-  DGX_COST_PER_HOUR: "0.06"
+  DGX_COST_PER_HOUR: "0.07"
   DGX_TAILSCALE_IP: "100.64.38.13"
 
 jobs:
@@ -124,21 +124,84 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           pip install --upgrade pip
-          pip install httpx h2
 
-      - name: Run performance benchmark
-        env:
-          BENCH_BASE_URL: "http://${{env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}"
-          BENCH_MODEL: ${{ env.MODEL }}
-          DGX_COST_PER_HOUR: ${{ env.DGX_COST_PER_HOUR }}
-          CONCURRENCY: "32"
-          NUM_REQUESTS: "64"
-          MAX_NEW_TOKENS: "128"
-          BENCH_RESULTS_PATH: "bench_results.json"
-          BENCH_IMAGE_TAG: ${{ steps.vars.outputs.FULL_IMAGE }}
+      - name: Run vLLM latency benchmark
+        id: benchmark
         run: |
-          source .venv/bin/activate
-          python scripts/bench_inference.py
+          # Run vllm bench latency inside the container
+          # This benchmarks the model directly without network overhead
+          echo "Running vLLM latency benchmark..."
+          
+          # Prefill benchmark (input-heavy): 1024 input tokens, 1 output token
+          echo "=== PREFILL BENCHMARK ===" 
+          docker exec ${{ env.CONTAINER_NAME }} vllm bench latency \
+            --model ${{ env.MODEL }} \
+            --input-len 1024 \
+            --output-len 1 \
+            --batch-size 32 \
+            --num-iters 10 \
+            2>&1 | tee prefill_bench.txt
+          
+          # Decode benchmark (output-heavy): 128 input tokens, 512 output tokens
+          echo "=== DECODE BENCHMARK ==="
+          docker exec ${{ env.CONTAINER_NAME }} vllm bench latency \
+            --model ${{ env.MODEL }} \
+            --input-len 128 \
+            --output-len 512 \
+            --batch-size 32 \
+            --num-iters 10 \
+            2>&1 | tee decode_bench.txt
+          
+          # Extract throughput from benchmark output and calculate costs
+          # vllm bench latency outputs: "Throughput: X.XX tokens/s"
+          PREFILL_TPS=$(grep -oP 'Throughput:\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
+          DECODE_TPS=$(grep -oP 'Throughput:\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
+          
+          echo "Prefill throughput: $PREFILL_TPS tokens/s"
+          echo "Decode throughput: $DECODE_TPS tokens/s"
+          
+          # Calculate cost per 1M tokens: (cost_per_hour / tokens_per_sec) * 1_000_000 / 3600
+          DGX_COST=${{ env.DGX_COST_PER_HOUR }}
+          
+          if [ "$PREFILL_TPS" != "0" ] && [ -n "$PREFILL_TPS" ]; then
+            COST_IN=$(echo "scale=4; $DGX_COST * 1000000 / ($PREFILL_TPS * 3600)" | bc)
+          else
+            COST_IN="0"
+          fi
+          
+          if [ "$DECODE_TPS" != "0" ] && [ -n "$DECODE_TPS" ]; then
+            COST_OUT=$(echo "scale=4; $DGX_COST * 1000000 / ($DECODE_TPS * 3600)" | bc)
+          else
+            COST_OUT="0"
+          fi
+          
+          echo "Cost per 1M input tokens: \$$COST_IN"
+          echo "Cost per 1M output tokens: \$$COST_OUT"
+          
+          # Save results to JSON
+          cat > bench_results.json << EOF
+          {
+            "model": "${{ env.MODEL }}",
+            "dgx_cost_per_hour": $DGX_COST,
+            "image_tag": "${{ steps.vars.outputs.FULL_IMAGE }}",
+            "prefill": {
+              "tokens_per_second": ${PREFILL_TPS:-0},
+              "cost_per_million_tokens": ${COST_IN:-0}
+            },
+            "decode": {
+              "tokens_per_second": ${DECODE_TPS:-0},
+              "cost_per_million_tokens": ${COST_OUT:-0}
+            }
+          }
+          EOF
+          
+          cat bench_results.json
+          
+          # Set outputs for summary
+          echo "prefill_tps=$PREFILL_TPS" >> $GITHUB_OUTPUT
+          echo "decode_tps=$DECODE_TPS" >> $GITHUB_OUTPUT
+          echo "cost_in=$COST_IN" >> $GITHUB_OUTPUT
+          echo "cost_out=$COST_OUT" >> $GITHUB_OUTPUT
 
       - name: Update pricing in docs
         run: |
@@ -178,11 +241,20 @@ jobs:
           echo "- **Image:** \`${{ steps.vars.outputs.FULL_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Model:** \`${{ env.MODEL }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Container:** \`${{ env.CONTAINER_NAME }}\` running on port ${{ env.VLLM_PORT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **DGX Spark Cost:** \`\$${{ env.DGX_COST_PER_HOUR }}/hour\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Benchmark Results (vllm bench latency)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Prefill (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------------|-----------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Throughput | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost per 1M tokens | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f bench_results.json ]; then
-            echo "### Benchmark Results" >> $GITHUB_STEP_SUMMARY
+            echo "### Raw Results" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
             cat bench_results.json >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
