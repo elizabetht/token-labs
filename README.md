@@ -1,7 +1,7 @@
 # Token Labs 🚀
 
 [![Deploy and Benchmark](https://img.shields.io/github/actions/workflow/status/elizabetht/token-labs/deploy-and-benchmark.yml?branch=main&label=Deploy%20%26%20Benchmark)](https://github.com/elizabetht/token-labs/actions/workflows/deploy-and-benchmark.yml)
-[![Build vLLM](https://img.shields.io/github/actions/workflow/status/elizabetht/token-labs/build-and-push.yml?label=Build%20vLLM)](https://github.com/elizabetht/token-labs/actions/workflows/build-and-push.yml)
+[![Build vLLM](https://github.com/elizabetht/token-labs/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/elizabetht/token-labs/actions/workflows/build-and-push.yml)
 [![Latest Release](https://img.shields.io/github/v/tag/elizabetht/token-labs?label=Latest%20Release)](https://github.com/elizabetht/token-labs/releases)
 
 Self-hosted LLM inference on NVIDIA DGX Spark with automated benchmarking and cost analysis.
