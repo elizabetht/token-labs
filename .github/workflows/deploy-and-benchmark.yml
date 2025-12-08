@@ -125,7 +125,7 @@ jobs:
 
       - name: Run performance benchmark
         env:
-          BENCH_BASE_URL: "http://localhost:${{ env.VLLM_PORT }}"
+          BENCH_BASE_URL: "http://${{env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}"
           BENCH_MODEL: ${{ env.MODEL }}
           DGX_COST_PER_HOUR: ${{ env.DGX_COST_PER_HOUR }}
           CONCURRENCY: "32"
