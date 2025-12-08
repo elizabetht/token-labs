@@ -19,7 +19,7 @@ env:
   CONTAINER_NAME: vllm-server
   VLLM_PORT: 8000
   MODEL: meta-llama/Llama-3.1-8B-Instruct
-  # DGX Spark economics: $4000 hardware / 26280 hours (3yr) = $0.15/hr + ~$0.01/hr electricity = $0.16/hr
+  # DGX Spark economics: $4000 hardware / 26280 hours (3yr) with 0.3 utilization = $0.05/hr + ~$0.02/hr electricity = $0.07/hr
   DGX_COST_PER_HOUR: "0.07"
   DGX_TAILSCALE_IP: "100.64.38.13"
 
@@ -163,13 +163,14 @@ jobs:
           DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
           if [ "$INPUT_TPS" != "0" ] && [ -n "$INPUT_TPS" ]; then
-            COST_IN=$(echo "scale=4; $DGX_COST * 1000000 / ($INPUT_TPS * 3600)" | bc)
+            # Use awk to ensure proper decimal formatting (bc outputs .xxx instead of 0.xxx)
+            COST_IN=$(echo "scale=4; $DGX_COST * 1000000 / ($INPUT_TPS * 3600)" | bc | awk '{printf "%.4f", $0}')
           else
             COST_IN="0"
           fi
           
           if [ "$OUTPUT_TPS" != "0" ] && [ -n "$OUTPUT_TPS" ]; then
-            COST_OUT=$(echo "scale=4; $DGX_COST * 1000000 / ($OUTPUT_TPS * 3600)" | bc)
+            COST_OUT=$(echo "scale=4; $DGX_COST * 1000000 / ($OUTPUT_TPS * 3600)" | bc | awk '{printf "%.4f", $0}')
           else
             COST_OUT="0"
           fi
@@ -178,35 +179,44 @@ jobs:
           echo "Cost per 1M output tokens: \$$COST_OUT"
           
           # Ensure variables have valid numeric values for JSON
-          INPUT_TPS=${INPUT_TPS:-0}
-          OUTPUT_TPS=${OUTPUT_TPS:-0}
-          COST_IN=${COST_IN:-0}
-          COST_OUT=${COST_OUT:-0}
+          # Default to 0 if empty or unset
+          INPUT_TPS="${INPUT_TPS:-0}"
+          OUTPUT_TPS="${OUTPUT_TPS:-0}"
+          COST_IN="${COST_IN:-0}"
+          COST_OUT="${COST_OUT:-0}"
           
-          # Handle empty strings
-          [ -z "$INPUT_TPS" ] && INPUT_TPS=0
-          [ -z "$OUTPUT_TPS" ] && OUTPUT_TPS=0
-          [ -z "$COST_IN" ] && COST_IN=0
-          [ -z "$COST_OUT" ] && COST_OUT=0
+          # Handle empty strings explicitly
+          [[ -z "$INPUT_TPS" || "$INPUT_TPS" == "" ]] && INPUT_TPS="0"
+          [[ -z "$OUTPUT_TPS" || "$OUTPUT_TPS" == "" ]] && OUTPUT_TPS="0"
+          [[ -z "$COST_IN" || "$COST_IN" == "" ]] && COST_IN="0"
+          [[ -z "$COST_OUT" || "$COST_OUT" == "" ]] && COST_OUT="0"
           
-          # Save results to JSON
-          cat > bench_results.json << EOF
-          {
-            "model": "${{ env.MODEL }}",
-            "dgx_cost_per_hour": $DGX_COST,
-            "image_tag": "${{ steps.vars.outputs.FULL_IMAGE }}",
-            "prefill": {
-              "tokens_per_second": $INPUT_TPS,
-              "cost_per_million_tokens": $COST_IN
-            },
-            "decode": {
-              "tokens_per_second": $OUTPUT_TPS,
-              "cost_per_million_tokens": $COST_OUT
-            }
-          }
-          EOF
+          # Debug: print values before JSON generation
+          echo "DEBUG: INPUT_TPS='$INPUT_TPS' OUTPUT_TPS='$OUTPUT_TPS' COST_IN='$COST_IN' COST_OUT='$COST_OUT'"
           
-          cat bench_results.json
+          # Save results to JSON using Python for proper JSON formatting
+          python3 << PYEOF
+import json
+
+data = {
+    "model": "${{ env.MODEL }}",
+    "dgx_cost_per_hour": float("${DGX_COST}" or "0"),
+    "image_tag": "${{ steps.vars.outputs.FULL_IMAGE }}",
+    "prefill": {
+        "tokens_per_second": float("${INPUT_TPS}" or "0"),
+        "cost_per_million_tokens": float("${COST_IN}" or "0")
+    },
+    "decode": {
+        "tokens_per_second": float("${OUTPUT_TPS}" or "0"),
+        "cost_per_million_tokens": float("${COST_OUT}" or "0")
+    }
+}
+
+with open("bench_results.json", "w") as f:
+    json.dump(data, f, indent=2)
+
+print(json.dumps(data, indent=2))
+PYEOF
           
           # Set outputs for summary
           echo "prefill_tps=$INPUT_TPS" >> $GITHUB_OUTPUT
