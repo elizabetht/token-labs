@@ -177,6 +177,18 @@ jobs:
           echo "Cost per 1M input tokens: \$$COST_IN"
           echo "Cost per 1M output tokens: \$$COST_OUT"
           
+          # Ensure variables have valid numeric values for JSON
+          INPUT_TPS=${INPUT_TPS:-0}
+          OUTPUT_TPS=${OUTPUT_TPS:-0}
+          COST_IN=${COST_IN:-0}
+          COST_OUT=${COST_OUT:-0}
+          
+          # Handle empty strings
+          [ -z "$INPUT_TPS" ] && INPUT_TPS=0
+          [ -z "$OUTPUT_TPS" ] && OUTPUT_TPS=0
+          [ -z "$COST_IN" ] && COST_IN=0
+          [ -z "$COST_OUT" ] && COST_OUT=0
+          
           # Save results to JSON
           cat > bench_results.json << EOF
           {
@@ -184,12 +196,12 @@ jobs:
             "dgx_cost_per_hour": $DGX_COST,
             "image_tag": "${{ steps.vars.outputs.FULL_IMAGE }}",
             "prefill": {
-              "tokens_per_second": ${INPUT_TPS:-0},
-              "cost_per_million_tokens": ${COST_IN:-0}
+              "tokens_per_second": $INPUT_TPS,
+              "cost_per_million_tokens": $COST_IN
             },
             "decode": {
-              "tokens_per_second": ${OUTPUT_TPS:-0},
-              "cost_per_million_tokens": ${COST_OUT:-0}
+              "tokens_per_second": $OUTPUT_TPS,
+              "cost_per_million_tokens": $COST_OUT
             }
           }
           EOF
