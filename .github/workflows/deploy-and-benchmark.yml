@@ -119,43 +119,36 @@ jobs:
           docker logs ${{ env.CONTAINER_NAME }} --tail 100
           exit 1
 
-      - name: Set up Python
-        run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install vllm aiohttp
-
       - name: Run vLLM serving benchmark
         id: benchmark
         run: |
-          source .venv/bin/activate
-          
-          # Run vllm bench serve against the running server
+          # Run vllm bench serve from a separate container against the running server
+          # This uses the same vllm installation from the Docker image
           echo "Running vLLM serving benchmark..."
           
           # Benchmark with mixed workload
           echo "=== SERVING BENCHMARK ==="
-          vllm bench serve \
+          docker run --rm \
+            --network host \
+            -e FLASHINFER_DISABLE_VERSION_CHECK=1 \
+            ${{ steps.vars.outputs.FULL_IMAGE }} \
+            vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
             --num-prompts 100 \
             --request-rate 10 \
             --random-input-len 512 \
             --random-output-len 256 \
-            --save-result bench_serve_results.json \
             2>&1 | tee serve_bench.txt
           
-          # Extract metrics from results
-          # vllm bench serve outputs JSON with throughput metrics
-          if [ -f bench_serve_results.json ]; then
-            INPUT_TPS=$(python3 -c "import json; d=json.load(open('bench_serve_results.json')); print(d.get('input_throughput', 0))" 2>/dev/null || echo "0")
-            OUTPUT_TPS=$(python3 -c "import json; d=json.load(open('bench_serve_results.json')); print(d.get('output_throughput', 0))" 2>/dev/null || echo "0")
-          else
-            # Fallback: parse from text output
-            INPUT_TPS=$(grep -oP 'Input throughput:\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
-            OUTPUT_TPS=$(grep -oP 'Output throughput:\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
-          fi
+          cat serve_bench.txt
+          
+          # Extract metrics from output
+          # vllm bench serve outputs lines like:
+          # "Input throughput: X.XX tokens/s"
+          # "Output throughput: X.XX tokens/s"
+          INPUT_TPS=$(grep -oP 'Input throughput:\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
+          OUTPUT_TPS=$(grep -oP 'Output throughput:\s*\K[\d.]+' serve_bench.txt | tail -1 || echo "0")
           
           echo "Input throughput: $INPUT_TPS tokens/s"
           echo "Output throughput: $OUTPUT_TPS tokens/s"
@@ -205,8 +198,7 @@ jobs:
 
       - name: Update pricing in docs
         run: |
-          source .venv/bin/activate
-          python scripts/update_pricing.py \
+          python3 scripts/update_pricing.py \
             --results bench_results.json \
             --html docs/index.html
 
