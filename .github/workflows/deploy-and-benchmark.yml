@@ -291,6 +291,47 @@ jobs:
           
           # Also copy results to docs for GitHub Pages
           cp bench_results.json docs/benchmark-results.json
+          
+          # Append to benchmark history
+          python3 -c "
+          import json
+          from datetime import datetime
+          
+          # Load new results
+          with open('bench_results.json', 'r') as f:
+              new_result = json.load(f)
+          
+          # Add version from image tag
+          new_result['version'] = '${{ steps.vars.outputs.TAG }}'
+          
+          # Load existing history
+          history_file = 'docs/benchmark-history.json'
+          try:
+              with open(history_file, 'r') as f:
+                  history = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              history = []
+          
+          # Check if this version already exists (update it) or add new
+          version_exists = False
+          for i, entry in enumerate(history):
+              if entry.get('version') == new_result['version']:
+                  history[i] = new_result
+                  version_exists = True
+                  break
+          
+          if not version_exists:
+              history.append(new_result)
+          
+          # Keep only last 50 entries
+          history = history[-50:]
+          
+          # Save updated history
+          with open(history_file, 'w') as f:
+              json.dump(history, f, indent=2)
+          
+          print(f'History updated: {len(history)} entries')
+          "
 
       - name: Commit and push pricing updates
         if: success()
@@ -303,10 +344,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if there are any changes to commit
-          if git diff --quiet docs/index.html docs/benchmark-results.json 2>/dev/null; then
+          if git diff --quiet docs/index.html docs/benchmark-results.json docs/benchmark-history.json 2>/dev/null; then
             echo "No pricing changes to commit"
           else
-            git add docs/index.html docs/benchmark-results.json
+            git add docs/index.html docs/benchmark-results.json docs/benchmark-history.json
             git commit -m "Update pricing and benchmark results [skip ci]"
             git push
             echo "✅ Pricing and benchmark results updated and pushed"

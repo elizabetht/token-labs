@@ -201,7 +201,36 @@
             padding: 1rem;
             color: #fecaca;
         }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+        
+        .history-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .version-badge {
+            background: var(--primary);
+            color: white;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        
+        .trend-up {
+            color: var(--success);
+        }
+        
+        .trend-down {
+            color: #ef4444;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -216,6 +245,8 @@
         <div id="results">
             <div class="loading">Loading benchmark results...</div>
         </div>
+        
+        <div id="history-section"></div>
         
         <div class="card">
             <h2>📐 Methodology</h2>
