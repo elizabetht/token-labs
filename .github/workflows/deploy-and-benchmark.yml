@@ -18,7 +18,7 @@ permissions:
 env:
   CONTAINER_NAME: vllm-server
   VLLM_PORT: 8000
-  MODEL: Qwen/Qwen2.5-0.5B-Instruct
+  MODEL: meta-llama/Llama-3.1-8B-Instruct
   # DGX Spark economics: $4000 hardware / 26280 hours (3yr) with 0.3 utilization = $0.05/hr + ~$0.02/hr electricity = $0.07/hr
   DGX_COST_PER_HOUR: "0.07"
   DGX_TAILSCALE_IP: "100.64.38.13"
