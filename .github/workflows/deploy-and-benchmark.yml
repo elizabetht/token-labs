@@ -331,8 +331,25 @@ jobs:
           else
             git add docs/index.html docs/benchmark-results.json docs/benchmark-history.json
             git commit -m "Update pricing and benchmark results [skip ci]"
-            git push
-            echo "✅ Pricing and benchmark results updated and pushed"
+            
+            # Retry push with pull --rebase in case of concurrent updates
+            MAX_RETRIES=3
+            RETRY=0
+            while [ $RETRY -lt $MAX_RETRIES ]; do
+              if git push; then
+                echo "✅ Pricing and benchmark results updated and pushed"
+                break
+              else
+                RETRY=$((RETRY+1))
+                echo "Push failed, attempt $RETRY of $MAX_RETRIES. Pulling latest changes..."
+                git pull --rebase origin main
+              fi
+            done
+            
+            if [ $RETRY -eq $MAX_RETRIES ]; then
+              echo "❌ Failed to push after $MAX_RETRIES attempts"
+              exit 1
+            fi
           fi
 
       - name: Upload benchmark results
