@@ -42,6 +42,8 @@ ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
+RUN apt install -y python3-dev
+
 # Install vLLM with local build (source build for ARM64)
 RUN pip install --no-build-isolation -e . -v --pre
 
