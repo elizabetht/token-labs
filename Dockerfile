@@ -57,7 +57,7 @@ FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04 AS runtime
 
 # Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y \
-    python3.12 python3.12-venv \
+    python3.12 python3.12-venv build-essential\
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder
