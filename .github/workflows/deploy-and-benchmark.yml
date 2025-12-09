@@ -77,55 +77,18 @@ jobs:
 
       - name: Stop existing vLLM container (if running)
         run: |
-          echo "Blue-green deployment: will only stop/remove old container after new is healthy."
+          if docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+            echo "Stopping existing container..."
+            docker stop ${{ env.CONTAINER_NAME }}
+          fi
+          if docker ps -aq -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
+            echo "Removing existing container..."
+            docker rm ${{ env.CONTAINER_NAME }}
+          fi
 
       - name: Start vLLM server
         run: |
-          echo "Starting new vLLM server with model: ${{ env.MODEL }} (LMCache enabled) on temp port/name"
-          export TEMP_PORT=$(( ${{ env.VLLM_PORT }} + 100 ))
-          export TEMP_NAME="${{ env.CONTAINER_NAME }}-new"
-          docker run -d \
-            --gpus all \
-            --name $TEMP_NAME \
-            -p ${{ env.DGX_TAILSCALE_IP}}:$TEMP_PORT:8000 \
-            -e HF_TOKEN=${{ secrets.HF_TOKEN }} \
-            -e FLASHINFER_DISABLE_VERSION_CHECK=1 \
-            -e LMCACHE_CONFIG_FILE=/app/config/lmcache-cpu-offload.yaml \
-            -e LMCACHE_USE_EXPERIMENTAL=True \
-            -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-            -v ${{ github.workspace }}/config:/app/config:ro \
-            ${{ steps.vars.outputs.FULL_IMAGE }} \
-            ${{ env.MODEL }} \
-            --gpu-memory-utilization 0.3
-
-      - name: Wait for vLLM server to be ready
-        run: |
-          echo "Waiting for new vLLM server to be ready on temp port..."
-          MAX_ATTEMPTS=120
-          ATTEMPT=0
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            if curl -s http://${{ env.DGX_TAILSCALE_IP}}:$TEMP_PORT/health > /dev/null 2>&1; then
-              echo "✅ New vLLM server is ready!"
-              break
-            fi
-            ATTEMPT=$((ATTEMPT+1))
-            sleep 1
-          done
-          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "❌ New server failed to start within timeout. Keeping old service running."
-            docker logs $TEMP_NAME --tail 100
-            docker rm -f $TEMP_NAME
-            exit 1
-          fi
-      - name: Switch traffic to new vLLM server
-        run: |
-          echo "Stopping/removing old vLLM container, switching traffic to new."
-          if docker ps -q -f name=${{ env.CONTAINER_NAME }} | grep -q .; then
-            docker stop ${{ env.CONTAINER_NAME }}
-            docker rm ${{ env.CONTAINER_NAME }}
-          fi
-          docker stop $TEMP_NAME
-          docker rename $TEMP_NAME ${{ env.CONTAINER_NAME }}
+          echo "Starting vLLM server with model: ${{ env.MODEL }} (LMCache enabled)"
           docker run -d \
             --gpus all \
             --name ${{ env.CONTAINER_NAME }} \
@@ -139,6 +102,25 @@ jobs:
             ${{ steps.vars.outputs.FULL_IMAGE }} \
             ${{ env.MODEL }} \
             --gpu-memory-utilization 0.3
+
+      - name: Wait for vLLM server to be ready
+        run: |
+          echo "Waiting for vLLM server to be ready..."
+          MAX_ATTEMPTS=120
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -s http://${{ env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}/health > /dev/null 2>&1; then
+              echo "✅ vLLM server is ready!"
+              break
+            fi
+            ATTEMPT=$((ATTEMPT+1))
+            sleep 1
+          done
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "❌ Server failed to start within timeout"
+            docker logs ${{ env.CONTAINER_NAME }} --tail 100
+            exit 1
+          fi
 
       - name: Run vLLM serving benchmark
         id: benchmark
