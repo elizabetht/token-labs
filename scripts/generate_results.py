@@ -37,28 +37,28 @@ data = {
     },
     'benchmark_args': {
         'prefill_test': {
-            'num_prompts': 100,
-            'request_rate': 10,
-            'input_len': 8192,
-            'output_len': 1024,
-            'ratio': '8:1 input:output',
-            'total_tokens': 9216
+            'num_prompts': int(os.getenv('PREFILL_NUM_PROMPTS', '10')),
+            'request_rate': int(os.getenv('PREFILL_REQUEST_RATE', '10')),
+            'input_len': int(os.getenv('PREFILL_INPUT_LEN', '3072')),
+            'output_len': int(os.getenv('PREFILL_OUTPUT_LEN', '1024')),
+            'ratio': f"{os.getenv('PREFILL_INPUT_LEN', '3072')}:{os.getenv('PREFILL_OUTPUT_LEN', '1024')} input:output",
+            'total_tokens': int(os.getenv('PREFILL_INPUT_LEN', '3072')) + int(os.getenv('PREFILL_OUTPUT_LEN', '1024'))
         },
         'decode_test': {
-            'num_prompts': 100,
-            'request_rate': 10,
-            'input_len': 1024,
-            'output_len': 8192,
-            'ratio': '1:8 input:output',
-            'total_tokens': 9216
+            'num_prompts': int(os.getenv('DECODE_NUM_PROMPTS', '10')),
+            'request_rate': int(os.getenv('DECODE_REQUEST_RATE', '10')),
+            'input_len': int(os.getenv('DECODE_INPUT_LEN', '1024')),
+            'output_len': int(os.getenv('DECODE_OUTPUT_LEN', '3072')),
+            'ratio': f"{os.getenv('DECODE_INPUT_LEN', '1024')}:{os.getenv('DECODE_OUTPUT_LEN', '3072')} input:output",
+            'total_tokens': int(os.getenv('DECODE_INPUT_LEN', '1024')) + int(os.getenv('DECODE_OUTPUT_LEN', '3072'))
         },
         'cache_test': {
             'dataset': 'prefix_repetition',
-            'num_prompts': 100,
-            'prefix_len': 512,
-            'suffix_len': 128,
-            'num_prefixes': 5,
-            'output_len': 128,
+            'num_prompts': int(os.getenv('CACHE_NUM_PROMPTS', '10')),
+            'prefix_len': int(os.getenv('CACHE_PREFIX_LEN', '512')),
+            'suffix_len': int(os.getenv('CACHE_SUFFIX_LEN', '128')),
+            'num_prefixes': int(os.getenv('CACHE_NUM_PREFIXES', '5')),
+            'output_len': int(os.getenv('CACHE_OUTPUT_LEN', '128')),
             'description': 'Tests LMCache with repeated prefixes'
         }
     },

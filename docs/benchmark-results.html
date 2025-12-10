@@ -294,6 +294,8 @@
                 container.innerHTML = `
                     <div class="card">
                         <h2>🚀 Performance Summary</h2>
+                        
+                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0;">⚡ Throughput Performance</h3>
                         <div class="stats-grid">
                             <div class="stat">
                                 <div class="stat-label">Prefill Throughput</div>
@@ -307,6 +309,10 @@
                                 <div class="stat-label">Decode Throughput</div>
                                 <div class="stat-value">${data.decode.tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
                             </div>
+                        </div>
+                        
+                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 1.5rem;">💰 Cost Efficiency</h3>
+                        <div class="stats-grid">
                             <div class="stat">
                                 <div class="stat-label">Input Cost</div>
                                 <div class="stat-value">$${data.prefill.cost_per_million_tokens.toFixed(4)}<span class="stat-unit">/1M</span></div>
@@ -322,118 +328,6 @@
                         </div>
                     </div>
                     
-                    <div class="card">
-                        <h2>📋 Detailed Results</h2>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Metric</th>
-                                    <th>Prefill (Input)</th>
-                                    <th>Decode (Output)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Throughput</td>
-                                    <td class="highlight">${data.prefill.tokens_per_second.toLocaleString()} tok/s</td>
-                                    <td class="highlight">${data.decode.tokens_per_second.toLocaleString()} tok/s</td>
-                                </tr>
-                                ${data.cache_metrics ? `
-                                <tr>
-                                    <td>Cached Input Tokens</td>
-                                    <td>${data.cache_metrics.prefill_cached_tokens_per_second.toLocaleString()} tok/s</td>
-                                    <td>${data.cache_metrics.decode_cached_tokens_per_second.toLocaleString()} tok/s</td>
-                                </tr>
-                                ` : ''}
-                                <tr>
-                                    <td>Cost per 1M tokens</td>
-                                    <td>$${data.prefill.cost_per_million_tokens.toFixed(4)}</td>
-                                    <td>$${data.decode.cost_per_million_tokens.toFixed(4)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="card">
-                        <h2>⚙️ Configuration</h2>
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td>Model</td>
-                                    <td><code>${data.model}</code></td>
-                                </tr>
-                                <tr>
-                                    <td>DGX Cost/Hour</td>
-                                    <td>$${data.dgx_cost_per_hour.toFixed(2)}</td>
-                                </tr>
-                                <tr>
-                                    <td>Docker Image</td>
-                                    <td><code>${data.image_tag}</code></td>
-                                </tr>
-                                ${data.timestamp ? `<tr>
-                                    <td>Benchmark Date</td>
-                                    <td>${new Date(data.timestamp).toLocaleString()}</td>
-                                </tr>` : ''}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    ${data.vllm_server_args ? `
-                    <div class="card">
-                        <h2>🖥️ vLLM Server Arguments</h2>
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td>GPU Memory Utilization</td>
-                                    <td><code>${data.vllm_server_args.gpu_memory_utilization}</code></td>
-                                </tr>
-                                ${data.vllm_server_args.kv_transfer_config ? `
-                                <tr>
-                                    <td>KV Connector</td>
-                                    <td><code>${data.vllm_server_args.kv_transfer_config.kv_connector}</code></td>
-                                </tr>
-                                <tr>
-                                    <td>KV Role</td>
-                                    <td><code>${data.vllm_server_args.kv_transfer_config.kv_role}</code></td>
-                                </tr>
-                                ` : ''}
-                                ${data.vllm_server_args.prefix_caching !== undefined ? `
-                                <tr>
-                                    <td>Prefix Caching</td>
-                                    <td><code>${data.vllm_server_args.prefix_caching}</code></td>
-                                </tr>
-                                ` : ''}
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
-                    
-                    ${data.lmcache_config ? `
-                    <div class="card">
-                        <h2>💾 LMCache Configuration</h2>
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td>Enabled</td>
-                                    <td><code>${data.lmcache_config.enabled}</code></td>
-                                </tr>
-                                <tr>
-                                    <td>Chunk Size</td>
-                                    <td><code>${data.lmcache_config.chunk_size}</code></td>
-                                </tr>
-                                <tr>
-                                    <td>Local CPU</td>
-                                    <td><code>${data.lmcache_config.local_cpu}</code></td>
-                                </tr>
-                                <tr>
-                                    <td>Max Local CPU Size</td>
-                                    <td><code>${data.lmcache_config.max_local_cpu_size} GB</code></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
-                    
                     ${data.benchmark_args ? `
                     <div class="card">
                         <h2>🧪 Benchmark Test Parameters</h2>
@@ -443,6 +337,7 @@
                                     <th>Parameter</th>
                                     <th>Prefill Test</th>
                                     <th>Decode Test</th>
+                                    <th>Cache Test</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -450,43 +345,31 @@
                                     <td>Number of Prompts</td>
                                     <td>${data.benchmark_args.prefill_test.num_prompts}</td>
                                     <td>${data.benchmark_args.decode_test.num_prompts}</td>
+                                    <td>${data.benchmark_args.cache_test.num_prompts}</td>
                                 </tr>
                                 <tr>
                                     <td>Request Rate</td>
                                     <td>${data.benchmark_args.prefill_test.request_rate} req/s</td>
                                     <td>${data.benchmark_args.decode_test.request_rate} req/s</td>
+                                    <td>-</td>
                                 </tr>
                                 <tr>
                                     <td>Input Length</td>
                                     <td>${data.benchmark_args.prefill_test.input_len} tokens</td>
                                     <td>${data.benchmark_args.decode_test.input_len} tokens</td>
+                                    <td>Prefix: ${data.benchmark_args.cache_test.prefix_len} + Suffix: ${data.benchmark_args.cache_test.suffix_len}</td>
                                 </tr>
                                 <tr>
                                     <td>Output Length</td>
                                     <td>${data.benchmark_args.prefill_test.output_len} tokens</td>
                                     <td>${data.benchmark_args.decode_test.output_len} tokens</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
-                    
-                    ${data.hardware ? `
-                    <div class="card">
-                        <h2>🔧 Hardware</h2>
-                        <table>
-                            <tbody>
-                                <tr>
-                                    <td>Platform</td>
-                                    <td>${data.hardware.platform}</td>
+                                    <td>${data.benchmark_args.cache_test.output_len} tokens</td>
                                 </tr>
                                 <tr>
-                                    <td>GPU</td>
-                                    <td>${data.hardware.gpu}</td>
-                                </tr>
-                                <tr>
-                                    <td>Architecture</td>
-                                    <td>${data.hardware.architecture}</td>
+                                    <td>Test Focus</td>
+                                    <td>Prefill performance (${data.benchmark_args.prefill_test.ratio})</td>
+                                    <td>Decode performance (${data.benchmark_args.decode_test.ratio})</td>
+                                    <td>Cache effectiveness (${data.benchmark_args.cache_test.num_prefixes} unique prefixes)</td>
                                 </tr>
                             </tbody>
                         </table>

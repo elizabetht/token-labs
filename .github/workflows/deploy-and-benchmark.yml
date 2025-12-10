@@ -176,7 +176,7 @@ jobs:
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
             --dataset-name prefix_repetition \
-            --num-prompts 10 \
+            --num-prompts 100 \
             --prefix-repetition-prefix-len 512 \
             --prefix-repetition-suffix-len 128 \
             --prefix-repetition-num-prefixes 5 \
@@ -370,6 +370,21 @@ jobs:
           export COST_OUT="${COST_OUT}"
           export COST_CACHED="${COST_CACHED}"
           
+          # Benchmark parameters for dynamic HTML generation
+          export PREFILL_NUM_PROMPTS="10"
+          export PREFILL_REQUEST_RATE="10"
+          export PREFILL_INPUT_LEN="3072"
+          export PREFILL_OUTPUT_LEN="1024"
+          export DECODE_NUM_PROMPTS="10"
+          export DECODE_REQUEST_RATE="10"
+          export DECODE_INPUT_LEN="1024"
+          export DECODE_OUTPUT_LEN="3072"
+          export CACHE_NUM_PROMPTS="10"
+          export CACHE_PREFIX_LEN="512"
+          export CACHE_SUFFIX_LEN="128"
+          export CACHE_NUM_PREFIXES="5"
+          export CACHE_OUTPUT_LEN="128"
+          
           # Generate results JSON using Python script
           python3 scripts/generate_results.py
           
@@ -503,8 +518,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Prefill (Input) | Cached Prefill (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-----------------|------------------------|-----------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Throughput | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.cached_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost per 1M tokens | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_cached }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Throughput** | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.cached_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Cost per 1M tokens** | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_cached }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f bench_results.json ]; then
