@@ -3,18 +3,18 @@
   "dgx_cost_per_hour": 0.07,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:latest",
   "prefill": {
-    "tokens_per_second": 608.18,
-    "cost_per_million_tokens": 0.0319
+    "tokens_per_second": 592.25,
+    "cost_per_million_tokens": 0.0328
   },
   "cached": {
     "tokens_per_second": 0.0,
     "cost_per_million_tokens": 0.0
   },
   "decode": {
-    "tokens_per_second": 342.12,
-    "cost_per_million_tokens": 0.0568
+    "tokens_per_second": 331.61,
+    "cost_per_million_tokens": 0.0586
   },
-  "timestamp": "2025-12-10T16:38:07.174428Z",
+  "timestamp": "2025-12-10T19:02:40.851957Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.3,
     "max_model_len": 131072,
@@ -32,24 +32,24 @@
   },
   "benchmark_args": {
     "prefill_test": {
-      "num_prompts": 100,
+      "num_prompts": 10,
       "request_rate": 10,
-      "input_len": 8192,
+      "input_len": 3072,
       "output_len": 1024,
-      "ratio": "8:1 input:output",
-      "total_tokens": 9216
+      "ratio": "3072:1024 input:output",
+      "total_tokens": 4096
     },
     "decode_test": {
-      "num_prompts": 100,
+      "num_prompts": 10,
       "request_rate": 10,
       "input_len": 1024,
-      "output_len": 8192,
-      "ratio": "1:8 input:output",
-      "total_tokens": 9216
+      "output_len": 3072,
+      "ratio": "1024:3072 input:output",
+      "total_tokens": 4096
     },
     "cache_test": {
       "dataset": "prefix_repetition",
-      "num_prompts": 100,
+      "num_prompts": 10,
       "prefix_len": 512,
       "suffix_len": 128,
       "num_prefixes": 5,
