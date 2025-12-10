@@ -321,6 +321,7 @@ jobs:
           # Append to benchmark history
           python3 -c "
           import json
+          import re
           from datetime import datetime
           
           # Load new results
@@ -328,35 +329,48 @@ jobs:
               new_result = json.load(f)
           
           # Add version from image tag
-          new_result['version'] = '${{ steps.vars.outputs.TAG }}'
+          version_tag = '${{ steps.vars.outputs.TAG }}'
+          new_result['version'] = version_tag
           
-          # Load existing history
-          history_file = 'docs/benchmark-history.json'
-          try:
-              with open(history_file, 'r') as f:
-                  history = json.load(f)
-          except (FileNotFoundError, json.JSONDecodeError):
-              history = []
+          # Only add to history for stable releases (not pre-releases)
+          # Skip versions with: rc, beta, alpha, dev, pre, snapshot
+          is_prerelease = bool(re.search(r'\b(rc|beta|alpha|dev|pre|snapshot)\b', version_tag, re.IGNORECASE))
+          is_latest = version_tag == 'latest'
           
-          # Check if this version already exists (update it) or add new
-          version_exists = False
-          for i, entry in enumerate(history):
-              if entry.get('version') == new_result['version']:
-                  history[i] = new_result
-                  version_exists = True
-                  break
+          print(f'Version: {version_tag}, Is pre-release: {is_prerelease}, Is latest: {is_latest}')
           
-          if not version_exists:
-              history.append(new_result)
-          
-          # Keep only last 50 entries
-          history = history[-50:]
-          
-          # Save updated history
-          with open(history_file, 'w') as f:
-              json.dump(history, f, indent=2)
-          
-          print(f'History updated: {len(history)} entries')
+          if not is_prerelease and not is_latest:
+              print(f'Adding stable release {version_tag} to benchmark history...')
+              
+              # Load existing history
+              history_file = 'docs/benchmark-history.json'
+              try:
+                  with open(history_file, 'r') as f:
+                      history = json.load(f)
+              except (FileNotFoundError, json.JSONDecodeError):
+                  history = []
+              
+              # Check if this version already exists (update it) or add new
+              version_exists = False
+              for i, entry in enumerate(history):
+                  if entry.get('version') == new_result['version']:
+                      history[i] = new_result
+                      version_exists = True
+                      break
+              
+              if not version_exists:
+                  history.append(new_result)
+              
+              # Keep only last 50 entries
+              history = history[-50:]
+              
+              # Save updated history
+              with open(history_file, 'w') as f:
+                  json.dump(history, f, indent=2)
+              
+              print(f'History updated: {len(history)} stable releases')
+          else:
+              print(f'Skipping history update for pre-release/latest version: {version_tag}')
           "
 
       - name: Commit and push pricing updates
