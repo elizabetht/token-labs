@@ -199,7 +199,7 @@ jobs:
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
             --dataset-name prefix_repetition \
-            --num-prompts 100 \
+            --num-prompts 10 \
             --prefix-repetition-prefix-len 512 \
             --prefix-repetition-suffix-len 128 \
             --prefix-repetition-num-prefixes 5 \
