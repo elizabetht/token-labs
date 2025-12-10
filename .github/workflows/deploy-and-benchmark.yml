@@ -132,10 +132,32 @@ jobs:
           DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
           echo "========================================"
-          echo "Running three benchmarks in parallel..."
+          echo "Running PREFIX CACHE benchmark first to establish cache..."
           echo "========================================"
           
-          # === RUN ALL THREE BENCHMARKS IN PARALLEL ===
+          # === RUN PREFIX CACHE BENCHMARK FIRST ===
+          echo "Starting PREFIX CACHE benchmark to populate cache and get server metrics..."
+          docker exec ${{ env.CONTAINER_NAME }} \
+            bash -c "source /opt/venv/bin/activate && \
+            FLASHINFER_DISABLE_VERSION_CHECK=1 \
+            vllm bench serve \
+            --model ${{ env.MODEL }} \
+            --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+            --dataset-name prefix_repetition \
+            --num-prompts 10 \
+            --prefix-repetition-prefix-len 512 \
+            --prefix-repetition-suffix-len 128 \
+            --prefix-repetition-num-prefixes 5 \
+            --prefix-repetition-output-len 128" \
+            2>&1 | tee cache_bench.txt
+          
+          echo "✅ PREFIX CACHE benchmark completed!"
+          echo ""
+          echo "========================================"
+          echo "Now running PREFILL and DECODE benchmarks in parallel..."
+          echo "========================================"
+          
+          # === RUN PREFILL AND DECODE BENCHMARKS IN PARALLEL ===
           
           # PREFILL-HEAVY BENCHMARK (3:1 input:output ratio)
           echo "Starting PREFILL-HEAVY benchmark in background..."
@@ -145,7 +167,7 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 100 \
+            --num-prompts 10 \
             --request-rate 10 \
             --random-input-len 3072 \
             --random-output-len 1024" \
@@ -160,34 +182,16 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 100 \
+            --num-prompts 10 \
             --request-rate 10 \
             --random-input-len 1024 \
             --random-output-len 3072" \
             > decode_bench.txt 2>&1 &
           DECODE_PID=$!
           
-          # PREFIX CACHE BENCHMARK (LMCache effectiveness test)
-          echo "Starting PREFIX CACHE benchmark in background..."
-          docker exec ${{ env.CONTAINER_NAME }} \
-            bash -c "source /opt/venv/bin/activate && \
-            FLASHINFER_DISABLE_VERSION_CHECK=1 \
-            vllm bench serve \
-            --model ${{ env.MODEL }} \
-            --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --dataset-name prefix_repetition \
-            --num-prompts 100 \
-            --prefix-repetition-prefix-len 512 \
-            --prefix-repetition-suffix-len 128 \
-            --prefix-repetition-num-prefixes 5 \
-            --prefix-repetition-output-len 128" \
-            > cache_bench.txt 2>&1 &
-          CACHE_PID=$!
+          echo "Waiting for prefill and decode benchmarks to complete..."
           
-          echo "All three benchmarks started in parallel..."
-          echo "Waiting for completion..."
-          
-          # Wait for all benchmarks to complete
+          # Wait for parallel benchmarks to complete
           wait $PREFILL_PID
           PREFILL_EXIT=$?
           echo "✅ Prefill benchmark completed (exit code: $PREFILL_EXIT)"
@@ -195,10 +199,6 @@ jobs:
           wait $DECODE_PID  
           DECODE_EXIT=$?
           echo "✅ Decode benchmark completed (exit code: $DECODE_EXIT)"
-          
-          wait $CACHE_PID
-          CACHE_EXIT=$?
-          echo "✅ Cache benchmark completed (exit code: $CACHE_EXIT)"
           
           echo "========================================"
           echo "All benchmarks completed! Processing results..."
@@ -259,13 +259,19 @@ jobs:
           # Get recent server logs to extract vLLM server metrics
           docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
           
-          # Extract avg prompt throughput from vLLM server logs
-          # Pattern: "Engine 000: Avg prompt throughput: 641.2 tokens/s"
-          SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tail -1 || echo "0")
+          # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
+          # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
+          SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
+                              grep -v '^0\.0*$' | tail -1 || echo "0")
           
           # Extract external prefix cache hit rate from vLLM server logs 
-          # Pattern: "External prefix cache hit rate: 39.8%"
+          # Pattern: "External prefix cache hit rate: 10.9%" 
           SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
+          
+          echo "Extracted server metrics (non-zero prompt throughput only):"
+          echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
+          echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
+          echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
           
           # Fallback to benchmark values if server metrics not found
           if [ "$SERVER_PROMPT_TPS" = "0" ] || [ -z "$SERVER_PROMPT_TPS" ]; then

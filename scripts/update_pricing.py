@@ -65,9 +65,9 @@ def extract_model_key_from_backend_name(backend_name: str, html_content: str) ->
     return None
 
 
-def update_model_pricing(html_content: str, model_key: str, input_price: float, output_price: float) -> str:
+def update_model_pricing(html_content: str, model_key: str, input_price: float, output_price: float, cached_input_price: float = None) -> str:
     """
-    Update the inputPricePerM and outputPricePerM for a specific model in the HTML.
+    Update the inputPricePerM, outputPricePerM, and cachedInputPricePerM for a specific model in the HTML.
     """
     # Pattern to find the model block and its pricing
     # We need to find the model key and update its pricing values
@@ -95,6 +95,23 @@ def update_model_pricing(html_content: str, model_key: str, input_price: float, 
         f'outputPricePerM: {output_price:.2f}',
         updated_block
     )
+    
+    # Add or update cachedInputPricePerM if provided
+    if cached_input_price is not None:
+        if 'cachedInputPricePerM:' in updated_block:
+            # Update existing cachedInputPricePerM
+            updated_block = re.sub(
+                r'cachedInputPricePerM:\s*[\d.]+',
+                f'cachedInputPricePerM: {cached_input_price:.4f}',
+                updated_block
+            )
+        else:
+            # Add cachedInputPricePerM after inputPricePerM
+            updated_block = re.sub(
+                r'(inputPricePerM:\s*[\d.]+,)',
+                f'\\1\n        cachedInputPricePerM: {cached_input_price:.4f},',
+                updated_block
+            )
     
     # Replace the old block with the updated one
     html_content = html_content.replace(model_block, updated_block)
@@ -135,11 +152,14 @@ def main():
     # Extract pricing from results
     prefill = results.get("prefill", {})
     decode = results.get("decode", {})
+    cached = results.get("cached", {})
     
     input_price = prefill.get("cost_per_million_tokens", 0)
     output_price = decode.get("cost_per_million_tokens", 0)
+    cached_input_price = cached.get("cost_per_million_tokens", 0)
     
     print(f"  Input price (per 1M tokens):  ${input_price:.2f}")
+    print(f"  Cached input price (per 1M tokens): ${cached_input_price:.2f}")
     print(f"  Output price (per 1M tokens): ${output_price:.2f}")
 
     # Load HTML file
@@ -162,7 +182,7 @@ def main():
     print(f"  Matched model key: {model_key}")
 
     # Update the HTML
-    updated_html = update_model_pricing(html_content, model_key, input_price, output_price)
+    updated_html = update_model_pricing(html_content, model_key, input_price, output_price, cached_input_price)
 
     if html_content == updated_html:
         print("No changes made (pricing already up to date or model not found)")
