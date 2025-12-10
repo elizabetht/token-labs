@@ -75,9 +75,8 @@ RUN --mount=type=cache,target=/root/.cache/git \
 WORKDIR /app/vllm
 
 # Set optimized build environment variables for vLLM compilation
-# Compile only for H100 (compute capability 9.0) to speed up build
+# Use DGX Spark (Grace Hopper) specific architecture from ARG
 # Allow auto-detection of CPU cores for parallel compilation
-ENV TORCH_CUDA_ARCH_LIST=9.0
 ENV FORCE_CUDA=1
 ENV NVCC_THREADS=8
 

@@ -68,7 +68,7 @@ To maximize cache reuse, the Dockerfile supports build arguments:
 
 ### Build Performance Optimizations
 The Dockerfile is optimized to compile vLLM quickly:
-- **Single architecture compilation**: Compiles only for H100 (compute 9.0) instead of multiple architectures
+- **Single architecture compilation**: Compiles only for DGX Spark (12.0f) instead of multiple architectures
 - **Parallel compilation**: Uses `NVCC_THREADS=8` for faster CUDA kernel compilation
 - **No job limit**: Removes `MAX_JOBS` constraint to auto-detect CPU cores for maximum parallelism
 
