@@ -66,6 +66,12 @@ To maximize cache reuse, the Dockerfile supports build arguments:
   - Note: The default `12.0f` is vLLM-specific notation for Grace Hopper architecture
   - For other GPUs, use standard compute capability values (e.g., `8.0` for A100, `9.0` for H100)
 
+### Build Performance Optimizations
+The Dockerfile is optimized to compile vLLM quickly:
+- **Single architecture compilation**: Compiles only for H100 (compute 9.0) instead of multiple architectures
+- **Parallel compilation**: Uses `NVCC_THREADS=8` for faster CUDA kernel compilation
+- **No job limit**: Removes `MAX_JOBS` constraint to auto-detect CPU cores for maximum parallelism
+
 Example of building with pinned versions:
 ```bash
 docker build \
