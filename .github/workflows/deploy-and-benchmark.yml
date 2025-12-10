@@ -471,8 +471,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Benchmark Results (vllm bench serve)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Prefill (Input) | Cached (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-----------------|----------------|-----------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Prefill (Input) | Cached Prefill (Input) | Decode (Output) |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------------|------------------------|-----------------|" >> $GITHUB_STEP_SUMMARY
           echo "| Throughput | ${{ steps.benchmark.outputs.prefill_tps }} tok/s | ${{ steps.benchmark.outputs.cached_tps }} tok/s | ${{ steps.benchmark.outputs.decode_tps }} tok/s |" >> $GITHUB_STEP_SUMMARY
           echo "| Cost per 1M tokens | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_cached }} | \$${{ steps.benchmark.outputs.cost_out }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
