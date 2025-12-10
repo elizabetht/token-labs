@@ -42,7 +42,6 @@ WORKDIR /app
 RUN git clone https://github.com/LMCache/LMCache.git
 WORKDIR /app/LMCache
 RUN pip install -r requirements/build.txt
-RUN pip install -e . --no-build-isolation
 
 # Go back to vLLM directory
 WORKDIR /app/vllm
@@ -57,6 +56,9 @@ RUN apt install -y python3-dev
 
 # Install vLLM with local build (source build for ARM64)
 RUN pip install --no-build-isolation -e . -v --pre
+
+WORKDIR /app/LMCache
+RUN pip install -e . --no-build-isolation -v --pre
 
 # Clean up build artifacts
 RUN rm -rf /app/vllm/.git && rm -rf /root/.cache/pip && rm -rf /tmp/*
