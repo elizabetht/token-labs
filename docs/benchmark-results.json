@@ -7,14 +7,14 @@
     "cost_per_million_tokens": 0.0
   },
   "cached": {
-    "tokens_per_second": 0.0,
-    "cost_per_million_tokens": 0.0
+    "tokens_per_second": 243.61,
+    "cost_per_million_tokens": 0.0798
   },
   "decode": {
     "tokens_per_second": 0.0,
     "cost_per_million_tokens": 0.0
   },
-  "timestamp": "2025-12-10T15:42:48.703055Z",
+  "timestamp": "2025-12-10T15:53:04.840650Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.3,
     "max_model_len": 131072,
