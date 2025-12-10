@@ -54,19 +54,18 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/app/vllm/build \
     pip install --no-build-isolation -e . -v --pre
 
-# RUN git clone https://github.com/LMCache/LMCache.git
-# WORKDIR /app/vllm/LMCache
-# RUN pip install -r requirements/build.txt
+RUN --mount=type=cache,target=/root/.cache/git git clone https://github.com/LMCache/LMCache.git
+WORKDIR /app/vllm/LMCache
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements/build.txt
 
 # Set additional environment variables specifically for LMCache build
 ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
 
 # Try installation without build isolation first, if it fails try with build isolation
-# RUN pip install -e . --no-build-isolation || pip install -e .
+RUN --mount=type=cache,target=/root/.cache/pip pip install -e . --no-build-isolation || pip install -e .
 
 # Clean up build artifacts
-RUN rm -rf /app/vllm/.git && rm -rf /root/.cache/pip && rm -rf /tmp/* 
-# && rm -rf /app/LMCache/.git
+RUN rm -rf /app/vllm/.git && rm -rf /root/.cache/pip && rm -rf /tmp/* && rm -rf /app/LMCache/.git
 
 RUN apt install -y python3-dev
 
