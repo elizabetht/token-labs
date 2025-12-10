@@ -142,7 +142,7 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 10 \
+            --num-prompts 100 \
             --request-rate 10 \
             --random-input-len 8192 \
             --random-output-len 1024" \
@@ -170,7 +170,7 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 10 \
+            --num-prompts 100 \
             --request-rate 10 \
             --random-input-len 1024 \
             --random-output-len 8192" \
@@ -199,7 +199,7 @@ jobs:
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
             --dataset-name prefix_repetition \
-            --num-prompts 10 \
+            --num-prompts 100 \
             --prefix-repetition-prefix-len 512 \
             --prefix-repetition-suffix-len 128 \
             --prefix-repetition-num-prefixes 5 \
