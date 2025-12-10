@@ -24,7 +24,7 @@ RUN pip install torch torchvision torchaudio --index-url https://download.pytorc
 RUN pip install xgrammar triton
 
 # Set essential environment variables for build BEFORE building packages
-ENV TORCH_CUDA_ARCH_LIST="8.9;9.0;12.1"
+ENV TORCH_CUDA_ARCH_LIST="12.0f"
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
@@ -62,7 +62,7 @@ ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
 
 # Clean up build artifacts
 RUN rm -rf /app/vllm/.git && rm -rf /root/.cache/pip && rm -rf /tmp/* 
-#&& rm -rf /app/LMCache/.git
+# && rm -rf /app/LMCache/.git
 
 RUN apt install -y python3-dev
 
