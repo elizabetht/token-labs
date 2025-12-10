@@ -53,6 +53,11 @@ The build workflow uses GitHub Actions cache (`type=gha`) to persist layers betw
 - **Subsequent builds** (no changes): ~2-5 minutes (cache hit)
 - **Incremental builds** (dependency updates): ~10-15 minutes
 
+The workflow automatically builds Docker images:
+- **On push to main**: Creates image with `edge` tag
+- **On pull requests**: Builds image for testing (cache only, no push)
+- **On version tags** (`v*`): Creates image with version tag and `latest` tag
+
 ### Version Pinning
 To maximize cache reuse, the Dockerfile supports build arguments:
 - `VLLM_COMMIT`: Pin vLLM to a specific git commit (default: `main`)

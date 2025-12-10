@@ -2,7 +2,12 @@ name: Build and push vLLM image
 
 on:
   push:
+    branches:
+      - main
     tags: [ "v*" ]
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -39,7 +44,20 @@ jobs:
         run: |
           OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE=ghcr.io/${OWNER}/token-labs/vllm-serve" >> "$GITHUB_OUTPUT"
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          
+          # For tags, use the tag version
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "PUSH=true" >> "$GITHUB_OUTPUT"
+          # For main branch, use 'edge' tag
+          elif [[ "${GITHUB_REF}" == refs/heads/main ]]; then
+            echo "VERSION=edge" >> "$GITHUB_OUTPUT"
+            echo "PUSH=true" >> "$GITHUB_OUTPUT"
+          # For PRs, use pr-<number> tag and don't push
+          else
+            echo "VERSION=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "PUSH=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build and push
         id: build
@@ -47,11 +65,11 @@ jobs:
         with:
           context: .
           platforms: linux/arm64
-          push: true
+          push: ${{ steps.vars.outputs.PUSH }}
           provenance: false
           tags: |
             ${{ steps.vars.outputs.IMAGE }}:${{ steps.vars.outputs.VERSION }}
-            ${{ steps.vars.outputs.IMAGE }}:latest
+            ${{ steps.vars.outputs.PUSH == 'true' && format('{0}:latest', steps.vars.outputs.IMAGE) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
         env:
