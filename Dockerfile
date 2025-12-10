@@ -8,7 +8,9 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04 AS builder
 
 # Set essential environment variables for build
 # These are needed during compilation and should be set early
-ENV TORCH_CUDA_ARCH_LIST=12.0f
+# CUDA_ARCH can be overridden for different GPU architectures (e.g., 8.0 for A100)
+ARG CUDA_ARCH=12.0f
+ENV TORCH_CUDA_ARCH_LIST=${CUDA_ARCH}
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
@@ -44,11 +46,17 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install xgrammar triton
 
 # Install flashinfer for ARM64/CUDA 13.0
-# Separate layer for flashinfer to allow independent caching
+# Separate RUN commands for better debugging and cache granularity
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps && \
-    pip install flashinfer-python && \
-    pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly && \
+    pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install flashinfer-python
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly
+
+RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
 
 # Clone vLLM at a specific commit for cache stability
@@ -98,8 +106,7 @@ FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04 AS runtime
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y \
-    python3.12 python3.12-venv \
-    && rm -rf /var/lib/apt/lists/*
+    python3.12 python3.12-venv
 
 # Copy the virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv

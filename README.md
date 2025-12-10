@@ -57,12 +57,14 @@ The build workflow uses GitHub Actions cache (`type=gha`) to persist layers betw
 To maximize cache reuse, the Dockerfile supports build arguments:
 - `VLLM_COMMIT`: Pin vLLM to a specific git commit (default: `main`)
 - `LMCACHE_COMMIT`: Pin LMCache to a specific commit (default: `main`)
+- `CUDA_ARCH`: Target CUDA architecture for compilation (default: `12.0f` for DGX Spark)
 
 Example of building with pinned versions:
 ```bash
 docker build \
   --build-arg VLLM_COMMIT=v0.6.5 \
   --build-arg LMCACHE_COMMIT=abc1234 \
+  --build-arg CUDA_ARCH=8.0 \
   -t vllm-serve:custom .
 ```
 
