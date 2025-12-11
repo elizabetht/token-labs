@@ -147,51 +147,72 @@ jobs:
           echo "Running vLLM serving benchmarks..."
           DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
-          echo "========================================"
-          echo "Running PREFIX CACHE benchmark first to establish cache..."
-          echo "========================================"
+          # echo "========================================"
+          # echo "Running PREFIX CACHE benchmark first to establish cache..."
+          # echo "========================================"
           
-          # === RUN PREFIX CACHE BENCHMARK FIRST ===
-          echo "Starting PREFIX CACHE benchmark to populate cache and get server metrics..."
-          docker exec ${{ env.CONTAINER_NAME }} \
-            bash -c "source /opt/venv/bin/activate && \
-            FLASHINFER_DISABLE_VERSION_CHECK=1 \
-            vllm bench serve \
-            --model ${{ env.MODEL }} \
-            --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --dataset-name prefix_repetition \
-            --num-prompts 100 \
-            --prefix-repetition-prefix-len 512 \
-            --prefix-repetition-suffix-len 128 \
-            --prefix-repetition-num-prefixes 5 \
-            --prefix-repetition-output-len 128" \
-            2>&1 | tee cache_bench.txt
+          # # === RUN PREFIX CACHE BENCHMARK FIRST ===
+          # # LMCache is not enabled with vLLM - commenting out cache benchmark
+          # echo "Starting PREFIX CACHE benchmark to populate cache and get server metrics..."
+          # docker exec ${{ env.CONTAINER_NAME }} \
+          #   bash -c "source /opt/venv/bin/activate && \
+          #   FLASHINFER_DISABLE_VERSION_CHECK=1 \
+          #   vllm bench serve \
+          #   --model ${{ env.MODEL }} \
+          #   --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+          #   --dataset-name prefix_repetition \
+          #   --num-prompts 100 \
+          #   --prefix-repetition-prefix-len 512 \
+          #   --prefix-repetition-suffix-len 128 \
+          #   --prefix-repetition-num-prefixes 5 \
+          #   --prefix-repetition-output-len 128" \
+          #   2>&1 | tee cache_bench.txt
+          # CACHE_EXIT=$?
+          # 
+          # if [ $CACHE_EXIT -ne 0 ]; then
+          #   echo "❌ PREFIX CACHE benchmark failed (exit code: $CACHE_EXIT)"
+          #   echo "Cache benchmark output:"
+          #   cat cache_bench.txt
+          #   exit 1
+          # fi
+          # 
+          # echo "✅ PREFIX CACHE benchmark completed successfully!"
           
-          echo "✅ PREFIX CACHE benchmark completed!"
+          # Create empty cache_bench.txt file for compatibility
+          echo "LMCache not enabled - skipping cache benchmark" > cache_bench.txt
+          echo "✅ Cache benchmark skipped (LMCache not available)"
           
-          # === EXTRACT SERVER METRICS IMMEDIATELY AFTER CACHE BENCHMARK ===
-          echo ""
-          echo "========================================"
-          echo "EXTRACTING SERVER METRICS FOR CACHED THROUGHPUT CALCULATION"
-          echo "(Extracting while cache is populated and metrics are fresh)"
-          echo "========================================"
+          # # === EXTRACT SERVER METRICS IMMEDIATELY AFTER CACHE BENCHMARK ===
+          # # LMCache not enabled - skipping server metrics extraction
+          # echo ""
+          # echo "========================================"
+          # echo "EXTRACTING SERVER METRICS FOR CACHED THROUGHPUT CALCULATION"
+          # echo "(Extracting while cache is populated and metrics are fresh)"
+          # echo "========================================"
+          # 
+          # # Get recent server logs to extract vLLM server metrics
+          # docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
+          # 
+          # # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
+          # # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
+          # SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
+          #                     grep -v '^0\.0*$' | tail -1 || echo "0")
+          # 
+          # # Extract external prefix cache hit rate from vLLM server logs 
+          # # Pattern: "External prefix cache hit rate: 10.9%" 
+          # SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
+          # 
+          # echo "Extracted server metrics (non-zero prompt throughput only):"
+          # echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
+          # echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
+          # echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
           
-          # Get recent server logs to extract vLLM server metrics
-          docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
-          
-          # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
-          # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
-          SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
-                              grep -v '^0\.0*$' | tail -1 || echo "0")
-          
-          # Extract external prefix cache hit rate from vLLM server logs 
-          # Pattern: "External prefix cache hit rate: 10.9%" 
-          SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
-          
-          echo "Extracted server metrics (non-zero prompt throughput only):"
-          echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
-          echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
-          echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
+          # Set default values since LMCache is not available
+          SERVER_PROMPT_TPS="0"
+          SERVER_CACHE_HIT_RATE="0"
+          echo "LMCache not enabled - setting default server metrics:"
+          echo "- Server prompt throughput: $SERVER_PROMPT_TPS tokens/s"
+          echo "- Server cache hit rate: $SERVER_CACHE_HIT_RATE%"
           
           echo ""
           echo "========================================"
@@ -244,8 +265,30 @@ jobs:
           DECODE_EXIT=$?
           echo "✅ Decode benchmark completed (exit code: $DECODE_EXIT)"
           
+          # Check if either benchmark failed
+          if [ $PREFILL_EXIT -ne 0 ] || [ $DECODE_EXIT -ne 0 ]; then
+            echo "❌ One or more benchmarks failed"
+            echo "Prefill exit code: $PREFILL_EXIT"
+            echo "Decode exit code: $DECODE_EXIT"
+            
+            # Show benchmark outputs for debugging
+            if [ $PREFILL_EXIT -ne 0 ]; then
+              echo ""
+              echo "=== PREFILL BENCHMARK ERROR OUTPUT ==="
+              cat prefill_bench.txt
+            fi
+            
+            if [ $DECODE_EXIT -ne 0 ]; then
+              echo ""
+              echo "=== DECODE BENCHMARK ERROR OUTPUT ==="
+              cat decode_bench.txt
+            fi
+            
+            exit 1
+          fi
+          
           echo "========================================"
-          echo "All benchmarks completed! Processing results..."
+          echo "All benchmarks completed successfully! Processing results..."
           echo "========================================"
           
           # Display results
