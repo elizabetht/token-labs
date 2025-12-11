@@ -30,6 +30,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install flashinfer-python && \
     /opt/venv/bin/pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly && \
     /opt/venv/bin/pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
+    
 # Set essential environment variables for build BEFORE building packages
 ENV TORCH_CUDA_ARCH_LIST="12.1a"
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
