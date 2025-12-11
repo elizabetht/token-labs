@@ -415,17 +415,31 @@
                     return;
                 }
                 
-                // Sort by timestamp (newest first for table, oldest first for chart)
-                const sortedHistory = [...history].sort((a, b) => 
-                    new Date(a.timestamp) - new Date(b.timestamp)
-                );
+                // Helper function to parse semantic version (e.g., "0.1.0" -> [0, 1, 0])
+                const parseVersion = (v) => {
+                    if (!v) return [0, 0, 0];
+                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                };
+                
+                // Sort by version ascending (oldest first for chart, newest last)
+                const sortedHistory = [...history].sort((a, b) => {
+                    const vA = parseVersion(a.version);
+                    const vB = parseVersion(b.version);
+                    // Compare major, minor, patch in order
+                    for (let i = 0; i < 3; i++) {
+                        if (vA[i] !== vB[i]) return vA[i] - vB[i];
+                    }
+                    // If versions are equal, sort by timestamp
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                });
                 
                 const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
                 const prefillData = sortedHistory.map(h => h.prefill?.tokens_per_second || 0);
                 const cachedData = sortedHistory.map(h => h.cached?.tokens_per_second || 0);
                 const decodeData = sortedHistory.map(h => h.decode?.tokens_per_second || 0);
                 
-                // Build table rows separately to avoid nested template literal issues
+                // Build table rows with reversed history (newest first in table)
                 const reversedHistory = [...sortedHistory].reverse();
                 const tableRows = reversedHistory.map((h, i, arr) => {
                     const prev = arr[i + 1];
