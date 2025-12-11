@@ -244,13 +244,10 @@ jobs:
             vllm bench serve \
             --model ${{ env.MODEL }} \
             --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --dataset-name hf \
-            --dataset-path philschmid/mt-bench \
-            --hf-output-len 512 \
             --num-prompts 100 \
-            --max-concurrency 100 \
-            --temperature 1.0 \
-            --top-p 1.0" \
+            --request-rate 10 \
+            --random-input-len 1024 \
+            --random-output-len 3072" \
             > decode_bench.txt 2>&1 &
           DECODE_PID=$!
           
