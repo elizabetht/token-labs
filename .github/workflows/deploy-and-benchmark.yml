@@ -126,51 +126,58 @@ jobs:
           echo "Running vLLM serving benchmarks..."
           DGX_COST=${{ env.DGX_COST_PER_HOUR }}
           
-          echo "========================================"
-          echo "Running PREFIX CACHE benchmark first to establish cache..."
-          echo "========================================"
+          # echo "========================================"
+          # echo "Running PREFIX CACHE benchmark first to establish cache..."
+          # echo "========================================"
+          # 
+          # # === RUN PREFIX CACHE BENCHMARK FIRST ===
+          # echo "Starting PREFIX CACHE benchmark to populate cache and get server metrics..."
+          # docker exec ${{ env.CONTAINER_NAME }} \
+          #   bash -c "source /opt/venv/bin/activate && \
+          #   FLASHINFER_DISABLE_VERSION_CHECK=1 \
+          #   vllm bench serve \
+          #   --model ${{ env.MODEL }} \
+          #   --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+          #   --dataset-name prefix_repetition \
+          #   --num-prompts 100 \
+          #   --prefix-repetition-prefix-len 512 \
+          #   --prefix-repetition-suffix-len 128 \
+          #   --prefix-repetition-num-prefixes 5 \
+          #   --prefix-repetition-output-len 128" \
+          #   2>&1 | tee cache_bench.txt
+          # 
+          # echo "✅ PREFIX CACHE benchmark completed!"
           
-          # === RUN PREFIX CACHE BENCHMARK FIRST ===
-          echo "Starting PREFIX CACHE benchmark to populate cache and get server metrics..."
-          docker exec ${{ env.CONTAINER_NAME }} \
-            bash -c "source /opt/venv/bin/activate && \
-            FLASHINFER_DISABLE_VERSION_CHECK=1 \
-            vllm bench serve \
-            --model ${{ env.MODEL }} \
-            --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --dataset-name prefix_repetition \
-            --num-prompts 100 \
-            --prefix-repetition-prefix-len 512 \
-            --prefix-repetition-suffix-len 128 \
-            --prefix-repetition-num-prefixes 5 \
-            --prefix-repetition-output-len 128" \
-            2>&1 | tee cache_bench.txt
-          
-          echo "✅ PREFIX CACHE benchmark completed!"
+          # CACHE TEST DISABLED - Create empty file for compatibility
+          echo "PREFIX CACHE test disabled (LMCache image not ready)" > cache_bench.txt
           
           # === EXTRACT SERVER METRICS IMMEDIATELY AFTER CACHE BENCHMARK ===
-          echo ""
-          echo "========================================"
-          echo "EXTRACTING SERVER METRICS FOR CACHED THROUGHPUT CALCULATION"
-          echo "(Extracting while cache is populated and metrics are fresh)"
-          echo "========================================"
+          # echo ""
+          # echo "========================================"
+          # echo "EXTRACTING SERVER METRICS FOR CACHED THROUGHPUT CALCULATION"
+          # echo "(Extracting while cache is populated and metrics are fresh)"
+          # echo "========================================"
+          # 
+          # # Get recent server logs to extract vLLM server metrics
+          # docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
+          # 
+          # # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
+          # # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
+          # SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
+          #                     grep -v '^0\.0*$' | tail -1 || echo "0")
+          # 
+          # # Extract external prefix cache hit rate from vLLM server logs 
+          # # Pattern: "External prefix cache hit rate: 10.9%" 
+          # SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
+          # 
+          # echo "Extracted server metrics (non-zero prompt throughput only):"
+          # echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
+          # echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
+          # echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
           
-          # Get recent server logs to extract vLLM server metrics
-          docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
-          
-          # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
-          # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
-          SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
-                              grep -v '^0\.0*$' | tail -1 || echo "0")
-          
-          # Extract external prefix cache hit rate from vLLM server logs 
-          # Pattern: "External prefix cache hit rate: 10.9%" 
-          SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
-          
-          echo "Extracted server metrics (non-zero prompt throughput only):"
-          echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
-          echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
-          echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
+          # SERVER METRICS EXTRACTION DISABLED - Set to zero
+          SERVER_PROMPT_TPS="0"
+          SERVER_CACHE_HIT_RATE="0"
           
           echo ""
           echo "========================================"
@@ -259,58 +266,71 @@ jobs:
           echo "Decode throughput: $DECODE_TPS tokens/s"
           
           # Extract cached throughput from prefix_repetition benchmark
-          CACHE_TEST_TPS=$(grep -oP 'Cached input throughput \(tok/s\):\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
-          if [ "$CACHE_TEST_TPS" = "0" ] || [ -z "$CACHE_TEST_TPS" ]; then
-            # Fallback to input throughput
-            CACHE_TEST_TPS=$(grep -oP 'Input throughput \(tok/s\):\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
-          fi
-          echo "Cache test throughput: $CACHE_TEST_TPS tokens/s"
+          # CACHE_TEST_TPS=$(grep -oP 'Cached input throughput \(tok/s\):\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
+          # if [ "$CACHE_TEST_TPS" = "0" ] || [ -z "$CACHE_TEST_TPS" ]; then
+          #   # Fallback to input throughput
+          #   CACHE_TEST_TPS=$(grep -oP 'Input throughput \(tok/s\):\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
+          # fi
+          # echo "Cache test throughput: $CACHE_TEST_TPS tokens/s"
+          # 
+          # # Extract prefix cache hit rate if available
+          # CACHE_HIT_RATE=$(grep -oP 'Prefix cache hit rate:\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
+          # echo "Prefix cache hit rate: $CACHE_HIT_RATE%"
           
-          # Extract prefix cache hit rate if available
-          CACHE_HIT_RATE=$(grep -oP 'Prefix cache hit rate:\s*\K[\d.]+' cache_bench.txt | tail -1 || echo "0")
-          echo "Prefix cache hit rate: $CACHE_HIT_RATE%"
+          # CACHE TEST DISABLED - Set to zero
+          CACHE_TEST_TPS="0"
+          CACHE_HIT_RATE="0"
+          echo "Cache test throughput: $CACHE_TEST_TPS tokens/s (disabled)"
+          echo "Prefix cache hit rate: $CACHE_HIT_RATE% (disabled)"
           
           # Calculate cached input throughput using server metrics formula:
           # Cached input throughput = Avg prompt throughput × Prefix cache hit rate
+          # echo "========================================"
+          # echo ""
+          # echo "=== CALCULATING CACHED THROUGHPUT FROM EXTRACTED SERVER METRICS ==="
+          # 
+          # # Use the server metrics extracted after cache benchmark
+          # echo "Using previously extracted server metrics:"
+          # echo "- Server prompt throughput: $SERVER_PROMPT_TPS tokens/s"
+          # echo "- Server cache hit rate: $SERVER_CACHE_HIT_RATE%"
+          # 
+          # # Fallback to benchmark values if server metrics not found
+          # if [ "$SERVER_PROMPT_TPS" = "0" ] || [ -z "$SERVER_PROMPT_TPS" ]; then
+          #   SERVER_PROMPT_TPS=$PREFILL_TPS
+          #   echo "Fallback: Using benchmark prompt throughput: $SERVER_PROMPT_TPS tokens/s"
+          # fi
+          # 
+          # if [ "$SERVER_CACHE_HIT_RATE" = "0" ] || [ -z "$SERVER_CACHE_HIT_RATE" ]; then
+          #   SERVER_CACHE_HIT_RATE="$CACHE_HIT_RATE"
+          #   echo "Fallback: Using benchmark cache hit rate: $SERVER_CACHE_HIT_RATE%"
+          # fi
+          # 
+          # # Calculate cached input throughput using the formula:
+          # # cached_input_throughput = prompt_throughput × (cache_hit_rate / 100)
+          # if [ "$SERVER_PROMPT_TPS" != "0" ] && [ "$SERVER_CACHE_HIT_RATE" != "0" ]; then
+          #   CALCULATED_CACHED_TPS=$(echo "scale=2; $SERVER_PROMPT_TPS * ($SERVER_CACHE_HIT_RATE / 100)" | bc)
+          #   echo "Calculated cached input throughput: $CALCULATED_CACHED_TPS tokens/s"
+          #   echo "(Formula: $SERVER_PROMPT_TPS × $SERVER_CACHE_HIT_RATE% = $CALCULATED_CACHED_TPS tokens/s)"
+          # else
+          #   CALCULATED_CACHED_TPS="0"
+          #   echo "Cannot calculate cached throughput: insufficient server metrics"
+          # fi
+          # 
+          # # Use the better of benchmark result or calculated result
+          # if [ "$CACHE_TEST_TPS" != "0" ] && [ -n "$CACHE_TEST_TPS" ]; then
+          #   CACHED_TPS=$CACHE_TEST_TPS
+          #   echo "Using benchmark cached throughput: $CACHED_TPS tokens/s"
+          # elif [ "$CALCULATED_CACHED_TPS" != "0" ] && [ -n "$CALCULATED_CACHED_TPS" ]; then
+          #   CACHED_TPS=$CALCULATED_CACHED_TPS
+          #   echo "Using calculated cached throughput: $CACHED_TPS tokens/s"
+          # fi
+          
+          # CACHED THROUGHPUT CALCULATION DISABLED
+          CACHED_TPS="0"
           echo "========================================"
           echo ""
-          echo "=== CALCULATING CACHED THROUGHPUT FROM EXTRACTED SERVER METRICS ==="
-          
-          # Use the server metrics extracted after cache benchmark
-          echo "Using previously extracted server metrics:"
-          echo "- Server prompt throughput: $SERVER_PROMPT_TPS tokens/s"
-          echo "- Server cache hit rate: $SERVER_CACHE_HIT_RATE%"
-          
-          # Fallback to benchmark values if server metrics not found
-          if [ "$SERVER_PROMPT_TPS" = "0" ] || [ -z "$SERVER_PROMPT_TPS" ]; then
-            SERVER_PROMPT_TPS=$PREFILL_TPS
-            echo "Fallback: Using benchmark prompt throughput: $SERVER_PROMPT_TPS tokens/s"
-          fi
-          
-          if [ "$SERVER_CACHE_HIT_RATE" = "0" ] || [ -z "$SERVER_CACHE_HIT_RATE" ]; then
-            SERVER_CACHE_HIT_RATE="$CACHE_HIT_RATE"
-            echo "Fallback: Using benchmark cache hit rate: $SERVER_CACHE_HIT_RATE%"
-          fi
-          
-          # Calculate cached input throughput using the formula:
-          # cached_input_throughput = prompt_throughput × (cache_hit_rate / 100)
-          if [ "$SERVER_PROMPT_TPS" != "0" ] && [ "$SERVER_CACHE_HIT_RATE" != "0" ]; then
-            CALCULATED_CACHED_TPS=$(echo "scale=2; $SERVER_PROMPT_TPS * ($SERVER_CACHE_HIT_RATE / 100)" | bc)
-            echo "Calculated cached input throughput: $CALCULATED_CACHED_TPS tokens/s"
-            echo "(Formula: $SERVER_PROMPT_TPS × $SERVER_CACHE_HIT_RATE% = $CALCULATED_CACHED_TPS tokens/s)"
-          else
-            CALCULATED_CACHED_TPS="0"
-            echo "Cannot calculate cached throughput: insufficient server metrics"
-          fi
-          
-          # Use the better of benchmark result or calculated result
-          if [ "$CACHE_TEST_TPS" != "0" ] && [ -n "$CACHE_TEST_TPS" ]; then
-            CACHED_TPS=$CACHE_TEST_TPS
-            echo "Using benchmark cached throughput: $CACHED_TPS tokens/s"
-          elif [ "$CALCULATED_CACHED_TPS" != "0" ] && [ -n "$CALCULATED_CACHED_TPS" ]; then
-            CACHED_TPS=$CALCULATED_CACHED_TPS
-            echo "Using calculated cached throughput: $CACHED_TPS tokens/s"
-          fi
+          echo "=== CACHED THROUGHPUT DISABLED (LMCache image not ready) ==="
+          echo "Cached input throughput: $CACHED_TPS tokens/s (disabled)"
           
           # Use extracted values
           INPUT_TPS=$PREFILL_TPS
