@@ -24,11 +24,12 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
 # Install pre-release deps
-RUN --mount=type=cache,target=/root/.cache/pip pip install xgrammar triton && \
-    --mount=type=cache,target=/root/.cache/pip pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps && \
-    --mount=type=cache,target=/root/.cache/pip pip install flashinfer-python && \
-    --mount=type=cache,target=/root/.cache/pip pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly && \
-    --mount=type=cache,target=/root/.cache/pip pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install xgrammar triton && \
+    pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps && \
+    pip install flashinfer-python && \
+    pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly && \
+    pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
 
 # Set essential environment variables for build BEFORE building packages
 ENV TORCH_CUDA_ARCH_LIST="12.0f"
@@ -65,9 +66,11 @@ ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
 RUN --mount=type=cache,target=/root/.cache/pip pip install -e . --no-build-isolation || pip install -e .
 
 # Clean up build artifacts
-RUN rm -rf /app/vllm/.git && rm -rf /root/.cache/pip && rm -rf /tmp/* && rm -rf /app/LMCache/.git
+RUN rm -rf /app/vllm/.git && rm -rf /tmp/* && rm -rf /app/vllm/LMCache/.git
 
-RUN apt install -y python3-dev
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y python3-dev && rm -rf /var/lib/apt/lists/*
 
 # Set environment
 ENV PATH="/opt/venv/bin:$PATH"
