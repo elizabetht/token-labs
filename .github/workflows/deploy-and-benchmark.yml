@@ -250,18 +250,19 @@ jobs:
           echo "========================================"
           
           # Extract prefill throughput (input tokens/s) from prefill-heavy benchmark
-          PREFILL_TPS=$(grep -oP 'Input throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
+          # Use Total token throughput as the primary metric for prefill-heavy workload
+          PREFILL_TPS=$(grep -oP 'Total token throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
           if [ "$PREFILL_TPS" = "0" ] || [ -z "$PREFILL_TPS" ]; then
-            # Fallback to total throughput if input not found
-            PREFILL_TPS=$(grep -oP 'Total Token throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
+            # Fallback to output token throughput if total not found
+            PREFILL_TPS=$(grep -oP 'Output token throughput \(tok/s\):\s*\K[\d.]+' prefill_bench.txt | tail -1 || echo "0")
           fi
           echo "Prefill throughput: $PREFILL_TPS tokens/s"
           
           # Extract decode throughput (output tokens/s) from decode-heavy benchmark  
-          DECODE_TPS=$(grep -oP 'Output throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
+          DECODE_TPS=$(grep -oP 'Output token throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
           if [ "$DECODE_TPS" = "0" ] || [ -z "$DECODE_TPS" ]; then
             # Fallback to total throughput if output not found
-            DECODE_TPS=$(grep -oP 'Total Token throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
+            DECODE_TPS=$(grep -oP 'Total token throughput \(tok/s\):\s*\K[\d.]+' decode_bench.txt | tail -1 || echo "0")
           fi
           echo "Decode throughput: $DECODE_TPS tokens/s"
           
