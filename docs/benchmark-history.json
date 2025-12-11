@@ -64,5 +64,71 @@
       "architecture": "ARM64"
     },
     "version": "0.1.0"
+  },
+  {
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "dgx_cost_per_hour": 0.07,
+    "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:0.2.0",
+    "prefill": {
+      "tokens_per_second": 579.81,
+      "cost_per_million_tokens": 0.0335
+    },
+    "cached": {
+      "tokens_per_second": 3518.77,
+      "cost_per_million_tokens": 0.0055
+    },
+    "decode": {
+      "tokens_per_second": 253.27,
+      "cost_per_million_tokens": 0.0767
+    },
+    "timestamp": "2025-12-11T06:02:24.001873Z",
+    "vllm_server_args": {
+      "gpu_memory_utilization": 0.3,
+      "max_model_len": 131072,
+      "kv_transfer_config": {
+        "kv_connector": "LMCacheConnectorV1",
+        "kv_role": "kv_both"
+      },
+      "prefix_caching": false
+    },
+    "lmcache_config": {
+      "enabled": true,
+      "chunk_size": 8,
+      "local_cpu": true,
+      "max_local_cpu_size": 5.0
+    },
+    "benchmark_args": {
+      "prefill_test": {
+        "num_prompts": 100,
+        "request_rate": 10,
+        "input_len": 3072,
+        "output_len": 1024,
+        "ratio": "3072:1024 input:output",
+        "total_tokens": 4096
+      },
+      "decode_test": {
+        "num_prompts": 100,
+        "request_rate": 10,
+        "input_len": 1024,
+        "output_len": 3072,
+        "ratio": "1024:3072 input:output",
+        "total_tokens": 4096
+      },
+      "cache_test": {
+        "dataset": "prefix_repetition",
+        "num_prompts": 100,
+        "prefix_len": 512,
+        "suffix_len": 128,
+        "num_prefixes": 5,
+        "output_len": 128,
+        "description": "Tests LMCache with repeated prefixes"
+      }
+    },
+    "hardware": {
+      "platform": "NVIDIA DGX Spark",
+      "gpu": "Grace Hopper",
+      "architecture": "ARM64"
+    },
+    "version": "0.2.0"
   }
 ]

@@ -1,20 +1,20 @@
 {
   "model": "meta-llama/Llama-3.1-8B-Instruct",
   "dgx_cost_per_hour": 0.07,
-  "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:0.1.0",
+  "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:0.2.0",
   "prefill": {
-    "tokens_per_second": 592.27,
-    "cost_per_million_tokens": 0.0328
+    "tokens_per_second": 579.81,
+    "cost_per_million_tokens": 0.0335
   },
   "cached": {
-    "tokens_per_second": 0,
-    "cost_per_million_tokens": 0
+    "tokens_per_second": 3518.77,
+    "cost_per_million_tokens": 0.0055
   },
   "decode": {
-    "tokens_per_second": 270.73,
-    "cost_per_million_tokens": 0.0718
+    "tokens_per_second": 253.27,
+    "cost_per_million_tokens": 0.0767
   },
-  "timestamp": "2025-12-11T03:08:11.610718Z",
+  "timestamp": "2025-12-11T06:02:24.001873Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.3,
     "max_model_len": 131072,
