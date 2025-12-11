@@ -45,6 +45,11 @@ RUN --mount=type=cache,target=/root/.cache/git \
 
 WORKDIR /app/vllm
 
+# Apply PR #24322 for speculative decoding improvements
+RUN curl -L https://github.com/vllm-project/vllm/pull/24322.patch -o /tmp/pr24322.patch && \
+    git apply /tmp/pr24322.patch && \
+    rm /tmp/pr24322.patch
+
 # Install build requirements for vLLM
 RUN python3 use_existing_torch.py
 RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements/build.txt
