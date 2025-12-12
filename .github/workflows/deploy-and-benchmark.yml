@@ -21,11 +21,12 @@ env:
   MODEL: meta-llama/Llama-3.1-8B-Instruct
   DRAFT_MODEL: meta-llama/Llama-3.2-1B-Instruct
 
-  # DGX Spark economics: $4000 hardware / 26280 hours (3yr) with 0.3 utilization = $0.05/hr + ~$0.02/hr electricity = $0.07/hr
-  DGX_COST_PER_HOUR: "0.07"
+  # DGX Spark economics: $4000 hardware / 26280 hours (3yr) = ~$0.152/hr base + ~$0.02/hr electricity
+  # Base cost scales with GPU utilization, electricity is fixed overhead
+  DGX_HARDWARE_COST_PER_HOUR: "0.152"  # Hardware amortization at 100% utilization
+  DGX_ELECTRICITY_COST_PER_HOUR: "0.02"  # Fixed electricity cost
+  GPU_MEMORY_UTILIZATION: "0.6"  # Must match --gpu-memory-utilization in docker run
   DGX_TAILSCALE_IP: "100.64.38.13"
-  # LMCache settings
-  LMCACHE_ENABLED: "true"
 
 jobs:
   deploy-and-benchmark:
@@ -125,9 +126,9 @@ jobs:
             -v ${{ github.workspace }}/config:/app/config:ro \
             "${CONTAINER_IMAGE}" \
             ${{ env.MODEL }} \
-            --gpu-memory-utilization 0.35 \
-           --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
-           --speculative-config '{"model": "RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3", "num_speculative_tokens": 7, "method": "eagle3"}'
+            --gpu-memory-utilization ${{ env.GPU_MEMORY_UTILIZATION }} \
+            --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
+            --speculative-config '{"model": "RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3", "num_speculative_tokens": 5, "method": "eagle3"}'
 
       - name: Wait for vLLM server to be ready
         run: |
@@ -153,7 +154,18 @@ jobs:
         run: |
           # Run separate benchmarks for prefill-heavy and decode-heavy workloads
           echo "Running vLLM serving benchmarks..."
-          DGX_COST=${{ env.DGX_COST_PER_HOUR }}
+          
+          # Calculate dynamic cost based on GPU utilization
+          # Total cost = (Hardware cost × GPU utilization) + Fixed electricity cost
+          GPU_UTIL=${{ env.GPU_MEMORY_UTILIZATION }}
+          HARDWARE_COST=${{ env.DGX_HARDWARE_COST_PER_HOUR }}
+          ELECTRICITY_COST=${{ env.DGX_ELECTRICITY_COST_PER_HOUR }}
+          
+          DGX_COST=$(echo "scale=4; ($HARDWARE_COST * $GPU_UTIL) + $ELECTRICITY_COST" | bc)
+          echo "GPU Memory Utilization: ${GPU_UTIL} (${GPU_UTIL}%)"
+          echo "Hardware cost (scaled): \$$(echo "scale=4; $HARDWARE_COST * $GPU_UTIL" | bc)/hr"
+          echo "Electricity cost (fixed): \$${ELECTRICITY_COST}/hr"
+          echo "Total DGX cost per hour: \$${DGX_COST}/hr"
           
           echo "========================================"
           echo "Running PREFIX CACHE benchmark first to establish cache..."
@@ -581,12 +593,19 @@ jobs:
 
       - name: Add summary
         run: |
+          # Calculate cost for display (same formula as benchmark step)
+          GPU_UTIL=${{ env.GPU_MEMORY_UTILIZATION }}
+          HARDWARE_COST=${{ env.DGX_HARDWARE_COST_PER_HOUR }}
+          ELECTRICITY_COST=${{ env.DGX_ELECTRICITY_COST_PER_HOUR }}
+          DGX_COST=$(echo "scale=4; ($HARDWARE_COST * $GPU_UTIL) + $ELECTRICITY_COST" | bc)
+          
           echo "## 🚀 Deployment and Benchmark Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** \`${{ steps.vars.outputs.FULL_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Model:** \`${{ env.MODEL }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Container:** \`${{ env.CONTAINER_NAME }}\` running on port ${{ env.VLLM_PORT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **DGX Spark Cost:** \`\$${{ env.DGX_COST_PER_HOUR }}/hour\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **GPU Memory Utilization:** \`${{ env.GPU_MEMORY_UTILIZATION }}\` (60%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **DGX Spark Cost:** \`\$${DGX_COST}/hour\` (hardware: \$$(echo \"scale=4; $HARDWARE_COST * $GPU_UTIL\" | bc) + electricity: \$${ELECTRICITY_COST})" >> $GITHUB_STEP_SUMMARY
           echo "- **LMCache:** Enabled (CPU offload)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Benchmark Results (vllm bench serve)" >> $GITHUB_STEP_SUMMARY
