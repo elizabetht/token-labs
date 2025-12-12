@@ -128,7 +128,7 @@ jobs:
             --gpu-memory-utilization 0.35 \
            --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
            --no-enable-prefix-caching \
-           --speculative-config '{"model": "RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3", "num_speculative_tokens": 3, "method": "eagle3"}'
+           --speculative-config '{"model": "RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3", "num_speculative_tokens": 5, "method": "eagle3"}'
 
       - name: Wait for vLLM server to be ready
         run: |
