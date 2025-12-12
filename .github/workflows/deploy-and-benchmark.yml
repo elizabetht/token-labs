@@ -208,9 +208,10 @@ jobs:
           SERVER_PROMPT_TPS=$(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | \
                               grep -v '^0\.0*$' | tail -1 || echo "0")
           
-          # Extract external prefix cache hit rate from vLLM server logs 
-          # Pattern: "External prefix cache hit rate: 10.9%" 
-          SERVER_CACHE_HIT_RATE=$(grep -oP 'External prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
+          # Extract cache hit rate from vLLM server logs
+          # With LMCache disabled, look for internal "Prefix cache hit rate" (vLLM automatic caching)
+          # Pattern: "Prefix cache hit rate: 10.9%" (NOT "External prefix cache hit rate")
+          SERVER_CACHE_HIT_RATE=$(grep -oP '(?<!External )Prefix cache hit rate: \K[\d.]+(?=%)' server_logs.txt | tail -1 || echo "0")
           
           echo "Extracted server metrics (non-zero prompt throughput only):"
           echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
