@@ -136,33 +136,54 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "prefill": {
-      "tokens_per_second": 343.94,
-      "cost_per_million_tokens": 0.0898
+      "tokens_per_second": 497.48,
+      "cost_per_million_tokens": 0.062,
+      "latency": {
+        "mean_ttft_ms": 73821.17,
+        "median_ttft_ms": 62732.23,
+        "p99_ttft_ms": 186582.35,
+        "mean_tpot_ms": 606.66,
+        "median_tpot_ms": 582.56,
+        "p99_tpot_ms": 774.58
+      }
     },
     "cached": {
-      "tokens_per_second": 3271.92,
-      "cost_per_million_tokens": 0.0094
+      "tokens_per_second": 2688.55,
+      "cost_per_million_tokens": 0.0114,
+      "latency": {
+        "mean_ttft_ms": 3811.3,
+        "median_ttft_ms": 3682.33,
+        "p99_ttft_ms": 6835.19,
+        "mean_tpot_ms": 175.06,
+        "median_tpot_ms": 179.74,
+        "p99_tpot_ms": 226.86
+      }
     },
     "decode": {
-      "tokens_per_second": 201.9,
-      "cost_per_million_tokens": 0.1529
+      "tokens_per_second": 206.46,
+      "cost_per_million_tokens": 0.1496,
+      "latency": {
+        "mean_ttft_ms": 504.21,
+        "median_ttft_ms": 469.33,
+        "p99_ttft_ms": 1133.07,
+        "mean_tpot_ms": 367.08,
+        "median_tpot_ms": 404.05,
+        "p99_tpot_ms": 482.39
+      }
     },
-    "timestamp": "2025-12-12T15:55:51.848058Z",
+    "timestamp": "2025-12-12T20:34:09.210776Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
-      "kv_transfer_config": {
-        "kv_connector": "LMCacheConnectorV1",
-        "kv_role": "kv_both"
-      },
+      "kv_transfer_config": null,
       "prefix_caching": false,
-      "speculative_decoding": true
+      "speculative_decoding": false
     },
     "lmcache_config": {
-      "enabled": true,
-      "chunk_size": 8,
-      "local_cpu": true,
-      "max_local_cpu_size": 5.0
+      "enabled": false,
+      "chunk_size": null,
+      "local_cpu": null,
+      "max_local_cpu_size": null
     },
     "benchmark_args": {
       "prefill_test": {
