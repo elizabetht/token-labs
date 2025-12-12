@@ -67,35 +67,57 @@
   },
   {
     "model": "meta-llama/Llama-3.1-8B-Instruct",
-    "dgx_cost_per_hour": 0.07,
+    "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.2.0",
     "prefill": {
-      "tokens_per_second": 595.05,
-      "cost_per_million_tokens": 0.0326
+      "tokens_per_second": 634.68,
+      "cost_per_million_tokens": 0.0486,
+      "latency": {
+        "mean_ttft_ms": 180363.1,
+        "median_ttft_ms": 215197.31,
+        "p99_ttft_ms": 521092.06,
+        "mean_tpot_ms": 233.97,
+        "median_tpot_ms": 207.09,
+        "p99_tpot_ms": 428.14
+      }
     },
     "cached": {
-      "tokens_per_second": 3541.33,
-      "cost_per_million_tokens": 0.0054
+      "tokens_per_second": 3620.98,
+      "cost_per_million_tokens": 0.0085,
+      "latency": {
+        "mean_ttft_ms": 3641.98,
+        "median_ttft_ms": 3749.7,
+        "p99_ttft_ms": 5948.52,
+        "mean_tpot_ms": 135.91,
+        "median_tpot_ms": 135.34,
+        "p99_tpot_ms": 154.21
+      }
     },
     "decode": {
-      "tokens_per_second": 249.62,
-      "cost_per_million_tokens": 0.0778
+      "tokens_per_second": 237.58,
+      "cost_per_million_tokens": 0.13,
+      "latency": {
+        "mean_ttft_ms": 12935.21,
+        "median_ttft_ms": 12070.13,
+        "p99_ttft_ms": 28526.96,
+        "mean_tpot_ms": 310.84,
+        "median_tpot_ms": 317.71,
+        "p99_tpot_ms": 406.03
+      }
     },
-    "timestamp": "2025-12-12T02:29:09.852210Z",
+    "timestamp": "2025-12-12T21:18:53.101628Z",
     "vllm_server_args": {
-      "gpu_memory_utilization": 0.3,
+      "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
-      "kv_transfer_config": {
-        "kv_connector": "LMCacheConnectorV1",
-        "kv_role": "kv_both"
-      },
-      "prefix_caching": false
+      "kv_transfer_config": null,
+      "prefix_caching": false,
+      "speculative_decoding": false
     },
     "lmcache_config": {
-      "enabled": true,
-      "chunk_size": 8,
-      "local_cpu": true,
-      "max_local_cpu_size": 5.0
+      "enabled": false,
+      "chunk_size": null,
+      "local_cpu": null,
+      "max_local_cpu_size": null
     },
     "benchmark_args": {
       "prefill_test": {
