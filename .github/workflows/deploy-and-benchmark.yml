@@ -201,7 +201,9 @@ jobs:
           echo "========================================"
           
           # Get recent server logs to extract vLLM server metrics
-          docker logs ${{ env.CONTAINER_NAME }} --tail 500 > server_logs.txt
+          # Use --since to only get logs from this container's current run
+          CONTAINER_START_TIME=$(docker inspect --format='{{.State.StartedAt}}' ${{ env.CONTAINER_NAME }})
+          docker logs ${{ env.CONTAINER_NAME }} --since "$CONTAINER_START_TIME" > server_logs.txt
           
           # Extract avg prompt throughput from vLLM server logs (filter for non-zero values)
           # Pattern: "Engine 000: Avg prompt throughput: 921.5 tokens/s" (exclude 0.0 values)
@@ -216,7 +218,7 @@ jobs:
           echo "Extracted server metrics (non-zero prompt throughput only):"
           echo "- Raw prompt throughput values found: $(grep -oP 'Avg prompt throughput: \K[\d.]+(?= tokens/s)' server_logs.txt | tr '\n' ' ')"
           echo "- Non-zero prompt throughput selected: $SERVER_PROMPT_TPS tokens/s"
-          echo "- External cache hit rate: $SERVER_CACHE_HIT_RATE%"
+          echo "- Prefix cache hit rate (internal): $SERVER_CACHE_HIT_RATE%"
           
           echo ""
           echo "========================================"
