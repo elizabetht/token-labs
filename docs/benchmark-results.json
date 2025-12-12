@@ -1,28 +1,29 @@
 {
   "model": "meta-llama/Llama-3.1-8B-Instruct",
-  "dgx_cost_per_hour": 0.07,
+  "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
   "prefill": {
-    "tokens_per_second": 675.87,
-    "cost_per_million_tokens": 0.0287
+    "tokens_per_second": 343.94,
+    "cost_per_million_tokens": 0.0898
   },
   "cached": {
-    "tokens_per_second": 2669.26,
-    "cost_per_million_tokens": 0.0072
+    "tokens_per_second": 3271.92,
+    "cost_per_million_tokens": 0.0094
   },
   "decode": {
-    "tokens_per_second": 0.0,
-    "cost_per_million_tokens": 0.0
+    "tokens_per_second": 201.9,
+    "cost_per_million_tokens": 0.1529
   },
-  "timestamp": "2025-12-12T14:55:08.792068Z",
+  "timestamp": "2025-12-12T15:55:51.848058Z",
   "vllm_server_args": {
-    "gpu_memory_utilization": 0.3,
+    "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
     "kv_transfer_config": {
       "kv_connector": "LMCacheConnectorV1",
       "kv_role": "kv_both"
     },
-    "prefix_caching": false
+    "prefix_caching": false,
+    "speculative_decoding": true
   },
   "lmcache_config": {
     "enabled": true,
