@@ -4,7 +4,7 @@ FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && apt-get install -y \
     python3.12 python3.12-dev python3.12-venv python3-pip \
-    gcc g++ ninja-build \
+    build-essential ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual env
