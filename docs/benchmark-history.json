@@ -16,15 +16,15 @@
       }
     },
     "cached": {
-      "tokens_per_second": 4617.29,
-      "cost_per_million_tokens": 0.0066,
+      "tokens_per_second": 0,
+      "cost_per_million_tokens": 0,
       "latency": {
-        "mean_ttft_ms": 2769.83,
-        "median_ttft_ms": 3005.67,
-        "p99_ttft_ms": 4505.51,
-        "mean_tpot_ms": 106.83,
-        "median_tpot_ms": 105.24,
-        "p99_tpot_ms": 120.73
+        "mean_ttft_ms": 0.0,
+        "median_ttft_ms": 0.0,
+        "p99_ttft_ms": 0.0,
+        "mean_tpot_ms": 0.0,
+        "median_tpot_ms": 0.0,
+        "p99_tpot_ms": 0.0
       }
     },
     "decode": {
