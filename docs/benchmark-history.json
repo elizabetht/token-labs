@@ -4,42 +4,51 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.1.0",
     "prefill": {
-      "tokens_per_second": 710.51,
+      "tokens_per_second": 710.34,
       "cost_per_million_tokens": 0.0434,
       "latency": {
-        "mean_ttft_ms": 170562.08,
-        "median_ttft_ms": 220559.6,
-        "p99_ttft_ms": 450866.88,
-        "mean_tpot_ms": 203.85,
-        "median_tpot_ms": 207.94,
-        "p99_tpot_ms": 356.15
+        "mean_ttft_ms": 168976.11,
+        "median_ttft_ms": 221021.67,
+        "p99_ttft_ms": 451348.25,
+        "mean_tpot_ms": 205.55,
+        "median_tpot_ms": 208.21,
+        "p99_tpot_ms": 367.87,
+        "mean_itl_ms": 205.55,
+        "median_itl_ms": 160.75,
+        "p99_itl_ms": 905.83
       }
     },
     "cached": {
-      "tokens_per_second": 0,
-      "cost_per_million_tokens": 0,
+      "tokens_per_second": 0.0,
+      "cost_per_million_tokens": 0.0,
       "latency": {
         "mean_ttft_ms": 0.0,
         "median_ttft_ms": 0.0,
         "p99_ttft_ms": 0.0,
         "mean_tpot_ms": 0.0,
         "median_tpot_ms": 0.0,
-        "p99_tpot_ms": 0.0
+        "p99_tpot_ms": 0.0,
+        "mean_itl_ms": 0.0,
+        "median_itl_ms": 0.0,
+        "p99_itl_ms": 0.0
       }
     },
     "decode": {
-      "tokens_per_second": 284.47,
+      "tokens_per_second": 284.44,
       "cost_per_million_tokens": 0.1085,
       "latency": {
-        "mean_ttft_ms": 10618.87,
-        "median_ttft_ms": 10140.22,
-        "p99_ttft_ms": 20358.5,
-        "mean_tpot_ms": 238.62,
-        "median_tpot_ms": 247.64,
-        "p99_tpot_ms": 339.75
+        "mean_ttft_ms": 10536.75,
+        "median_ttft_ms": 10078.24,
+        "p99_ttft_ms": 20176.81,
+        "mean_tpot_ms": 238.47,
+        "median_tpot_ms": 247.4,
+        "p99_tpot_ms": 339.66,
+        "mean_itl_ms": 238.47,
+        "median_itl_ms": 162.94,
+        "p99_itl_ms": 823.13
       }
     },
-    "timestamp": "2025-12-15T02:52:25.027115Z",
+    "timestamp": "2025-12-15T06:37:15.778238Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
