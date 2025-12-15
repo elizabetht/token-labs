@@ -83,13 +83,16 @@ check_contains "Config contains max_local_cpu_size: 5.0" "$CONFIG_CONTENT" "max_
 # Test 3: Verify environment variables are set
 echo ""
 echo "Test 3: Checking LMCache environment variables..."
-LMCACHE_LOG_LEVEL=$(docker run --rm "$IMAGE_TAG" printenv LMCACHE_LOG_LEVEL || echo "not set")
+# Combine all env var checks into a single docker run for efficiency
+ENV_VARS=$(docker run --rm "$IMAGE_TAG" sh -c 'echo "LMCACHE_LOG_LEVEL=$LMCACHE_LOG_LEVEL"; echo "LMCACHE_CONFIG_FILE=$LMCACHE_CONFIG_FILE"; echo "LMCACHE_USE_EXPERIMENTAL=$LMCACHE_USE_EXPERIMENTAL"')
+
+LMCACHE_LOG_LEVEL=$(echo "$ENV_VARS" | grep "LMCACHE_LOG_LEVEL=" | cut -d'=' -f2)
 check_result "LMCACHE_LOG_LEVEL=WARNING" "$LMCACHE_LOG_LEVEL" "WARNING"
 
-LMCACHE_CONFIG_FILE=$(docker run --rm "$IMAGE_TAG" printenv LMCACHE_CONFIG_FILE || echo "not set")
+LMCACHE_CONFIG_FILE=$(echo "$ENV_VARS" | grep "LMCACHE_CONFIG_FILE=" | cut -d'=' -f2-)
 check_result "LMCACHE_CONFIG_FILE=/app/config/lmcache-cpu-offload.yaml" "$LMCACHE_CONFIG_FILE" "/app/config/lmcache-cpu-offload.yaml"
 
-LMCACHE_USE_EXPERIMENTAL=$(docker run --rm "$IMAGE_TAG" printenv LMCACHE_USE_EXPERIMENTAL || echo "not set")
+LMCACHE_USE_EXPERIMENTAL=$(echo "$ENV_VARS" | grep "LMCACHE_USE_EXPERIMENTAL=" | cut -d'=' -f2)
 check_result "LMCACHE_USE_EXPERIMENTAL=True" "$LMCACHE_USE_EXPERIMENTAL" "True"
 
 # Test 4: Verify CMD arguments are set correctly
