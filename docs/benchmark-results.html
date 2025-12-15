@@ -434,10 +434,12 @@
                     return new Date(a.timestamp) - new Date(b.timestamp);
                 });
                 
-                const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
-                const prefillData = sortedHistory.map(h => h.prefill?.tokens_per_second || 0);
-                const cachedData = sortedHistory.map(h => h.cached?.tokens_per_second || 0);
-                const decodeData = sortedHistory.map(h => h.decode?.tokens_per_second || 0);
+                // Filter out v0.3.0 for the chart
+                const chartHistory = sortedHistory.filter(h => h.version !== '0.3.0');
+                
+                const labels = chartHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
+                const prefillData = chartHistory.map(h => h.prefill?.tokens_per_second || 0);
+                const cachedData = chartHistory.map(h => h.cached?.tokens_per_second || 0);
                 
                 // Build table rows with reversed history (newest first in table)
                 const reversedHistory = [...sortedHistory].reverse();
@@ -474,7 +476,7 @@
                 
                 historySection.innerHTML = `
                     <div class="card">
-                        <h2>📈 Performance History</h2>
+                        <h2>📈 Prefill vs Cached Prefill tok/s</h2>
                         <div class="chart-container">
                             <canvas id="historyChart"></canvas>
                         </div>
@@ -482,7 +484,7 @@
                     
                     ${v010 && v030 ? `
                     <div class="card">
-                        <h2>📊 v0.1.0 vs v0.3.0 Decode Performance Comparison</h2>
+                        <h2>📊 Decode Performance: Without Spec Dec vs With Spec Dec</h2>
                         <div class="chart-container">
                             <canvas id="comparisonChart"></canvas>
                         </div>
@@ -538,14 +540,6 @@
                                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
                                 fill: true,
                                 tension: 0.3
-                            },
-                            {
-                                label: 'Decode Throughput (tok/s)',
-                                data: decodeData,
-                                borderColor: '#22c55e',
-                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                                fill: true,
-                                tension: 0.3
                             }
                         ]
                     },
@@ -576,7 +570,7 @@
                 // Create comparison chart if both versions exist
                 if (v010 && v030) {
                     const compCtx = document.getElementById('comparisonChart').getContext('2d');
-                    const comparisonMetrics = ['Mean TTFT', 'Median TTFT', 'P99 TTFT', 'Mean TPOT', 'Median TPOT', 'P99 TPOT'];
+                    const comparisonMetrics = ['Mean TTFT', 'Median TTFT', 'P99 TTFT', 'Mean ITL (TPOT)', 'Median ITL (TPOT)', 'P99 ITL (TPOT)'];
                     const v010Data = [
                         v010.decode.latency.mean_ttft_ms,
                         v010.decode.latency.median_ttft_ms,
@@ -600,14 +594,14 @@
                             labels: comparisonMetrics,
                             datasets: [
                                 {
-                                    label: 'v0.1.0 (LMCache)',
+                                    label: 'Without Speculative Decoding (v0.1.0)',
                                     data: v010Data,
                                     backgroundColor: 'rgba(99, 102, 241, 0.8)',
                                     borderColor: '#6366f1',
                                     borderWidth: 1
                                 },
                                 {
-                                    label: 'v0.3.0 (Eagle3 Speculative)',
+                                    label: 'With Speculative Decoding (v0.3.0)',
                                     data: v030Data,
                                     backgroundColor: 'rgba(34, 197, 94, 0.8)',
                                     borderColor: '#22c55e',
@@ -625,7 +619,15 @@
                                 tooltip: {
                                     callbacks: {
                                         label: function(context) {
-                                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                                            const label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                                            // Show improvement for v0.3.0 ITL metrics
+                                            if (context.datasetIndex === 1 && context.dataIndex >= 3) {
+                                                const improvement = ((v010Data[context.dataIndex] - v030Data[context.dataIndex]) / v010Data[context.dataIndex] * 100).toFixed(1);
+                                                if (improvement > 0) {
+                                                    return label + ' (' + improvement + '% faster)';
+                                                }
+                                            }
+                                            return label;
                                         }
                                     }
                                 }
