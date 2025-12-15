@@ -75,20 +75,16 @@ jobs:
                 "${IMAGE}" ${{ env.MODEL }} --gpu-memory-utilization 0.3
               ;;
             0.2.0|v0.2.0)
-              export LMCACHE_ENABLED="true" SPECULATIVE_DECODING_ENABLED="false" PREFIX_CACHING_ENABLED="false"
+              # v0.2.0 has LMCache configuration baked into the Docker image
+              # No environment variables or volume mounts needed for LMCache
+              # All settings (chunk_size, local_cpu, max_local_cpu_size, kv-transfer-config)
+              # are pre-configured in the Dockerfile
               docker run -d --gpus all --name ${{ env.CONTAINER_NAME }} \
                 -p ${{ env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}:8000 \
                 -e HF_TOKEN=${{ secrets.HF_TOKEN }} \
                 -e FLASHINFER_DISABLE_VERSION_CHECK=1 \
-                -e LMCACHE_LOG_LEVEL=WARNING \
-                -e LMCACHE_CONFIG_FILE=/app/config/lmcache-cpu-offload.yaml \
-                -e LMCACHE_USE_EXPERIMENTAL=True \
                 -v $HOME/.cache/huggingface:/root/.cache/huggingface \
-                -v ${{ github.workspace }}/config:/app/config:ro \
-                "${IMAGE}" ${{ env.MODEL }} \
-                --gpu-memory-utilization 0.3 \
-                --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
-                --no-enable-prefix-caching
+                "${IMAGE}" ${{ env.MODEL }}
               ;;
             *)
               export LMCACHE_ENABLED="false" SPECULATIVE_DECODING_ENABLED="true" PREFIX_CACHING_ENABLED="true"
