@@ -70,7 +70,21 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 # Working directory
 WORKDIR /app
 
+# Copy LMCache configuration into the image (v0.2.0 baked-in config)
+COPY config/lmcache-cpu-offload.yaml /app/config/lmcache-cpu-offload.yaml
+
+# Set LMCache environment variables (v0.2.0 default configuration)
+# These settings enable LMCache with CPU offloading for optimal performance
+ENV LMCACHE_LOG_LEVEL=WARNING
+ENV LMCACHE_CONFIG_FILE=/app/config/lmcache-cpu-offload.yaml
+ENV LMCACHE_USE_EXPERIMENTAL=True
+
 # Expose port
 EXPOSE 8000
 
+# Default vLLM entrypoint with LMCache configuration baked in for v0.2.0
+# - kv-transfer-config: Enables LMCache with bidirectional KV cache transfer
+# - no-enable-prefix-caching: Disables vLLM's built-in prefix caching (LMCache handles this)
+# - gpu-memory-utilization: Conservative 0.3 setting for stability with LMCache
 ENTRYPOINT ["vllm", "serve"]
+CMD ["--kv-transfer-config", "{\"kv_connector\":\"LMCacheConnectorV1\",\"kv_role\":\"kv_both\"}", "--no-enable-prefix-caching", "--gpu-memory-utilization", "0.3"]

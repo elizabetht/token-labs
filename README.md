@@ -23,6 +23,18 @@ Self-hosted LLM inference on NVIDIA DGX Spark with automated benchmarking and co
 - **Inference Engine**: [vLLM](https://github.com/vllm-project/vllm)
 - **Model**: Meta Llama 3.1 8B Instruct
 - **CI/CD**: GitHub Actions with self-hosted runner
+- **Cache**: [LMCache](https://github.com/LMCache/LMCache) v0.3.9 with CPU offloading
+
+### Version 0.2.0 Features
+
+v0.2.0 includes **baked-in LMCache configuration** for optimal prefix caching performance:
+
+- **Chunk Size**: 8 tokens
+- **CPU Offloading**: Enabled with 5.0 GB max cache
+- **KV Transfer**: Bidirectional with LMCacheConnectorV1
+- **GPU Memory**: Conservative 0.3 utilization for stability
+
+All LMCache settings are pre-configured in the Docker image - no runtime environment variables needed.
 
 ## 💰 Cost Economics
 
@@ -40,12 +52,15 @@ DGX Spark running costs:
 ## 📁 Repository Structure
 
 ```
-├── Dockerfile              # vLLM build for ARM64/CUDA 13.0
+├── Dockerfile              # vLLM build for ARM64/CUDA 13.0 with LMCache
+├── config/
+│   └── lmcache-cpu-offload.yaml  # LMCache config (baked into v0.2.0)
 ├── docs/
 │   ├── index.html          # Main landing page
 │   ├── benchmark-results.html  # Detailed benchmark results
 │   └── benchmark-results.json  # Raw JSON data (auto-updated)
 ├── scripts/
+│   ├── generate_results.py # Generate benchmark JSON (v0.2.0 LMCache hardcoded)
 │   └── update_pricing.py   # Updates pricing in docs
 └── .github/workflows/
     ├── build-and-push.yml      # Build vLLM Docker image
