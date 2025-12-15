@@ -180,42 +180,42 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "prefill": {
-      "tokens_per_second": 497.48,
-      "cost_per_million_tokens": 0.062,
+      "tokens_per_second": 491.72,
+      "cost_per_million_tokens": 0.0628,
       "latency": {
-        "mean_ttft_ms": 73821.17,
-        "median_ttft_ms": 62732.23,
-        "p99_ttft_ms": 186582.35,
-        "mean_tpot_ms": 606.66,
-        "median_tpot_ms": 582.56,
-        "p99_tpot_ms": 774.58
+        "mean_ttft_ms": 74275.14,
+        "median_ttft_ms": 62961.09,
+        "p99_ttft_ms": 188245.01,
+        "mean_tpot_ms": 615.1,
+        "median_tpot_ms": 590.91,
+        "p99_tpot_ms": 783.98
       }
     },
     "cached": {
-      "tokens_per_second": 2688.55,
+      "tokens_per_second": 2697.8,
       "cost_per_million_tokens": 0.0114,
       "latency": {
-        "mean_ttft_ms": 3811.3,
-        "median_ttft_ms": 3682.33,
-        "p99_ttft_ms": 6835.19,
-        "mean_tpot_ms": 175.06,
-        "median_tpot_ms": 179.74,
-        "p99_tpot_ms": 226.86
+        "mean_ttft_ms": 3703.59,
+        "median_ttft_ms": 3592.74,
+        "p99_ttft_ms": 6861.19,
+        "mean_tpot_ms": 174.41,
+        "median_tpot_ms": 176.34,
+        "p99_tpot_ms": 238.41
       }
     },
     "decode": {
-      "tokens_per_second": 206.46,
-      "cost_per_million_tokens": 0.1496,
+      "tokens_per_second": 208.25,
+      "cost_per_million_tokens": 0.1483,
       "latency": {
-        "mean_ttft_ms": 504.21,
-        "median_ttft_ms": 469.33,
-        "p99_ttft_ms": 1133.07,
-        "mean_tpot_ms": 367.08,
-        "median_tpot_ms": 404.05,
-        "p99_tpot_ms": 482.39
+        "mean_ttft_ms": 544.71,
+        "median_ttft_ms": 527.69,
+        "p99_ttft_ms": 1203.98,
+        "mean_tpot_ms": 356.83,
+        "median_tpot_ms": 400.12,
+        "p99_tpot_ms": 478.25
       }
     },
-    "timestamp": "2025-12-12T20:34:09.210776Z",
+    "timestamp": "2025-12-15T05:59:47.580755Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
