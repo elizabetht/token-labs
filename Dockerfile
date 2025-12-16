@@ -1,3 +1,12 @@
+# Token Labs vLLM Dockerfile
+# 
+# This Dockerfile builds vLLM for ARM64/CUDA 12.0 (Grace Hopper)
+# 
+# Version tags (v0.1.0, v0.2.0, v0.3.0) represent different feature configurations.
+# See docs/DOCKERFILE_VERSIONS.md for version-specific features and configurations.
+# 
+# Benchmarking and deployment automation: https://github.com/elizabetht/token-labs-performance
+
 FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
 # Install build essentials and runtime dependencies
