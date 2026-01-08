@@ -18,7 +18,7 @@ permissions:
 env:
   CONTAINER_NAME: vllm-server
   VLLM_PORT: 8000
-  MODEL: meta-llama/Llama-3.1-8B-Instruct
+  MODEL: tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4
   DRAFT_MODEL: RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3
   DGX_HARDWARE_COST_PER_HOUR: "0.152"
   DGX_ELECTRICITY_COST_PER_HOUR: "0.02"
