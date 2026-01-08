@@ -30,8 +30,8 @@ def extract_model_key_from_backend_name(backend_name: str, html_content: str) ->
     """
     Find the model key in MODELS that matches the backend name.
     
-    The benchmark uses backendName (e.g., 'meta-llama/Llama-3.1-8B-Instruct')
-    but index.html might use a shorter key (e.g., 'llama-8b-instruct').
+    The benchmark uses backendName (e.g., 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4')
+    but index.html might use a shorter key (e.g., 'llama-8b-nvfp4').
     
     This function searches the HTML for a model entry where backendName matches.
     """
@@ -43,7 +43,7 @@ def extract_model_key_from_backend_name(backend_name: str, html_content: str) ->
         return match.group(1)
     
     # If no exact match, try matching by model identifier parts
-    # e.g., "llama-8b-instruct" should match "meta-llama/Llama-3.1-8B-Instruct"
+    # e.g., "llama-8b-nvfp4" should match "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4"
     backend_lower = backend_name.lower()
     
     # Extract all model keys from MODELS
@@ -65,9 +65,9 @@ def extract_model_key_from_backend_name(backend_name: str, html_content: str) ->
     return None
 
 
-def update_model_pricing(html_content: str, model_key: str, input_price: float, output_price: float, cached_input_price: float = None) -> str:
+def update_model_pricing(html_content: str, model_key: str, input_price: float, output_price: float, cached_input_price: float = None, full_model_name: str = None) -> str:
     """
-    Update the inputPricePerM, outputPricePerM, and cachedInputPricePerM for a specific model in the HTML.
+    Update the inputPricePerM, outputPricePerM, cachedInputPricePerM, and fullModelName for a specific model in the HTML.
     """
     # Pattern to find the model block and its pricing
     # We need to find the model key and update its pricing values
@@ -82,11 +82,21 @@ def update_model_pricing(html_content: str, model_key: str, input_price: float, 
     
     model_block = model_match.group(0)
     
+    # Update fullModelName if provided
+    if full_model_name:
+        updated_block = re.sub(
+            r'fullModelName:\s*"[^"]+"',
+            f'fullModelName: "{full_model_name}"',
+            model_block
+        )
+    else:
+        updated_block = model_block
+    
     # Update inputPricePerM
     updated_block = re.sub(
         r'inputPricePerM:\s*[\d.]+',
         f'inputPricePerM: {input_price:.2f}',
-        model_block
+        updated_block
     )
     
     # Update outputPricePerM
@@ -118,6 +128,18 @@ def update_model_pricing(html_content: str, model_key: str, input_price: float, 
     
     return html_content
 
+
+def update_curl_example(html_content: str, model_name: str) -> str:
+    """
+    Update the model name in the curl example.
+    """
+    # Pattern to match "model": "..." in the curl example
+    pattern = r'("model":\s*")([^"]+)(")'
+    
+    def replacer(match):
+        return f'{match.group(1)}{model_name}{match.group(3)}'
+    
+    return re.sub(pattern, replacer, html_content)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -181,11 +203,18 @@ def main():
 
     print(f"  Matched model key: {model_key}")
 
-    # Update the HTML
-    updated_html = update_model_pricing(html_content, model_key, input_price, output_price, cached_input_price)
+    # Update the HTML with pricing and model name
+    updated_html = update_model_pricing(
+        html_content, model_key, input_price, output_price, 
+        cached_input_price, full_model_name=backend_name
+    )
+    
+    # Update the curl example with the model name from benchmark
+    updated_html = update_curl_example(updated_html, backend_name)
+    print(f"  Updated curl example with model: {backend_name}")
 
     if html_content == updated_html:
-        print("No changes made (pricing already up to date or model not found)")
+        print("No changes made (already up to date)")
         return
 
     if args.dry_run:
@@ -201,7 +230,7 @@ def main():
     with open(args.html, "w") as f:
         f.write(updated_html)
 
-    print(f"\nUpdated {args.html} with new pricing for model '{model_key}'")
+    print(f"\nUpdated {args.html} with new pricing and model name for '{model_key}'")
 
 
 if __name__ == "__main__":

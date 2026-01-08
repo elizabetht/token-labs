@@ -401,7 +401,7 @@
         <pre><code id="curl-example">curl https://api.tokenlabs.run/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
     "messages": [
       {"role": "user", "content": "Say hello from TokenLabs."}
     ]
@@ -454,7 +454,7 @@
         <div class="section-title">Chat with the selected model</div>
         <div class="inline-label" style="margin-bottom: 4px;">
           <span class="small">Model:</span>
-          <span class="small"><code id="chat-model-label">llama-8b-instruct</code></span>
+          <span class="small"><code id="chat-model-label">llama-8b-nvfp4</code></span>
         </div>
 
         <div class="chat-log" id="chat-log"></div>
@@ -491,10 +491,10 @@
 
     // Models & instances.
     // backendName must match what your vLLM server expects in the `model` field
-    // (e.g., `--served-model-name llama-8b-instruct`).
+    // (e.g., `--served-model-name llama-8b-nvfp4`).
     const MODELS = {
-      "llama-8b-instruct": {
-        fullModelName: "meta-llama/Llama-3.1-8B-Instruct",
+      "llama-8b-nvfp4": {
+        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
         context: "128K tokens",
         gpu: "DGX Spark · 40GB",
         instanceLabel: "Primary",
@@ -507,7 +507,7 @@
       }
     };
 
-    let currentModelKey = "llama-8b-instruct"; // default
+    let currentModelKey = "llama-8b-nvfp4"; // default
 
     // ============================
     // DOM references
@@ -545,7 +545,7 @@
     }
 
     function getDisplayName(fullModelName) {
-      // Extract display name from full model name (e.g., "meta-llama/Llama-3.1-8B-Instruct" -> "Llama-3.1-8B Instruct")
+      // Extract display name from full model name (e.g., "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4" -> "Llama-3.1-8B ModelOpt NVFP4")
       if (!fullModelName) return "Unknown";
       const name = fullModelName.split("/").pop() || fullModelName;
       return name.replace(/-/g, " ").replace(/\s+/g, " ");
