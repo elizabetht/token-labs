@@ -198,51 +198,51 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "prefill": {
-      "tokens_per_second": 723.91,
-      "cost_per_million_tokens": 0.0426,
+      "tokens_per_second": 583.97,
+      "cost_per_million_tokens": 0.0528,
       "latency": {
-        "mean_ttft_ms": 41831.2,
-        "median_ttft_ms": 32208.22,
-        "p99_ttft_ms": 119615.55,
-        "mean_tpot_ms": 5744.93,
-        "median_tpot_ms": 682.48,
-        "p99_tpot_ms": 46780.14,
-        "mean_itl_ms": 1152.51,
-        "median_itl_ms": 1047.29,
-        "p99_itl_ms": 2357.01
+        "mean_ttft_ms": 42091.7,
+        "median_ttft_ms": 32672.52,
+        "p99_ttft_ms": 118660.31,
+        "mean_tpot_ms": 525.49,
+        "median_tpot_ms": 517.76,
+        "p99_tpot_ms": 664.45,
+        "mean_itl_ms": 830.14,
+        "median_itl_ms": 962.35,
+        "p99_itl_ms": 1236.88
       }
     },
     "cached": {
-      "tokens_per_second": 4472.82,
-      "cost_per_million_tokens": 0.0069,
+      "tokens_per_second": 4186.07,
+      "cost_per_million_tokens": 0.0073,
       "latency": {
-        "mean_ttft_ms": 1573.78,
-        "median_ttft_ms": 1510.44,
-        "p99_ttft_ms": 2983.01,
-        "mean_tpot_ms": 90.6,
-        "median_tpot_ms": 92.56,
-        "p99_tpot_ms": 131.16,
-        "mean_itl_ms": 177.43,
-        "median_itl_ms": 181.31,
-        "p99_itl_ms": 325.48
+        "mean_ttft_ms": 2222.66,
+        "median_ttft_ms": 1880.47,
+        "p99_ttft_ms": 4196.74,
+        "mean_tpot_ms": 94.24,
+        "median_tpot_ms": 94.35,
+        "p99_tpot_ms": 143.7,
+        "mean_itl_ms": 184.24,
+        "median_itl_ms": 180.76,
+        "p99_itl_ms": 744.42
       }
     },
     "decode": {
-      "tokens_per_second": 0.0,
-      "cost_per_million_tokens": 0.0,
+      "tokens_per_second": 260.5,
+      "cost_per_million_tokens": 0.1185,
       "latency": {
-        "mean_ttft_ms": 0.0,
-        "median_ttft_ms": 0.0,
-        "p99_ttft_ms": 0.0,
-        "mean_tpot_ms": 0.0,
-        "median_tpot_ms": 0.0,
-        "p99_tpot_ms": 0.0,
-        "mean_itl_ms": 0.0,
-        "median_itl_ms": 0.0,
-        "p99_itl_ms": 0.0
+        "mean_ttft_ms": 359.75,
+        "median_ttft_ms": 365.74,
+        "p99_ttft_ms": 837.64,
+        "mean_tpot_ms": 268.92,
+        "median_tpot_ms": 306.86,
+        "p99_tpot_ms": 381.96,
+        "mean_itl_ms": 546.28,
+        "median_itl_ms": 571.76,
+        "p99_itl_ms": 967.01
       }
     },
-    "timestamp": "2026-01-08T20:47:43.204360Z",
+    "timestamp": "2026-01-08T21:42:55.360812Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
