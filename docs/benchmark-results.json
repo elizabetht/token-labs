@@ -1,53 +1,53 @@
 {
-  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
   "prefill": {
-    "tokens_per_second": 494.22,
-    "cost_per_million_tokens": 0.0625,
+    "tokens_per_second": 723.91,
+    "cost_per_million_tokens": 0.0426,
     "latency": {
-      "mean_ttft_ms": 73827.15,
-      "median_ttft_ms": 62624.44,
-      "p99_ttft_ms": 187002.96,
-      "mean_tpot_ms": 611.42,
-      "median_tpot_ms": 587.2,
-      "p99_tpot_ms": 779.78,
-      "mean_itl_ms": 1013.65,
-      "median_itl_ms": 1143.88,
-      "p99_itl_ms": 1435.45
+      "mean_ttft_ms": 41831.2,
+      "median_ttft_ms": 32208.22,
+      "p99_ttft_ms": 119615.55,
+      "mean_tpot_ms": 5744.93,
+      "median_tpot_ms": 682.48,
+      "p99_tpot_ms": 46780.14,
+      "mean_itl_ms": 1152.51,
+      "median_itl_ms": 1047.29,
+      "p99_itl_ms": 2357.01
     }
   },
   "cached": {
-    "tokens_per_second": 2707.74,
-    "cost_per_million_tokens": 0.0114,
+    "tokens_per_second": 4472.82,
+    "cost_per_million_tokens": 0.0069,
     "latency": {
-      "mean_ttft_ms": 3802.34,
-      "median_ttft_ms": 3498.1,
-      "p99_ttft_ms": 6775.88,
-      "mean_tpot_ms": 174.48,
-      "median_tpot_ms": 176.76,
-      "p99_tpot_ms": 239.97,
-      "mean_itl_ms": 347.3,
-      "median_itl_ms": 341.48,
-      "p99_itl_ms": 687.35
+      "mean_ttft_ms": 1573.78,
+      "median_ttft_ms": 1510.44,
+      "p99_ttft_ms": 2983.01,
+      "mean_tpot_ms": 90.6,
+      "median_tpot_ms": 92.56,
+      "p99_tpot_ms": 131.16,
+      "mean_itl_ms": 177.43,
+      "median_itl_ms": 181.31,
+      "p99_itl_ms": 325.48
     }
   },
   "decode": {
-    "tokens_per_second": 209.11,
-    "cost_per_million_tokens": 0.1477,
+    "tokens_per_second": 0.0,
+    "cost_per_million_tokens": 0.0,
     "latency": {
-      "mean_ttft_ms": 508.91,
-      "median_ttft_ms": 482.48,
-      "p99_ttft_ms": 1151.66,
-      "mean_tpot_ms": 354.5,
-      "median_tpot_ms": 397.63,
-      "p99_tpot_ms": 476.22,
-      "mean_itl_ms": 709.94,
-      "median_itl_ms": 817.08,
-      "p99_itl_ms": 896.62
+      "mean_ttft_ms": 0.0,
+      "median_ttft_ms": 0.0,
+      "p99_ttft_ms": 0.0,
+      "mean_tpot_ms": 0.0,
+      "median_tpot_ms": 0.0,
+      "p99_tpot_ms": 0.0,
+      "mean_itl_ms": 0.0,
+      "median_itl_ms": 0.0,
+      "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2025-12-15T08:07:21.661106Z",
+  "timestamp": "2026-01-08T20:47:43.204360Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
