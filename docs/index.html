@@ -491,19 +491,40 @@
 
     // Models & instances.
     // backendName must match what your vLLM server expects in the `model` field
-    // (e.g., `--served-model-name llama-8b-nvfp4`).
+    // Prices are updated automatically by CI benchmarks via update_pricing.py
     const MODELS = {
+      "llama-8b-instruct": {
+        fullModelName: "meta-llama/Llama-3.1-8B-Instruct",
+        context: "128K tokens",
+        gpu: "DGX Spark · 40GB",
+        instanceLabel: "Primary",
+        baseUrl: DEFAULT_API_BASE_URL,
+        inputPricePerM: 0.04,
+        cachedInputPricePerM: 0.01,
+        outputPricePerM: 0.11,
+        description: "Meta's official Llama 3.1 8B instruction-tuned model."
+      },
       "llama-8b-nvfp4": {
         fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
         context: "128K tokens",
         gpu: "DGX Spark · 40GB",
         instanceLabel: "Primary",
         baseUrl: DEFAULT_API_BASE_URL,
-        // Prices per 1M tokens – updated by CI benchmarks
-        inputPricePerM: 0.05,
-        cachedInputPricePerM: 0.0073,
-        outputPricePerM: 0.12,
-        description: "General-purpose 8B chat model tuned for coding & reasoning workloads."
+        inputPricePerM: 0.04,
+        cachedInputPricePerM: 0.0069,
+        outputPricePerM: 0.00,
+        description: "NVFP4 quantized model for maximum throughput with minimal quality loss."
+      },
+      "llama-8b-fp8": {
+        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8",
+        context: "128K tokens",
+        gpu: "DGX Spark · 40GB",
+        instanceLabel: "Primary",
+        baseUrl: DEFAULT_API_BASE_URL,
+        inputPricePerM: 0.04,
+        cachedInputPricePerM: 0.01,
+        outputPricePerM: 0.10,
+        description: "FP8 quantized model balancing speed and quality."
       }
     };
 

@@ -10,6 +10,15 @@ on:
         description: 'Image tag to deploy (default: latest)'
         required: false
         default: 'latest'
+      model:
+        description: 'Model to benchmark'
+        required: false
+        default: 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4'
+        type: choice
+        options:
+          - 'meta-llama/Llama-3.1-8B-Instruct'
+          - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4'
+          - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8'
 
 permissions:
   contents: write
@@ -18,7 +27,7 @@ permissions:
 env:
   CONTAINER_NAME: vllm-server
   VLLM_PORT: 8000
-  MODEL: tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4
+  MODEL: ${{ github.event.inputs.model || 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4' }}
   DRAFT_MODEL: RedHatAI/Llama-3.1-8B-Instruct-speculator.eagle3
   DGX_HARDWARE_COST_PER_HOUR: "0.152"
   DGX_ELECTRICITY_COST_PER_HOUR: "0.02"
@@ -157,12 +166,21 @@ jobs:
             echo "${result:-0}"
           }
           
-          INPUT_TPS=$(extract prefill_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
+          # Debug: show what we're working with
+          echo "=== Prefill benchmark output (last 20 lines) ==="
+          tail -20 prefill_bench.txt || true
+          echo "=== Decode benchmark output (last 20 lines) ==="
+          tail -20 decode_bench.txt || true
+          echo "=== Cache benchmark output (last 20 lines) ==="
+          tail -20 cache_bench.txt || true
+          echo "=== End debug output ==="
+          
+          INPUT_TPS=$(extract prefill_bench.txt 'Input token throughput \(tok/s\):\s*\K[\d.]+')
           OUTPUT_TPS=$(extract decode_bench.txt 'Output token throughput \(tok/s\):\s*\K[\d.]+')
           CACHED_TPS=$(extract cache_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
           
-          # Ensure we have valid numbers
-          [[ "$INPUT_TPS" == "0" || -z "$INPUT_TPS" ]] && INPUT_TPS=$(extract prefill_bench.txt 'Output token throughput \(tok/s\):\s*\K[\d.]+')
+          # Ensure we have valid numbers (fallback to Total if specific metric not found)
+          [[ "$INPUT_TPS" == "0" || -z "$INPUT_TPS" ]] && INPUT_TPS=$(extract prefill_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
           [[ "$OUTPUT_TPS" == "0" || -z "$OUTPUT_TPS" ]] && OUTPUT_TPS=$(extract decode_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
           [[ "$CACHED_TPS" == "0" || -z "$CACHED_TPS" ]] && CACHED_TPS=$(extract cache_bench.txt 'Output token throughput \(tok/s\):\s*\K[\d.]+')
           

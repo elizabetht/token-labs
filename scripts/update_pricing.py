@@ -30,21 +30,30 @@ def extract_model_key_from_backend_name(backend_name: str, html_content: str) ->
     """
     Find the model key in MODELS that matches the backend name.
     
-    The benchmark uses backendName (e.g., 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4')
-    but index.html might use a shorter key (e.g., 'llama-8b-nvfp4').
+    The benchmark uses fullModelName (e.g., 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4')
+    but index.html uses a shorter key (e.g., 'llama-8b-nvfp4').
     
-    This function searches the HTML for a model entry where backendName matches.
+    This function searches the HTML for a model entry where fullModelName matches.
     """
-    # First, try to find an exact match for backendName in the HTML
-    # Pattern: "some-key": { ... backendName: "backend_name" ...
-    pattern = r'"([^"]+)":\s*\{[^}]*backendName:\s*"' + re.escape(backend_name) + r'"'
-    match = re.search(pattern, html_content)
+    # First, try to find an exact match for fullModelName in the HTML
+    # Pattern: "some-key": { ... fullModelName: "backend_name" ...
+    pattern = r'"([^"]+)":\s*\{[^}]*fullModelName:\s*"' + re.escape(backend_name) + r'"'
+    match = re.search(pattern, html_content, re.DOTALL)
     if match:
         return match.group(1)
     
     # If no exact match, try matching by model identifier parts
-    # e.g., "llama-8b-nvfp4" should match "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4"
     backend_lower = backend_name.lower()
+    
+    # Known mappings for common models
+    model_mappings = {
+        "meta-llama/llama-3.1-8b-instruct": "llama-8b-instruct",
+        "tokenlabsdotrun/llama-3.1-8b-modelopt-fp8": "llama-8b-fp8",
+        "tokenlabsdotrun/llama-3.1-8b-modelopt-nvfp4": "llama-8b-nvfp4",
+    }
+    
+    if backend_lower in model_mappings:
+        return model_mappings[backend_lower]
     
     # Extract all model keys from MODELS
     model_keys_pattern = r'const MODELS = \{([^;]+)\};'
