@@ -672,6 +672,20 @@
       messages.push({ role: "user", content: userText });
       userInputEl.value = "";
 
+      // Create assistant message element for streaming
+      const assistantMsg = document.createElement("div");
+      assistantMsg.className = "msg";
+      const roleSpan = document.createElement("span");
+      roleSpan.className = "role assistant";
+      roleSpan.textContent = "Model";
+      const contentSpan = document.createElement("span");
+      contentSpan.className = "content";
+      assistantMsg.appendChild(roleSpan);
+      assistantMsg.appendChild(contentSpan);
+      chatLogEl.appendChild(assistantMsg);
+
+      let fullReply = "";
+
       try {
         const resp = await fetch(baseUrl + "/v1/chat/completions", {
           method: "POST",
@@ -682,6 +696,7 @@
             model: cfg.fullModelName,
             messages: messages,
             max_tokens: 512,
+            stream: true,
           }),
         });
 
@@ -689,24 +704,54 @@
           const text = await resp.text();
           console.error("Error response:", resp.status, text);
           setStatus("Error: " + resp.status + " – see console", true);
+          chatLogEl.removeChild(assistantMsg);
           return;
         }
 
-        const data = await resp.json();
-        const choice = data.choices && data.choices[0];
-        const reply = choice && choice.message && choice.message.content;
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
 
-        if (!reply) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) {
+                  fullReply += delta;
+                  contentSpan.textContent = fullReply;
+                  chatLogEl.scrollTop = chatLogEl.scrollHeight;
+                }
+              } catch (e) {
+                // Skip malformed JSON chunks
+              }
+            }
+          }
+        }
+
+        if (!fullReply) {
           setStatus("No response from model.", true);
+          chatLogEl.removeChild(assistantMsg);
           return;
         }
 
-        messages.push({ role: "assistant", content: reply });
-        appendMessage("assistant", reply);
+        messages.push({ role: "assistant", content: fullReply });
         setStatus("");
       } catch (err) {
         console.error("Network error:", err);
         setStatus("Network error – see console", true);
+        if (assistantMsg.parentNode) {
+          chatLogEl.removeChild(assistantMsg);
+        }
       } finally {
         sendBtn.disabled = false;
       }
