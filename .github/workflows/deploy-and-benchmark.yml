@@ -19,6 +19,16 @@ on:
           - 'meta-llama/Llama-3.1-8B-Instruct'
           - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4'
           - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8'
+      ifeval_samples:
+        description: 'Number of IFEval samples (50 for quick, 541 for full)'
+        required: false
+        default: '50'
+        type: choice
+        options:
+          - '50'
+          - '100'
+          - '200'
+          - '541'
 
 permissions:
   contents: write
@@ -235,6 +245,67 @@ jobs:
           echo "cost_out=$COST_OUT" >> $GITHUB_OUTPUT
           echo "cost_cached=$COST_CACHED" >> $GITHUB_OUTPUT
 
+      - name: Run IFEval accuracy evaluation
+        id: ifeval
+        run: |
+          echo "Running IFEval accuracy benchmark..."
+          
+          # Install dependencies if needed
+          pip install ifeval requests --quiet
+          
+          # Run IFEval with a subset for CI (full eval takes ~30min)
+          # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
+          NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
+          
+          python3 scripts/evaluate_accuracy.py \
+            --base-url "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}" \
+            --model "${{ env.MODEL }}" \
+            --num-samples "$NUM_SAMPLES" \
+            --output ifeval_results.json || {
+              echo "IFEval evaluation failed, continuing with zero accuracy"
+              echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
+            }
+          
+          # Extract results
+          PROMPT_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('prompt_level_accuracy', 0))")
+          INST_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('instruction_level_accuracy', 0))")
+          NUM_SAMPLES=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('num_samples', 0))")
+          
+          echo "prompt_accuracy=$PROMPT_ACC" >> $GITHUB_OUTPUT
+          echo "instruction_accuracy=$INST_ACC" >> $GITHUB_OUTPUT
+          echo "num_samples=$NUM_SAMPLES" >> $GITHUB_OUTPUT
+          
+          # Export for generate_results.py
+          export IFEVAL_PROMPT_ACCURACY="$PROMPT_ACC"
+          export IFEVAL_INSTRUCTION_ACCURACY="$INST_ACC"
+          export IFEVAL_NUM_SAMPLES="$NUM_SAMPLES"
+          export IFEVAL_EVALUATED="true"
+          
+          echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
+
+      - name: Generate final results
+        run: |
+          # Re-run generate_results with accuracy metrics
+          export MODEL="${{ env.MODEL }}"
+          export DGX_COST=$(echo "scale=4; (${{ env.DGX_HARDWARE_COST_PER_HOUR }} * ${{ env.GPU_MEMORY_UTILIZATION }}) + ${{ env.DGX_ELECTRICITY_COST_PER_HOUR }}" | bc)
+          export FULL_IMAGE="${{ steps.vars.outputs.FULL_IMAGE }}"
+          export GPU_MEMORY_UTILIZATION="${{ env.GPU_MEMORY_UTILIZATION }}"
+          export INPUT_TPS="${{ steps.benchmark.outputs.prefill_tps }}"
+          export OUTPUT_TPS="${{ steps.benchmark.outputs.decode_tps }}"
+          export CACHED_TPS="${{ steps.benchmark.outputs.cached_tps }}"
+          export COST_IN="${{ steps.benchmark.outputs.cost_in }}"
+          export COST_OUT="${{ steps.benchmark.outputs.cost_out }}"
+          export COST_CACHED="${{ steps.benchmark.outputs.cost_cached }}"
+          export PREFILL_NUM_PROMPTS=100 PREFILL_REQUEST_RATE=10 PREFILL_INPUT_LEN=3072 PREFILL_OUTPUT_LEN=1024
+          export DECODE_NUM_PROMPTS=100 DECODE_REQUEST_RATE=10 DECODE_INPUT_LEN=1024 DECODE_OUTPUT_LEN=3072
+          export CACHE_NUM_PROMPTS=100 CACHE_PREFIX_LEN=512 CACHE_SUFFIX_LEN=128 CACHE_NUM_PREFIXES=5 CACHE_OUTPUT_LEN=128
+          export IFEVAL_PROMPT_ACCURACY="${{ steps.ifeval.outputs.prompt_accuracy }}"
+          export IFEVAL_INSTRUCTION_ACCURACY="${{ steps.ifeval.outputs.instruction_accuracy }}"
+          export IFEVAL_NUM_SAMPLES="${{ steps.ifeval.outputs.num_samples }}"
+          export IFEVAL_EVALUATED="true"
+          
+          python3 scripts/generate_results.py
+
       - name: Update docs
         if: success()
         run: |
@@ -293,8 +364,16 @@ jobs:
           **Version:** \`${{ steps.vars.outputs.VERSION_TAG }}\`
           **Cost:** \`\$${DGX_COST}/hr\` (GPU: ${{ env.GPU_MEMORY_UTILIZATION }})
           
+          ### Performance
           | Metric | Prefill | Cached | Decode |
           |--------|---------|--------|--------|
           | **Throughput (tok/s)** | ${{ steps.benchmark.outputs.prefill_tps }} | ${{ steps.benchmark.outputs.cached_tps }} | ${{ steps.benchmark.outputs.decode_tps }} |
           | **Cost per 1M tokens** | \$${{ steps.benchmark.outputs.cost_in }} | \$${{ steps.benchmark.outputs.cost_cached }} | \$${{ steps.benchmark.outputs.cost_out }} |
+          
+          ### Accuracy (IFEval)
+          | Metric | Score |
+          |--------|-------|
+          | **Prompt-level accuracy** | ${{ steps.ifeval.outputs.prompt_accuracy }}% |
+          | **Instruction-level accuracy** | ${{ steps.ifeval.outputs.instruction_accuracy }}% |
+          | **Samples evaluated** | ${{ steps.ifeval.outputs.num_samples }} |
           EOF

@@ -97,6 +97,14 @@ data = {
         'platform': 'NVIDIA DGX Spark',
         'gpu': 'Grace Hopper',
         'architecture': 'ARM64'
+    },
+    'accuracy': {
+        'ifeval': {
+            'prompt_level_accuracy': float(os.getenv('IFEVAL_PROMPT_ACCURACY', '0')),
+            'instruction_level_accuracy': float(os.getenv('IFEVAL_INSTRUCTION_ACCURACY', '0')),
+            'num_samples': int(os.getenv('IFEVAL_NUM_SAMPLES', '0')),
+            'evaluated': os.getenv('IFEVAL_EVALUATED', 'false').lower() == 'true'
+        }
     }
 }
 
