@@ -170,6 +170,42 @@ jobs:
           
           echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
 
+      - name: Compare with baseline
+        id: baseline_comparison
+        continue-on-error: true
+        run: |
+          # Determine baseline file based on model
+          if [[ "${{ env.MODEL }}" == "meta-llama/Llama-3.1-8B-Instruct" ]]; then
+            # For baseline model, update the baseline file
+            echo "This is the baseline model. Updating baseline values..."
+            python3 scripts/compare_baseline.py \
+              --results ifeval_results.json \
+              --baseline baselines/llama-3.1-8b-instruct.json \
+              --update-baseline \
+              --run-id "${{ github.run_id }}" || echo "Failed to update baseline"
+            echo "comparison_status=BASELINE_UPDATED" >> $GITHUB_OUTPUT
+          else
+            # For other models, compare against baseline
+            echo "Comparing against baseline model..."
+            python3 scripts/compare_baseline.py \
+              --results ifeval_results.json \
+              --baseline baselines/llama-3.1-8b-instruct.json \
+              --output comparison_results.json || {
+                echo "Comparison failed or model degraded"
+                echo "comparison_status=FAILED" >> $GITHUB_OUTPUT
+                exit 0  # Don't fail the workflow, just mark it
+              }
+            
+            # Extract comparison summary
+            if [ -f comparison_results.json ]; then
+              COMPARISON_STATUS=$(python3 -c "import json; print(json.load(open('comparison_results.json')).get('status', 'UNKNOWN'))")
+              echo "comparison_status=$COMPARISON_STATUS" >> $GITHUB_OUTPUT
+              
+              # Add comparison to artifacts
+              cat comparison_results.json
+            fi
+          fi
+
       - name: Run benchmarks
         id: benchmark
         run: |
@@ -344,6 +380,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/*.{html,json} 2>/dev/null || true
+          git add baselines/*.json 2>/dev/null || true
+          git add comparison_results.json 2>/dev/null || true
           git diff --quiet --cached || {
             git commit -m "Update benchmark results [skip ci]"
             for i in {1..3}; do
@@ -355,7 +393,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
-          path: bench_results.json
+          path: |
+            bench_results.json
+            ifeval_results.json
+            comparison_results.json
 
       - name: Summary
         run: |
@@ -379,4 +420,7 @@ jobs:
           | **Prompt-level accuracy** | ${{ steps.ifeval.outputs.prompt_accuracy }}% |
           | **Instruction-level accuracy** | ${{ steps.ifeval.outputs.instruction_accuracy }}% |
           | **Samples evaluated** | ${{ steps.ifeval.outputs.num_samples }} |
+          
+          ### Baseline Comparison
+          **Status:** \`${{ steps.baseline_comparison.outputs.comparison_status || 'NOT_RUN' }}\`
           EOF
