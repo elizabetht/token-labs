@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Labs - Accuracy Results</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat {
+            background: var(--bg);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+        
+        .stat-unit {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        td {
+            font-size: 1rem;
+        }
+        
+        .highlight {
+            color: var(--success);
+            font-weight: 600;
+        }
+        
+        .methodology {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+        
+        .methodology h3 {
+            color: var(--text);
+            font-size: 1rem;
+            margin: 1rem 0 0.5rem 0;
+        }
+        
+        .methodology ul {
+            margin-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .json-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .json-link:hover {
+            text-decoration: underline;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+        
+        .error {
+            background: #7f1d1d;
+            border: 1px solid #991b1b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: #fecaca;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+        
+        .history-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .version-badge {
+            background: var(--primary);
+            color: white;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        
+        .trend-up {
+            color: var(--success);
+        }
+        
+        .trend-down {
+            color: #ef4444;
+        }
+        
+        .warning-text {
+            color: var(--warning);
+        }
+        
+        .model-badge {
+            background: #374151;
+            color: #d1d5db;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Token Labs</a>
+        
+        <header>
+            <h1>🎯 Accuracy Results</h1>
+            <p class="subtitle">IFEval Performance on vLLM Models</p>
+            <span class="badge">Auto-updated via CI/CD</span>
+        </header>
+        
+        <div id="results">
+            <div class="loading">Loading accuracy results...</div>
+        </div>
+        
+        <div id="history-section"></div>
+        
+        <div class="card">
+            <h2>📐 Methodology</h2>
+            <div class="methodology">
+                <h3>What is IFEval?</h3>
+                <p>
+                    IFEval (Instruction Following Evaluation) is a benchmark that measures how well language models 
+                    follow specific instructions in prompts. It tests models on a variety of instruction types including 
+                    formatting requirements, length constraints, keyword usage, and structural patterns.
+                </p>
+                
+                <h3>Evaluation Metrics</h3>
+                <ul>
+                    <li><strong>Prompt-level Accuracy:</strong> Percentage of prompts where all instructions were followed correctly</li>
+                    <li><strong>Instruction-level Accuracy:</strong> Percentage of individual instructions followed correctly across all prompts</li>
+                    <li><strong>Number of Samples:</strong> Total number of test prompts evaluated (50 for quick tests, 541 for full evaluation)</li>
+                </ul>
+                
+                <h3>Test Configuration</h3>
+                <ul>
+                    <li><strong>Framework:</strong> IFEval benchmark suite</li>
+                    <li><strong>Model Server:</strong> vLLM on NVIDIA DGX Spark</li>
+                    <li><strong>Quick Test:</strong> 50 samples (~5 minutes)</li>
+                    <li><strong>Full Test:</strong> 541 samples (~30 minutes)</li>
+                </ul>
+                
+                <a href="benchmark-results.json" class="json-link">
+                    📄 View Raw Results Data
+                </a>
+            </div>
+        </div>
+        
+        <p class="last-updated" id="last-updated"></p>
+    </div>
+    
+    <script>
+        async function loadResults() {
+            const container = document.getElementById('results');
+            const lastUpdated = document.getElementById('last-updated');
+            
+            try {
+                // Add cache-busting to prevent stale data
+                const response = await fetch('benchmark-results.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load results');
+                
+                const data = await response.json();
+                
+                // Check if accuracy data exists
+                if (!data.accuracy || !data.accuracy.ifeval || !data.accuracy.ifeval.evaluated) {
+                    container.innerHTML = `
+                        <div class="card">
+                            <h2>⚠️ No Accuracy Data Available</h2>
+                            <p style="color: var(--text-muted); margin-top: 1rem;">
+                                IFEval accuracy evaluation has not been run yet for this model. 
+                                Accuracy results will appear here after the first evaluation completes.
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const accuracy = data.accuracy.ifeval;
+                const promptAcc = accuracy.prompt_level_accuracy || 0;
+                const instAcc = accuracy.instruction_level_accuracy || 0;
+                const numSamples = accuracy.num_samples || 0;
+                
+                container.innerHTML = `
+                    <div class="card">
+                        <h2>🎯 Current Model Accuracy</h2>
+                        <div style="margin-bottom: 1rem;">
+                            <span class="model-badge">${data.model || 'Unknown Model'}</span>
+                        </div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <div class="stat-label">Prompt-level Accuracy</div>
+                                <div class="stat-value">${promptAcc.toFixed(2)}<span class="stat-unit">%</span></div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Instruction-level Accuracy</div>
+                                <div class="stat-value">${instAcc.toFixed(2)}<span class="stat-unit">%</span></div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Samples Evaluated</div>
+                                <div class="stat-value">${numSamples}<span class="stat-unit">prompts</span></div>
+                            </div>
+                        </div>
+                        
+                        ${numSamples < 541 ? `
+                        <p style="color: var(--warning); margin-top: 1rem; font-size: 0.875rem; text-align: center;">
+                            ⚠️ Quick test mode (${numSamples} samples). Run with 541 samples for complete evaluation.
+                        </p>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="card">
+                        <h2>📊 Understanding the Scores</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Score</th>
+                                    <th>Interpretation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Prompt-level Accuracy</td>
+                                    <td class="${promptAcc >= 70 ? 'highlight' : 'warning-text'}">${promptAcc.toFixed(2)}%</td>
+                                    <td>${promptAcc >= 70 ? 'Good - Most prompts fully satisfied' : 'Needs improvement'}</td>
+                                </tr>
+                                <tr>
+                                    <td>Instruction-level Accuracy</td>
+                                    <td class="${instAcc >= 80 ? 'highlight' : 'warning-text'}">${instAcc.toFixed(2)}%</td>
+                                    <td>${instAcc >= 80 ? 'Good - Most instructions followed' : 'Needs improvement'}</td>
+                                </tr>
+                                <tr>
+                                    <td>Sample Size</td>
+                                    <td>${numSamples}</td>
+                                    <td>${numSamples >= 541 ? 'Complete evaluation' : 'Quick test'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                if (data.timestamp) {
+                    lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+                } else {
+                    lastUpdated.textContent = `Results auto-updated on each deployment`;
+                }
+                
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error">
+                        <strong>Error loading results:</strong> ${error.message}<br>
+                        Results will be available after the first accuracy evaluation run.
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadHistory() {
+            const historySection = document.getElementById('history-section');
+            
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                
+                const history = await response.json();
+                
+                // Filter history entries that have accuracy data
+                const historyWithAccuracy = history.filter(h => 
+                    h.accuracy && h.accuracy.ifeval && h.accuracy.ifeval.evaluated
+                );
+                
+                if (!historyWithAccuracy || historyWithAccuracy.length === 0) {
+                    historySection.innerHTML = '';
+                    return;
+                }
+                
+                // Helper function to parse semantic version
+                const parseVersion = (v) => {
+                    if (!v) return [0, 0, 0];
+                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                };
+                
+                // Sort by version ascending (oldest first for chart)
+                const sortedHistory = [...historyWithAccuracy].sort((a, b) => {
+                    const vA = parseVersion(a.version);
+                    const vB = parseVersion(b.version);
+                    for (let i = 0; i < 3; i++) {
+                        if (vA[i] !== vB[i]) return vA[i] - vB[i];
+                    }
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                });
+                
+                const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
+                const promptAccData = sortedHistory.map(h => h.accuracy.ifeval.prompt_level_accuracy || 0);
+                const instAccData = sortedHistory.map(h => h.accuracy.ifeval.instruction_level_accuracy || 0);
+                
+                // Build table rows (reversed for newest first)
+                const reversedHistory = [...sortedHistory].reverse();
+                const tableRows = reversedHistory.map((h, i, arr) => {
+                    const prev = arr[i + 1];
+                    const acc = h.accuracy.ifeval;
+                    
+                    const promptTrend = prev && prev.accuracy && prev.accuracy.ifeval ? 
+                        (acc.prompt_level_accuracy > prev.accuracy.ifeval.prompt_level_accuracy ? '↑' : 
+                         acc.prompt_level_accuracy < prev.accuracy.ifeval.prompt_level_accuracy ? '↓' : '') : '';
+                    const instTrend = prev && prev.accuracy && prev.accuracy.ifeval ? 
+                        (acc.instruction_level_accuracy > prev.accuracy.ifeval.instruction_level_accuracy ? '↑' : 
+                         acc.instruction_level_accuracy < prev.accuracy.ifeval.instruction_level_accuracy ? '↓' : '') : '';
+                    
+                    const promptClass = promptTrend === '↑' ? 'trend-up' : promptTrend === '↓' ? 'trend-down' : '';
+                    const instClass = instTrend === '↑' ? 'trend-up' : instTrend === '↓' ? 'trend-down' : '';
+                    
+                    return `<tr>
+                        <td><span class="version-badge">${h.version || 'N/A'}</span></td>
+                        <td><span class="model-badge" style="font-size: 0.7rem;">${h.model || 'Unknown'}</span></td>
+                        <td>${h.timestamp ? new Date(h.timestamp).toLocaleDateString() : 'N/A'}</td>
+                        <td class="${promptClass}">${acc.prompt_level_accuracy.toFixed(2)}% ${promptTrend}</td>
+                        <td class="${instClass}">${acc.instruction_level_accuracy.toFixed(2)}% ${instTrend}</td>
+                        <td>${acc.num_samples}</td>
+                    </tr>`;
+                }).join('');
+                
+                historySection.innerHTML = `
+                    <div class="card">
+                        <h2>📈 Accuracy Trends Over Time</h2>
+                        <div class="chart-container">
+                            <canvas id="accuracyChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>📜 Accuracy History</h2>
+                        <div class="history-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Version</th>
+                                        <th>Model</th>
+                                        <th>Date</th>
+                                        <th>Prompt Accuracy</th>
+                                        <th>Instruction Accuracy</th>
+                                        <th>Samples</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${tableRows}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="benchmark-history.json" class="json-link">
+                            📄 View Full History JSON
+                        </a>
+                    </div>
+                `;
+                
+                // Create chart
+                const ctx = document.getElementById('accuracyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Prompt-level Accuracy (%)',
+                                data: promptAccData,
+                                borderColor: '#6366f1',
+                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Instruction-level Accuracy (%)',
+                                data: instAccData,
+                                borderColor: '#a855f7',
+                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#94a3b8'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                ticks: { 
+                                    color: '#94a3b8',
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                },
+                                grid: { color: '#334155' },
+                                min: 0,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                // No history yet, that's okay
+                historySection.innerHTML = '';
+            }
+        }
+        
+        loadResults();
+        loadHistory();
+    </script>
+</body>
+</html>
