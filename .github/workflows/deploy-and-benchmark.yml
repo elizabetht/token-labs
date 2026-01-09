@@ -189,7 +189,8 @@ jobs:
               # lighteval returns results in format: {"results": {"ifeval:prompt_level_strict_acc": value, ...}}
               results = lighteval_results.get("results", {})
               
-              # Get strict accuracy metrics (multiply by 100 to convert to percentage)
+              # Get strict accuracy metrics
+              # Note: lighteval returns accuracy as a float between 0.0 and 1.0, so we multiply by 100 for percentage
               prompt_acc = results.get("ifeval:prompt_level_strict_acc", 0) * 100
               inst_acc = results.get("ifeval:inst_level_strict_acc", 0) * 100
               prompt_acc_loose = results.get("ifeval:prompt_level_loose_acc", 0) * 100
@@ -209,7 +210,13 @@ jobs:
               
               print(json.dumps(output, indent=2))
           except Exception as e:
-              print(f'{{"error": "Failed to parse results: {str(e)}", "prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}}', file=sys.stderr)
+              error_output = {
+                  "error": f"Failed to parse results: {str(e)}",
+                  "prompt_level_accuracy": 0,
+                  "instruction_level_accuracy": 0,
+                  "num_samples": 0
+              }
+              print(json.dumps(error_output), file=sys.stderr)
               print('{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}')
           PYEOF
             
