@@ -448,8 +448,15 @@
                 });
                 
                 const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
-                const promptAccData = sortedHistory.map(h => h.accuracy.ifeval.prompt_level_accuracy || 0);
-                const instAccData = sortedHistory.map(h => h.accuracy.ifeval.instruction_level_accuracy || 0);
+                // Use valid numbers for chart, but don't show 0% for missing data
+                const promptAccData = sortedHistory.map(h => {
+                    const val = Number(h.accuracy.ifeval.prompt_level_accuracy);
+                    return val || null; // null creates a gap in the chart instead of showing 0%
+                });
+                const instAccData = sortedHistory.map(h => {
+                    const val = Number(h.accuracy.ifeval.instruction_level_accuracy);
+                    return val || null; // null creates a gap in the chart instead of showing 0%
+                });
                 
                 // Build table rows (reversed for newest first)
                 const reversedHistory = [...sortedHistory].reverse();
@@ -457,12 +464,17 @@
                     const prev = arr[i + 1];
                     const acc = h.accuracy.ifeval;
                     
+                    // Safely convert to numbers with fallback
+                    const promptAcc = Number(acc.prompt_level_accuracy) || 0;
+                    const instAcc = Number(acc.instruction_level_accuracy) || 0;
+                    const samples = Number(acc.num_samples) || 0;
+                    
                     const promptTrend = prev && prev.accuracy && prev.accuracy.ifeval ? 
-                        (acc.prompt_level_accuracy > prev.accuracy.ifeval.prompt_level_accuracy ? '↑' : 
-                         acc.prompt_level_accuracy < prev.accuracy.ifeval.prompt_level_accuracy ? '↓' : '') : '';
+                        (promptAcc > (Number(prev.accuracy.ifeval.prompt_level_accuracy) || 0) ? '↑' : 
+                         promptAcc < (Number(prev.accuracy.ifeval.prompt_level_accuracy) || 0) ? '↓' : '') : '';
                     const instTrend = prev && prev.accuracy && prev.accuracy.ifeval ? 
-                        (acc.instruction_level_accuracy > prev.accuracy.ifeval.instruction_level_accuracy ? '↑' : 
-                         acc.instruction_level_accuracy < prev.accuracy.ifeval.instruction_level_accuracy ? '↓' : '') : '';
+                        (instAcc > (Number(prev.accuracy.ifeval.instruction_level_accuracy) || 0) ? '↑' : 
+                         instAcc < (Number(prev.accuracy.ifeval.instruction_level_accuracy) || 0) ? '↓' : '') : '';
                     
                     const promptClass = promptTrend === '↑' ? 'trend-up' : promptTrend === '↓' ? 'trend-down' : '';
                     const instClass = instTrend === '↑' ? 'trend-up' : instTrend === '↓' ? 'trend-down' : '';
@@ -471,9 +483,9 @@
                         <td><span class="version-badge">${h.version || 'N/A'}</span></td>
                         <td><span class="model-badge" style="font-size: 0.7rem;">${h.model || 'Unknown'}</span></td>
                         <td>${h.timestamp ? new Date(h.timestamp).toLocaleDateString() : 'N/A'}</td>
-                        <td class="${promptClass}">${acc.prompt_level_accuracy.toFixed(2)}% ${promptTrend}</td>
-                        <td class="${instClass}">${acc.instruction_level_accuracy.toFixed(2)}% ${instTrend}</td>
-                        <td>${acc.num_samples}</td>
+                        <td class="${promptClass}">${promptAcc.toFixed(2)}% ${promptTrend}</td>
+                        <td class="${instClass}">${instAcc.toFixed(2)}% ${instTrend}</td>
+                        <td>${samples}</td>
                     </tr>`;
                 }).join('');
                 
@@ -523,7 +535,8 @@
                                 borderColor: '#6366f1',
                                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                                 fill: true,
-                                tension: 0.3
+                                tension: 0.3,
+                                spanGaps: false // Don't connect lines across null values
                             },
                             {
                                 label: 'Instruction-level Accuracy (%)',
@@ -531,7 +544,8 @@
                                 borderColor: '#a855f7',
                                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
                                 fill: true,
-                                tension: 0.3
+                                tension: 0.3,
+                                spanGaps: false // Don't connect lines across null values
                             }
                         ]
                     },
