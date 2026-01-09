@@ -407,6 +407,18 @@
                     'NO_BASELINE': '⚠️'
                 }[data.status] || '•';
                 
+                // Helper to safely format date
+                const formatDate = (timestamp) => {
+                    try {
+                        if (!timestamp) return 'N/A';
+                        const date = new Date(timestamp);
+                        if (isNaN(date.getTime())) return 'Invalid date';
+                        return date.toLocaleString();
+                    } catch (e) {
+                        return 'Invalid date';
+                    }
+                };
+                
                 // Build model info section
                 const modelInfoHTML = `
                     <div class="card">
@@ -422,7 +434,7 @@
                             <dt>Baseline Model:</dt>
                             <dd>${escapeHtml(data.baseline_model || 'Unknown')}</dd>
                             <dt>Comparison Date:</dt>
-                            <dd>${data.timestamp ? escapeHtml(new Date(data.timestamp).toLocaleString()) : 'N/A'}</dd>
+                            <dd>${escapeHtml(formatDate(data.timestamp))}</dd>
                         </dl>
                     </div>
                 `;
@@ -487,14 +499,21 @@
                 
                 container.innerHTML = modelInfoHTML + metricsHTML + summaryHTML;
                 
-                // Update baseline model name in the info section
+                // Update baseline model name in the info section using textContent for safety
                 const baselineModelNameEl = document.getElementById('baseline-model-name');
                 if (baselineModelNameEl && data.baseline_model) {
+                    // Use textContent to safely set the value, then append the suffix
                     baselineModelNameEl.textContent = data.baseline_model + ' (unquantized)';
                 }
                 
+                // Safely update timestamp using textContent
                 if (data.timestamp) {
-                    lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+                    try {
+                        const formattedDate = formatDate(data.timestamp);
+                        lastUpdated.textContent = 'Last updated: ' + formattedDate;
+                    } catch (e) {
+                        lastUpdated.textContent = 'Last updated: Invalid date';
+                    }
                 }
                 
             } catch (error) {
