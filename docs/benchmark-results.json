@@ -1,53 +1,53 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
   "prefill": {
-    "tokens_per_second": 583.97,
-    "cost_per_million_tokens": 0.0528,
+    "tokens_per_second": 494.6,
+    "cost_per_million_tokens": 0.0624,
     "latency": {
-      "mean_ttft_ms": 42091.7,
-      "median_ttft_ms": 32672.52,
-      "p99_ttft_ms": 118660.31,
-      "mean_tpot_ms": 525.49,
-      "median_tpot_ms": 517.76,
-      "p99_tpot_ms": 664.45,
-      "mean_itl_ms": 830.14,
-      "median_itl_ms": 962.35,
-      "p99_itl_ms": 1236.88
+      "mean_ttft_ms": 0.0,
+      "median_ttft_ms": 0.0,
+      "p99_ttft_ms": 0.0,
+      "mean_tpot_ms": 0.0,
+      "median_tpot_ms": 0.0,
+      "p99_tpot_ms": 0.0,
+      "mean_itl_ms": 0.0,
+      "median_itl_ms": 0.0,
+      "p99_itl_ms": 0.0
     }
   },
   "cached": {
-    "tokens_per_second": 4186.07,
-    "cost_per_million_tokens": 0.0073,
+    "tokens_per_second": 2681.64,
+    "cost_per_million_tokens": 0.0115,
     "latency": {
-      "mean_ttft_ms": 2222.66,
-      "median_ttft_ms": 1880.47,
-      "p99_ttft_ms": 4196.74,
-      "mean_tpot_ms": 94.24,
-      "median_tpot_ms": 94.35,
-      "p99_tpot_ms": 143.7,
-      "mean_itl_ms": 184.24,
-      "median_itl_ms": 180.76,
-      "p99_itl_ms": 744.42
+      "mean_ttft_ms": 0.0,
+      "median_ttft_ms": 0.0,
+      "p99_ttft_ms": 0.0,
+      "mean_tpot_ms": 0.0,
+      "median_tpot_ms": 0.0,
+      "p99_tpot_ms": 0.0,
+      "mean_itl_ms": 0.0,
+      "median_itl_ms": 0.0,
+      "p99_itl_ms": 0.0
     }
   },
   "decode": {
-    "tokens_per_second": 260.5,
-    "cost_per_million_tokens": 0.1185,
+    "tokens_per_second": 209.71,
+    "cost_per_million_tokens": 0.1472,
     "latency": {
-      "mean_ttft_ms": 359.75,
-      "median_ttft_ms": 365.74,
-      "p99_ttft_ms": 837.64,
-      "mean_tpot_ms": 268.92,
-      "median_tpot_ms": 306.86,
-      "p99_tpot_ms": 381.96,
-      "mean_itl_ms": 546.28,
-      "median_itl_ms": 571.76,
-      "p99_itl_ms": 967.01
+      "mean_ttft_ms": 0.0,
+      "median_ttft_ms": 0.0,
+      "p99_ttft_ms": 0.0,
+      "mean_tpot_ms": 0.0,
+      "median_tpot_ms": 0.0,
+      "p99_tpot_ms": 0.0,
+      "mean_itl_ms": 0.0,
+      "median_itl_ms": 0.0,
+      "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2026-01-08T21:42:55.360812Z",
+  "timestamp": "2026-01-09T01:16:59.537955Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
@@ -92,5 +92,13 @@
     "platform": "NVIDIA DGX Spark",
     "gpu": "Grace Hopper",
     "architecture": "ARM64"
+  },
+  "accuracy": {
+    "ifeval": {
+      "prompt_level_accuracy": 0.0,
+      "instruction_level_accuracy": 0.0,
+      "num_samples": 0,
+      "evaluated": true
+    }
   }
 }
