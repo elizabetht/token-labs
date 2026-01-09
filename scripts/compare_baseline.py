@@ -88,6 +88,14 @@ def compare_accuracy(results: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[
             status = "IMPROVED"
             symbol = "🎉"
         
+        # Create message based on delta
+        if delta == 0:
+            change_msg = "unchanged"
+        elif delta > 0:
+            change_msg = f"improved by {abs(delta):.2f}%"
+        else:
+            change_msg = f"degraded by {abs(delta):.2f}%"
+        
         comparison["metrics"][result_key] = {
             "name": metric_name,
             "current": result_value,
@@ -95,7 +103,7 @@ def compare_accuracy(results: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[
             "delta": delta,
             "threshold": threshold,
             "status": status,
-            "message": f"Current {result_value:.2f}% vs baseline {baseline_value:.2f}% ({'improved' if delta > 0 else 'degraded'} by {abs(delta):.2f}%)"
+            "message": f"Current {result_value:.2f}% vs baseline {baseline_value:.2f}% ({change_msg})"
         }
         
         comparison["summary"].append(

@@ -196,9 +196,11 @@ jobs:
               --baseline baselines/llama-3.1-8b-instruct.json \
               --output comparison_results.json; then
               # Comparison succeeded (model passed)
-              COMPARISON_STATUS=$(python3 -c "import json; print(json.load(open('comparison_results.json')).get('status', 'UNKNOWN'))")
-              echo "comparison_status=$COMPARISON_STATUS" >> $GITHUB_OUTPUT
-              cat comparison_results.json
+              if [ -f comparison_results.json ]; then
+                COMPARISON_STATUS=$(python3 -c "import json; print(json.load(open('comparison_results.json')).get('status', 'UNKNOWN'))")
+                echo "comparison_status=$COMPARISON_STATUS" >> $GITHUB_OUTPUT
+                cat comparison_results.json
+              fi
             else
               EXIT_CODE=$?
               # Exit code 1 means comparison failed (model degraded)
@@ -393,7 +395,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/*.{html,json} 2>/dev/null || true
-          git add baselines/*.json 2>/dev/null || true
+          # Only add the specific baseline file for Llama 3.1 8B
+          git add baselines/llama-3.1-8b-instruct.json 2>/dev/null || true
           git add comparison_results.json 2>/dev/null || true
           git diff --quiet --cached || {
             git commit -m "Update benchmark results [skip ci]"
