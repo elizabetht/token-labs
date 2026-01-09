@@ -1,0 +1,21 @@
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "description": "Baseline accuracy for unquantized Llama 3.1 8B Instruct model",
+  "accuracy": {
+    "ifeval": {
+      "prompt_level_accuracy_strict": null,
+      "prompt_level_accuracy_loose": null,
+      "instruction_level_accuracy_strict": null,
+      "instruction_level_accuracy_loose": null,
+      "num_samples": 50,
+      "notes": "Baseline values to be established from first successful run"
+    }
+  },
+  "performance": {
+    "prefill_tokens_per_second": null,
+    "decode_tokens_per_second": null,
+    "cached_tokens_per_second": null
+  },
+  "last_updated": null,
+  "run_id": null
+}
