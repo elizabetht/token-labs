@@ -329,9 +329,11 @@
                 }
                 
                 const accuracy = data.accuracy.ifeval;
-                const promptAcc = accuracy.prompt_level_accuracy || 0;
-                const instAcc = accuracy.instruction_level_accuracy || 0;
-                const numSamples = accuracy.num_samples || 0;
+                // Ensure we have valid numbers, defaulting to 0 if not
+                // Note: Accuracy values are stored as percentages (0-100), not decimals (0-1)
+                const promptAcc = Number(accuracy.prompt_level_accuracy) || 0;
+                const instAcc = Number(accuracy.instruction_level_accuracy) || 0;
+                const numSamples = Number(accuracy.num_samples) || 0;
                 
                 container.innerHTML = `
                     <div class="card">
@@ -432,7 +434,7 @@
                 const parseVersion = (v) => {
                     if (!v) return [0, 0, 0];
                     const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                    return [parts[0], parts[1], parts[2]];
                 };
                 
                 // Sort by version ascending (oldest first for chart)
