@@ -129,6 +129,44 @@ jobs:
             sleep 1
           done
 
+      - name: Run IFEval accuracy evaluation
+        id: ifeval
+        run: |
+          echo "Running IFEval accuracy benchmark..."
+          
+          # Create virtual environment for evaluation
+          python3 -m venv .venv-ifeval
+          source .venv-ifeval/bin/activate
+          
+          # Install dependencies - ifeval must be installed from GitHub
+          pip install --upgrade pip
+          pip install requests
+          pip install git+https://github.com/oKatanaaa/ifeval.git
+          
+          # Run IFEval with a subset for CI (full eval takes ~30min)
+          # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
+          NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
+          
+          python3 scripts/evaluate_accuracy.py \
+            --base-url "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}" \
+            --model "${{ env.MODEL }}" \
+            --num-samples "$NUM_SAMPLES" \
+            --output ifeval_results.json || {
+              echo "IFEval evaluation failed, continuing with zero accuracy"
+              echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
+            }
+          
+          # Extract results
+          PROMPT_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('prompt_level_accuracy', 0))")
+          INST_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('instruction_level_accuracy', 0))")
+          NUM_SAMPLES=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('num_samples', 0))")
+          
+          echo "prompt_accuracy=$PROMPT_ACC" >> $GITHUB_OUTPUT
+          echo "instruction_accuracy=$INST_ACC" >> $GITHUB_OUTPUT
+          echo "num_samples=$NUM_SAMPLES" >> $GITHUB_OUTPUT
+          
+          echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
+
       - name: Run benchmarks
         id: benchmark
         run: |
@@ -244,50 +282,6 @@ jobs:
           echo "cost_in=$COST_IN" >> $GITHUB_OUTPUT
           echo "cost_out=$COST_OUT" >> $GITHUB_OUTPUT
           echo "cost_cached=$COST_CACHED" >> $GITHUB_OUTPUT
-
-      - name: Run IFEval accuracy evaluation
-        id: ifeval
-        run: |
-          echo "Running IFEval accuracy benchmark..."
-          
-          # Create virtual environment for evaluation
-          python3 -m venv .venv-ifeval
-          source .venv-ifeval/bin/activate
-          
-          # Install dependencies - ifeval must be installed from GitHub
-          pip install --upgrade pip
-          pip install requests
-          pip install git+https://github.com/oKatanaaa/ifeval.git
-          
-          # Run IFEval with a subset for CI (full eval takes ~30min)
-          # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
-          NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
-          
-          python3 scripts/evaluate_accuracy.py \
-            --base-url "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}" \
-            --model "${{ env.MODEL }}" \
-            --num-samples "$NUM_SAMPLES" \
-            --output ifeval_results.json || {
-              echo "IFEval evaluation failed, continuing with zero accuracy"
-              echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
-            }
-          
-          # Extract results
-          PROMPT_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('prompt_level_accuracy', 0))")
-          INST_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('instruction_level_accuracy', 0))")
-          NUM_SAMPLES=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('num_samples', 0))")
-          
-          echo "prompt_accuracy=$PROMPT_ACC" >> $GITHUB_OUTPUT
-          echo "instruction_accuracy=$INST_ACC" >> $GITHUB_OUTPUT
-          echo "num_samples=$NUM_SAMPLES" >> $GITHUB_OUTPUT
-          
-          # Export for generate_results.py
-          export IFEVAL_PROMPT_ACCURACY="$PROMPT_ACC"
-          export IFEVAL_INSTRUCTION_ACCURACY="$INST_ACC"
-          export IFEVAL_NUM_SAMPLES="$NUM_SAMPLES"
-          export IFEVAL_EVALUATED="true"
-          
-          echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
 
       - name: Generate final results
         run: |
