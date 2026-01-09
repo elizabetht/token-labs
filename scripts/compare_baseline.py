@@ -95,7 +95,7 @@ def compare_accuracy(results: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[
             "delta": delta,
             "threshold": threshold,
             "status": status,
-            "message": f"{'Improved' if delta > 0 else 'Degraded'} by {abs(delta):.2f}%"
+            "message": f"Current {result_value:.2f}% vs baseline {baseline_value:.2f}% ({'improved' if delta > 0 else 'degraded'} by {abs(delta):.2f}%)"
         }
         
         comparison["summary"].append(
@@ -198,7 +198,19 @@ def main():
     # Update baseline if requested
     if args.update_baseline:
         update_baseline(args.baseline, results, args.run_id)
-        print("Baseline updated. Skipping comparison since baseline now matches results.")
+        # Print what was updated
+        updated_baseline = load_json(args.baseline)
+        ifeval = updated_baseline.get("accuracy", {}).get("ifeval", {})
+        print("\n" + "=" * 60)
+        print("Updated Baseline Values:")
+        print("=" * 60)
+        print(f"Model: {updated_baseline.get('model', 'unknown')}")
+        print(f"Prompt-level (strict): {ifeval.get('prompt_level_accuracy_strict', 0):.2f}%")
+        print(f"Prompt-level (loose): {ifeval.get('prompt_level_accuracy_loose', 0):.2f}%")
+        print(f"Instruction-level (strict): {ifeval.get('instruction_level_accuracy_strict', 0):.2f}%")
+        print(f"Instruction-level (loose): {ifeval.get('instruction_level_accuracy_loose', 0):.2f}%")
+        print(f"Samples: {ifeval.get('num_samples', 0)}")
+        print("=" * 60 + "\n")
         sys.exit(0)
     
     # Compare results against baseline

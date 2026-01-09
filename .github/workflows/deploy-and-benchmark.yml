@@ -178,31 +178,44 @@ jobs:
           if [[ "${{ env.MODEL }}" == "meta-llama/Llama-3.1-8B-Instruct" ]]; then
             # For baseline model, update the baseline file
             echo "This is the baseline model. Updating baseline values..."
-            python3 scripts/compare_baseline.py \
+            if python3 scripts/compare_baseline.py \
               --results ifeval_results.json \
               --baseline baselines/llama-3.1-8b-instruct.json \
               --update-baseline \
-              --run-id "${{ github.run_id }}" || echo "Failed to update baseline"
-            echo "comparison_status=BASELINE_UPDATED" >> $GITHUB_OUTPUT
+              --run-id "${{ github.run_id }}"; then
+              echo "comparison_status=BASELINE_UPDATED" >> $GITHUB_OUTPUT
+            else
+              echo "Failed to update baseline (exit code: $?)"
+              echo "comparison_status=UPDATE_FAILED" >> $GITHUB_OUTPUT
+            fi
           else
             # For other models, compare against baseline
             echo "Comparing against baseline model..."
-            python3 scripts/compare_baseline.py \
+            if python3 scripts/compare_baseline.py \
               --results ifeval_results.json \
               --baseline baselines/llama-3.1-8b-instruct.json \
-              --output comparison_results.json || {
-                echo "Comparison failed or model degraded"
-                echo "comparison_status=FAILED" >> $GITHUB_OUTPUT
-                exit 0  # Don't fail the workflow, just mark it
-              }
-            
-            # Extract comparison summary
-            if [ -f comparison_results.json ]; then
+              --output comparison_results.json; then
+              # Comparison succeeded (model passed)
               COMPARISON_STATUS=$(python3 -c "import json; print(json.load(open('comparison_results.json')).get('status', 'UNKNOWN'))")
               echo "comparison_status=$COMPARISON_STATUS" >> $GITHUB_OUTPUT
-              
-              # Add comparison to artifacts
               cat comparison_results.json
+            else
+              EXIT_CODE=$?
+              # Exit code 1 means comparison failed (model degraded)
+              # Other exit codes indicate script errors
+              if [ $EXIT_CODE -eq 1 ]; then
+                echo "Comparison completed: model accuracy degraded beyond threshold"
+                if [ -f comparison_results.json ]; then
+                  COMPARISON_STATUS=$(python3 -c "import json; print(json.load(open('comparison_results.json')).get('status', 'UNKNOWN'))")
+                  echo "comparison_status=$COMPARISON_STATUS" >> $GITHUB_OUTPUT
+                  cat comparison_results.json
+                else
+                  echo "comparison_status=FAILED" >> $GITHUB_OUTPUT
+                fi
+              else
+                echo "Error running comparison script (exit code: $EXIT_CODE)"
+                echo "comparison_status=ERROR" >> $GITHUB_OUTPUT
+              fi
             fi
           fi
 
