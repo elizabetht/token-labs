@@ -1,0 +1,50 @@
+{
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+  "baseline_model": "meta-llama/Llama-3.1-8B-Instruct",
+  "timestamp": "2026-01-09T16:03:24.992782Z",
+  "metrics": {
+    "prompt_level_accuracy": {
+      "name": "Prompt-level Accuracy (Strict)",
+      "current": 78.0,
+      "baseline": 76.0,
+      "delta": 2.0,
+      "threshold": 5.0,
+      "status": "PASS",
+      "message": "Current 78.00% vs baseline 76.00% (improved by 2.00%)"
+    },
+    "prompt_level_accuracy_loose": {
+      "name": "Prompt-level Accuracy (Loose)",
+      "current": 84.0,
+      "baseline": 80.0,
+      "delta": 4.0,
+      "threshold": 5.0,
+      "status": "PASS",
+      "message": "Current 84.00% vs baseline 80.00% (improved by 4.00%)"
+    },
+    "instruction_level_accuracy": {
+      "name": "Instruction-level Accuracy (Strict)",
+      "current": 85.52631578947368,
+      "baseline": 81.57894736842105,
+      "delta": 3.94736842105263,
+      "threshold": 5.0,
+      "status": "PASS",
+      "message": "Current 85.53% vs baseline 81.58% (improved by 3.95%)"
+    },
+    "instruction_level_accuracy_loose": {
+      "name": "Instruction-level Accuracy (Loose)",
+      "current": 89.47368421052632,
+      "baseline": 84.21052631578947,
+      "delta": 5.26315789473685,
+      "threshold": 5.0,
+      "status": "IMPROVED",
+      "message": "Current 89.47% vs baseline 84.21% (improved by 5.26%)"
+    }
+  },
+  "status": "PASS",
+  "summary": [
+    "\u2705 Prompt-level Accuracy (Strict): 78.00% (baseline: 76.00%, \u0394 +2.00%)",
+    "\u2705 Prompt-level Accuracy (Loose): 84.00% (baseline: 80.00%, \u0394 +4.00%)",
+    "\u2705 Instruction-level Accuracy (Strict): 85.53% (baseline: 81.58%, \u0394 +3.95%)",
+    "\ud83c\udf89 Instruction-level Accuracy (Loose): 89.47% (baseline: 84.21%, \u0394 +5.26%)"
+  ]
+}
