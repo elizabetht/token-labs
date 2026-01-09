@@ -449,11 +449,11 @@
                                 <div class="metric-values">
                                     <div class="metric-value">
                                         <div class="metric-label">Current</div>
-                                        <div class="metric-number current">${metric.current ? metric.current.toFixed(2) + '%' : 'N/A'}</div>
+                                        <div class="metric-number current">${metric.current !== null && metric.current !== undefined ? metric.current.toFixed(2) + '%' : 'N/A'}</div>
                                     </div>
                                     <div class="metric-value">
                                         <div class="metric-label">Baseline</div>
-                                        <div class="metric-number baseline">${metric.baseline ? metric.baseline.toFixed(2) + '%' : 'N/A'}</div>
+                                        <div class="metric-number baseline">${metric.baseline !== null && metric.baseline !== undefined ? metric.baseline.toFixed(2) + '%' : 'N/A'}</div>
                                     </div>
                                     ${deltaHTML}
                                 </div>
