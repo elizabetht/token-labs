@@ -250,9 +250,14 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark..."
           
+          # Create virtual environment for evaluation
+          python3 -m venv .venv-ifeval
+          source .venv-ifeval/bin/activate
+          
           # Install dependencies - ifeval must be installed from GitHub
-          pip install requests --quiet
-          pip install git+https://github.com/oKatanaaa/ifeval.git --quiet
+          pip install --upgrade pip
+          pip install requests
+          pip install git+https://github.com/oKatanaaa/ifeval.git
           
           # Run IFEval with a subset for CI (full eval takes ~30min)
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
