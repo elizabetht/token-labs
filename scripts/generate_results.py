@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""
+Generate benchmark results JSON for v0.2.0 with LMCache.
+
+This script generates benchmark results with LMCache configuration hard-coded
+as enabled. For v0.2.0, LMCache is always enabled with the following settings:
+- chunk_size: 8
+- local_cpu: True
+- max_local_cpu_size: 5.0
+
+These settings are baked into the v0.2.0 Dockerfile and do not need to be
+configured via environment variables.
+"""
 import json
 import os
 from datetime import datetime
@@ -56,15 +68,18 @@ data = {
     'vllm_server_args': {
         'gpu_memory_utilization': float(os.getenv('GPU_MEMORY_UTILIZATION', '0.3')),
         'max_model_len': 131072,
-        'kv_transfer_config': 'LMCacheConnectorV1' if os.getenv('LMCACHE_ENABLED', 'false').lower() == 'true' else None,
-        'prefix_caching': os.getenv('PREFIX_CACHING_ENABLED', 'false').lower() == 'true',
-        'speculative_decoding': os.getenv('SPECULATIVE_DECODING_ENABLED', 'false').lower() == 'true'
+        'kv_transfer_config': {
+            'kv_connector': 'LMCacheConnectorV1',
+            'kv_role': 'kv_both'
+        },
+        'prefix_caching': False,
+        'speculative_decoding': False
     },
     'lmcache_config': {
-        'enabled': os.getenv('LMCACHE_ENABLED', 'false').lower() == 'true',
-        'chunk_size': 8 if os.getenv('LMCACHE_ENABLED', 'false').lower() == 'true' else None,
-        'local_cpu': True if os.getenv('LMCACHE_ENABLED', 'false').lower() == 'true' else None,
-        'max_local_cpu_size': 5.0 if os.getenv('LMCACHE_ENABLED', 'false').lower() == 'true' else None
+        'enabled': True,
+        'chunk_size': 8,
+        'local_cpu': True,
+        'max_local_cpu_size': 5.0
     },
     'benchmark_args': {
         'prefill_test': {
