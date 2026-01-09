@@ -101,11 +101,14 @@ def evaluate_ifeval(
     report, all_outputs = evaluator.evaluate(input_examples, responses)
     
     # Extract metrics from report
-    # The report contains prompt-level and instruction-level accuracy
-    prompt_strict = report.get("prompt_level_strict_accuracy", 0) * 100
-    prompt_loose = report.get("prompt_level_loose_accuracy", 0) * 100
-    inst_strict = report.get("instruction_level_strict_accuracy", 0) * 100
-    inst_loose = report.get("instruction_level_loose_accuracy", 0) * 100
+    # The report contains eval_results_strict and eval_results_loose dicts
+    strict_results = report.get("eval_results_strict", {})
+    loose_results = report.get("eval_results_loose", {})
+    
+    prompt_strict = strict_results.get("prompt_accuracy", 0) * 100
+    prompt_loose = loose_results.get("prompt_accuracy", 0) * 100
+    inst_strict = strict_results.get("instruction_accuracy", 0) * 100
+    inst_loose = loose_results.get("instruction_accuracy", 0) * 100
     
     results = {
         "model": model,
