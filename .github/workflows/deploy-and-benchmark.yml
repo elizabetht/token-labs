@@ -143,6 +143,9 @@ jobs:
           pip install requests
           pip install git+https://github.com/oKatanaaa/ifeval.git
           
+          # Download NLTK data required by ifeval
+          python3 -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+          
           # Run IFEval with a subset for CI (full eval takes ~30min)
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
