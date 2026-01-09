@@ -345,8 +345,8 @@
                     This page shows how the current model's accuracy compares to a baseline reference model. 
                     The comparison helps ensure that quantized or optimized models maintain acceptable accuracy levels.
                 </p>
-                <p>
-                    <strong>Baseline Model:</strong> meta-llama/Llama-3.1-8B-Instruct (unquantized)<br>
+                <p id="baseline-model-info">
+                    <strong>Baseline Model:</strong> <span id="baseline-model-name">Loading...</span><br>
                     This is the reference implementation that establishes expected accuracy levels.
                 </p>
             </div>
@@ -379,6 +379,13 @@
     </div>
     
     <script>
+        // Helper function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         async function loadComparisonResults() {
             const container = document.getElementById('results');
             const lastUpdated = document.getElementById('last-updated');
@@ -392,13 +399,13 @@
                 
                 // Build status badge
                 const statusClass = data.status ? `status-${data.status}` : 'status-PASS';
-                const statusText = data.status || 'UNKNOWN';
+                const statusText = escapeHtml(data.status || 'UNKNOWN');
                 const statusIcon = {
                     'PASS': '✅',
                     'FAIL': '❌',
                     'IMPROVED': '🎉',
                     'NO_BASELINE': '⚠️'
-                }[statusText] || '•';
+                }[data.status] || '•';
                 
                 // Build model info section
                 const modelInfoHTML = `
@@ -411,11 +418,11 @@
                         </div>
                         <dl class="model-info">
                             <dt>Current Model:</dt>
-                            <dd>${data.model || 'Unknown'}</dd>
+                            <dd>${escapeHtml(data.model || 'Unknown')}</dd>
                             <dt>Baseline Model:</dt>
-                            <dd>${data.baseline_model || 'Unknown'}</dd>
+                            <dd>${escapeHtml(data.baseline_model || 'Unknown')}</dd>
                             <dt>Comparison Date:</dt>
-                            <dd>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</dd>
+                            <dd>${data.timestamp ? escapeHtml(new Date(data.timestamp).toLocaleString()) : 'N/A'}</dd>
                         </dl>
                     </div>
                 `;
@@ -426,7 +433,7 @@
                 if (data.metrics) {
                     for (const [key, metric] of Object.entries(data.metrics)) {
                         const statusClass = metric.status ? metric.status.toLowerCase() : 'pass';
-                        const statusLabel = metric.status || 'PASS';
+                        const statusLabel = escapeHtml(metric.status || 'PASS');
                         
                         let deltaHTML = '';
                         if (metric.delta !== null && metric.delta !== undefined) {
@@ -443,7 +450,7 @@
                         metricsHTML += `
                             <div class="metric-card ${statusClass}">
                                 <div class="metric-header">
-                                    <div class="metric-name">${metric.name || key}</div>
+                                    <div class="metric-name">${escapeHtml(metric.name || key)}</div>
                                     <div class="metric-status ${statusClass}">${statusLabel}</div>
                                 </div>
                                 <div class="metric-values">
@@ -457,7 +464,7 @@
                                     </div>
                                     ${deltaHTML}
                                 </div>
-                                <div class="metric-message">${metric.message || ''}</div>
+                                <div class="metric-message">${escapeHtml(metric.message || '')}</div>
                             </div>
                         `;
                     }
@@ -472,13 +479,19 @@
                         <div class="card">
                             <h2>📝 Summary</h2>
                             <ul class="summary-list">
-                                ${data.summary.map(item => `<li>${item}</li>`).join('')}
+                                ${data.summary.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                             </ul>
                         </div>
                     `;
                 }
                 
                 container.innerHTML = modelInfoHTML + metricsHTML + summaryHTML;
+                
+                // Update baseline model name in the info section
+                const baselineModelNameEl = document.getElementById('baseline-model-name');
+                if (baselineModelNameEl && data.baseline_model) {
+                    baselineModelNameEl.textContent = data.baseline_model + ' (unquantized)';
+                }
                 
                 if (data.timestamp) {
                     lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
@@ -488,11 +501,16 @@
                 container.innerHTML = `
                     <div class="error">
                         <strong>⚠️ No comparison data available</strong><br><br>
-                        ${error.message}<br><br>
+                        ${escapeHtml(error.message)}<br><br>
                         Comparison results will appear here after running the accuracy evaluation with baseline comparison. 
                         This happens automatically when the CI/CD pipeline benchmarks a quantized model against the baseline.
                     </div>
                 `;
+                // Reset baseline model name on error
+                const baselineModelNameEl = document.getElementById('baseline-model-name');
+                if (baselineModelNameEl) {
+                    baselineModelNameEl.textContent = 'Not available';
+                }
             }
         }
         
