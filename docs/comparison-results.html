@@ -502,7 +502,7 @@
                 // Update baseline model name in the info section using textContent for safety
                 const baselineModelNameEl = document.getElementById('baseline-model-name');
                 if (baselineModelNameEl && data.baseline_model) {
-                    // Use textContent to safely set the value, then append the suffix
+                    // textContent automatically escapes all special characters, making concatenation safe
                     baselineModelNameEl.textContent = data.baseline_model + ' (unquantized)';
                 }
                 
