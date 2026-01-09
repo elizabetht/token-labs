@@ -81,10 +81,10 @@ def compare_accuracy(results: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[
             status = "FAIL"
             comparison["status"] = "FAIL"
             symbol = "❌"
-        elif abs(delta) <= threshold:
+        elif delta <= threshold:  # Simplified: covers -threshold <= delta <= threshold
             status = "PASS"
             symbol = "✅"
-        else:
+        else:  # delta > threshold (improved significantly)
             status = "IMPROVED"
             symbol = "🎉"
         
@@ -92,9 +92,9 @@ def compare_accuracy(results: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[
         if delta == 0:
             change_msg = "unchanged"
         elif delta > 0:
-            change_msg = f"improved by {abs(delta):.2f}%"
-        else:
-            change_msg = f"degraded by {abs(delta):.2f}%"
+            change_msg = f"improved by {delta:.2f}%"
+        else:  # delta < 0
+            change_msg = f"degraded by {-delta:.2f}%"
         
         comparison["metrics"][result_key] = {
             "name": metric_name,
