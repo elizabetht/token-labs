@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Labs - Baseline Comparison Results</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .status-PASS {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+            border: 2px solid var(--success);
+        }
+        
+        .status-FAIL {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+        
+        .status-IMPROVED {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+        
+        .model-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .model-info dt {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .model-info dd {
+            color: var(--text);
+            font-family: monospace;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .metric-card {
+            background: var(--bg);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            border-left: 4px solid transparent;
+        }
+        
+        .metric-card.pass {
+            border-left-color: var(--success);
+        }
+        
+        .metric-card.fail {
+            border-left-color: var(--danger);
+        }
+        
+        .metric-card.improved {
+            border-left-color: var(--primary);
+        }
+        
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        
+        .metric-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .metric-status {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        
+        .metric-status.pass {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+        
+        .metric-status.fail {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        
+        .metric-status.improved {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+        }
+        
+        .metric-values {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .metric-value {
+            text-align: center;
+        }
+        
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .metric-number.current {
+            color: var(--text);
+        }
+        
+        .metric-number.baseline {
+            color: var(--text-muted);
+        }
+        
+        .metric-number.delta-positive {
+            color: var(--success);
+        }
+        
+        .metric-number.delta-negative {
+            color: var(--danger);
+        }
+        
+        .metric-message {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        
+        .summary-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .summary-list li {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg);
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 1rem;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+        
+        .error {
+            background: #7f1d1d;
+            border: 1px solid #991b1b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            color: #fecaca;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+        
+        .json-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .json-link:hover {
+            text-decoration: underline;
+        }
+        
+        .info-box {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .info-box p {
+            margin: 0.5rem 0;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+        
+        .threshold-info {
+            background: var(--bg);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .threshold-info h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        
+        .threshold-info ul {
+            margin-left: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Token Labs</a>
+        
+        <header>
+            <h1>🔍 Baseline Comparison</h1>
+            <p class="subtitle">Model Accuracy vs. Baseline</p>
+            <span class="badge">Auto-updated via CI/CD</span>
+        </header>
+        
+        <div id="results">
+            <div class="loading">Loading comparison results...</div>
+        </div>
+        
+        <div class="card">
+            <h2>📐 About Baseline Comparison</h2>
+            <div class="info-box">
+                <p>
+                    <strong>What is this?</strong><br>
+                    This page shows how the current model's accuracy compares to a baseline reference model. 
+                    The comparison helps ensure that quantized or optimized models maintain acceptable accuracy levels.
+                </p>
+                <p>
+                    <strong>Baseline Model:</strong> meta-llama/Llama-3.1-8B-Instruct (unquantized)<br>
+                    This is the reference implementation that establishes expected accuracy levels.
+                </p>
+            </div>
+            
+            <div class="threshold-info">
+                <h3>Comparison Thresholds</h3>
+                <ul>
+                    <li><strong>✅ PASS:</strong> Model accuracy is within ±5% of baseline (acceptable quality)</li>
+                    <li><strong>🎉 IMPROVED:</strong> Model accuracy exceeds baseline by more than 5%</li>
+                    <li><strong>❌ FAIL:</strong> Model accuracy is more than 5% below baseline (significant degradation)</li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <a href="comparison-results.json" class="json-link">
+                    📄 View Raw Comparison Data (JSON)
+                </a>
+                <span style="margin: 0 1rem; color: var(--text-muted);">•</span>
+                <a href="accuracy-results.html" class="json-link">
+                    🎯 View Accuracy Results
+                </a>
+                <span style="margin: 0 1rem; color: var(--text-muted);">•</span>
+                <a href="benchmark-results.html" class="json-link">
+                    📊 View Performance Benchmarks
+                </a>
+            </div>
+        </div>
+        
+        <p class="last-updated" id="last-updated"></p>
+    </div>
+    
+    <script>
+        async function loadComparisonResults() {
+            const container = document.getElementById('results');
+            const lastUpdated = document.getElementById('last-updated');
+            
+            try {
+                // Add cache-busting to prevent stale data
+                const response = await fetch('comparison-results.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load comparison results');
+                
+                const data = await response.json();
+                
+                // Build status badge
+                const statusClass = data.status ? `status-${data.status}` : 'status-PASS';
+                const statusText = data.status || 'UNKNOWN';
+                const statusIcon = {
+                    'PASS': '✅',
+                    'FAIL': '❌',
+                    'IMPROVED': '🎉',
+                    'NO_BASELINE': '⚠️'
+                }[statusText] || '•';
+                
+                // Build model info section
+                const modelInfoHTML = `
+                    <div class="card">
+                        <h2>📊 Comparison Overview</h2>
+                        <div style="text-align: center;">
+                            <div class="status-badge ${statusClass}">
+                                ${statusIcon} Overall Status: ${statusText}
+                            </div>
+                        </div>
+                        <dl class="model-info">
+                            <dt>Current Model:</dt>
+                            <dd>${data.model || 'Unknown'}</dd>
+                            <dt>Baseline Model:</dt>
+                            <dd>${data.baseline_model || 'Unknown'}</dd>
+                            <dt>Comparison Date:</dt>
+                            <dd>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</dd>
+                        </dl>
+                    </div>
+                `;
+                
+                // Build metrics cards
+                let metricsHTML = '<div class="card"><h2>📈 Detailed Metrics</h2><div class="metrics-grid">';
+                
+                if (data.metrics) {
+                    for (const [key, metric] of Object.entries(data.metrics)) {
+                        const statusClass = metric.status ? metric.status.toLowerCase() : 'pass';
+                        const statusLabel = metric.status || 'PASS';
+                        
+                        let deltaHTML = '';
+                        if (metric.delta !== null && metric.delta !== undefined) {
+                            const deltaClass = metric.delta >= 0 ? 'delta-positive' : 'delta-negative';
+                            const deltaSign = metric.delta >= 0 ? '+' : '';
+                            deltaHTML = `
+                                <div class="metric-value">
+                                    <div class="metric-label">Change (Δ)</div>
+                                    <div class="metric-number ${deltaClass}">${deltaSign}${metric.delta.toFixed(2)}%</div>
+                                </div>
+                            `;
+                        }
+                        
+                        metricsHTML += `
+                            <div class="metric-card ${statusClass}">
+                                <div class="metric-header">
+                                    <div class="metric-name">${metric.name || key}</div>
+                                    <div class="metric-status ${statusClass}">${statusLabel}</div>
+                                </div>
+                                <div class="metric-values">
+                                    <div class="metric-value">
+                                        <div class="metric-label">Current</div>
+                                        <div class="metric-number current">${metric.current ? metric.current.toFixed(2) + '%' : 'N/A'}</div>
+                                    </div>
+                                    <div class="metric-value">
+                                        <div class="metric-label">Baseline</div>
+                                        <div class="metric-number baseline">${metric.baseline ? metric.baseline.toFixed(2) + '%' : 'N/A'}</div>
+                                    </div>
+                                    ${deltaHTML}
+                                </div>
+                                <div class="metric-message">${metric.message || ''}</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                metricsHTML += '</div></div>';
+                
+                // Build summary section
+                let summaryHTML = '';
+                if (data.summary && data.summary.length > 0) {
+                    summaryHTML = `
+                        <div class="card">
+                            <h2>📝 Summary</h2>
+                            <ul class="summary-list">
+                                ${data.summary.map(item => `<li>${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                container.innerHTML = modelInfoHTML + metricsHTML + summaryHTML;
+                
+                if (data.timestamp) {
+                    lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+                }
+                
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error">
+                        <strong>⚠️ No comparison data available</strong><br><br>
+                        ${error.message}<br><br>
+                        Comparison results will appear here after running the accuracy evaluation with baseline comparison. 
+                        This happens automatically when the CI/CD pipeline benchmarks a quantized model against the baseline.
+                    </div>
+                `;
+            }
+        }
+        
+        loadComparisonResults();
+    </script>
+</body>
+</html>

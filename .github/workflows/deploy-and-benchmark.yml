@@ -366,6 +366,10 @@ jobs:
           python3 scripts/update_pricing.py --results bench_results.json --html docs/index.html
           cp bench_results.json docs/benchmark-results.json
           cp ifeval_results.json docs/ifeval-results.json
+          # Copy comparison results if available
+          if [ -f comparison_results.json ]; then
+            cp comparison_results.json docs/comparison-results.json
+          fi
           
           # Update history
           python3 -c "
