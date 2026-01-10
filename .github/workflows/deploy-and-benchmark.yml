@@ -140,7 +140,7 @@ jobs:
           
           # Install lighteval
           pip install --upgrade pip
-          pip install lighteval
+          pip install 'lighteval[litellm]' langdetect
           
           # Run IFEval with a subset for CI (full eval takes ~30min)
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval

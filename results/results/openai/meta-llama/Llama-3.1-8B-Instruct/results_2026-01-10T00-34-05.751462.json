@@ -1,0 +1,155 @@
+{
+  "config_general": {
+    "lighteval_sha": "?",
+    "num_fewshot_seeds": 1,
+    "max_samples": 3,
+    "job_id": "0",
+    "start_time": 3218897.193778348,
+    "end_time": 3218925.82090968,
+    "total_evaluation_time_secondes": "28.627131331712008",
+    "model_config": {
+      "model_name": "openai/meta-llama/Llama-3.1-8B-Instruct",
+      "generation_parameters": {
+        "num_blocks": null,
+        "block_size": null,
+        "early_stopping": null,
+        "repetition_penalty": null,
+        "frequency_penalty": null,
+        "length_penalty": null,
+        "presence_penalty": null,
+        "max_new_tokens": null,
+        "min_new_tokens": null,
+        "seed": null,
+        "stop_tokens": null,
+        "temperature": 0,
+        "top_k": null,
+        "min_p": null,
+        "top_p": null,
+        "truncate_prompt": null,
+        "cache_implementation": null,
+        "response_format": null
+      },
+      "system_prompt": null,
+      "cache_dir": "~/.cache/huggingface/lighteval",
+      "provider": null,
+      "base_url": "http://100.64.38.13:8000/v1",
+      "api_key": "dummy",
+      "concurrent_requests": 10,
+      "verbose": false,
+      "max_model_length": null,
+      "api_max_retry": 8,
+      "api_retry_sleep": 1.0,
+      "api_retry_multiplier": 2.0,
+      "timeout": null
+    },
+    "model_name": "openai/meta-llama/Llama-3.1-8B-Instruct"
+  },
+  "results": {
+    "ifeval|0": {
+      "prompt_level_strict_acc": 0.3333333333333333,
+      "prompt_level_strict_acc_stderr": 0.33333333333333337,
+      "inst_level_strict_acc": 0.5,
+      "inst_level_strict_acc_stderr": 0.006619911938039703,
+      "prompt_level_loose_acc": 0.3333333333333333,
+      "prompt_level_loose_acc_stderr": 0.33333333333333337,
+      "inst_level_loose_acc": 0.5,
+      "inst_level_loose_acc_stderr": 0.006619911938039703
+    },
+    "all": {
+      "prompt_level_strict_acc": 0.3333333333333333,
+      "prompt_level_strict_acc_stderr": 0.33333333333333337,
+      "inst_level_strict_acc": 0.5,
+      "inst_level_strict_acc_stderr": 0.006619911938039703,
+      "prompt_level_loose_acc": 0.3333333333333333,
+      "prompt_level_loose_acc_stderr": 0.33333333333333337,
+      "inst_level_loose_acc": 0.5,
+      "inst_level_loose_acc_stderr": 0.006619911938039703
+    }
+  },
+  "versions": {},
+  "config_tasks": {
+    "ifeval|0": {
+      "name": "ifeval",
+      "prompt_function": "ifeval_prompt",
+      "hf_repo": "google/IFEval",
+      "hf_subset": "default",
+      "metrics": [
+        {
+          "metric_name": [
+            "prompt_level_strict_acc",
+            "inst_level_strict_acc",
+            "prompt_level_loose_acc",
+            "inst_level_loose_acc"
+          ],
+          "higher_is_better": {
+            "prompt_level_strict_acc": true,
+            "inst_level_strict_acc": true,
+            "prompt_level_loose_acc": true,
+            "inst_level_loose_acc": true
+          },
+          "category": "GENERATIVE",
+          "sample_level_fn": "IFEvalMetrics()",
+          "corpus_level_fn": {
+            "prompt_level_strict_acc": "mean",
+            "inst_level_strict_acc": "agg_inst_level_acc",
+            "prompt_level_loose_acc": "mean",
+            "inst_level_loose_acc": "agg_inst_level_acc"
+          },
+          "batched_compute": false
+        }
+      ],
+      "solver": [
+        "solve"
+      ],
+      "scorer": "score",
+      "sample_fields": "record_to_sample",
+      "sample_to_fewshot": null,
+      "filter": null,
+      "hf_revision": null,
+      "hf_filter": null,
+      "hf_avail_splits": [
+        "train"
+      ],
+      "evaluation_splits": [
+        "train"
+      ],
+      "few_shots_split": "train",
+      "few_shots_select": "random_sampling",
+      "generation_size": 1280,
+      "generation_grammar": null,
+      "stop_sequence": [],
+      "num_samples": null,
+      "original_num_docs": -1,
+      "effective_num_docs": -1,
+      "must_remove_duplicate_docs": false,
+      "num_fewshots": 0,
+      "version": "0.1"
+    }
+  },
+  "summary_tasks": {
+    "ifeval|0": {
+      "hashes": {
+        "hash_examples": "82fc18ae4bf0516b",
+        "hash_full_prompts": "ef46db3751d8e999",
+        "hash_input_tokens": "6eeb8866323a9168",
+        "hash_cont_tokens": "6eeb8866323a9168"
+      },
+      "truncated": 0,
+      "non_truncated": 0,
+      "padded": 0,
+      "non_padded": 0
+    }
+  },
+  "summary_general": {
+    "hashes": {
+      "hash_examples": "2e1081c3a1523e3f",
+      "hash_full_prompts": "c166e5d20ad58f4e",
+      "hash_input_tokens": "4afd72db7257fa6d",
+      "hash_cont_tokens": "4afd72db7257fa6d"
+    },
+    "truncated": 0,
+    "non_truncated": 0,
+    "padded": 0,
+    "non_padded": 0
+  }
+}
