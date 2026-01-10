@@ -39,7 +39,13 @@ DGX Spark running costs:
 
 ## 🎯 Accuracy Testing
 
-Token Labs includes automated accuracy testing using the [IFEval benchmark](https://github.com/oKatanaaa/ifeval) to ensure model quality is maintained across different configurations and quantizations.
+Token Labs uses [Hugging Face lighteval](https://github.com/huggingface/lighteval) to run the IFEval benchmark, ensuring model quality is maintained across different configurations and quantizations.
+
+### Evaluation Framework
+
+- **Tool**: [lighteval](https://github.com/huggingface/lighteval) - Hugging Face's lightweight evaluation framework
+- **Benchmark**: IFEval (Instruction Following Evaluation) - tests whether model outputs satisfy verifiable constraints
+- **Backend**: LiteLLM endpoint for compatibility with vLLM OpenAI-compatible API
 
 ### Baseline Comparison
 
@@ -92,12 +98,12 @@ See [`baselines/README.md`](baselines/README.md) for detailed documentation.
 │   └── benchmark-results.json  # Raw JSON data (auto-updated)
 ├── scripts/
 │   ├── compare_baseline.py # Compare accuracy against baseline
-│   ├── evaluate_accuracy.py # Run IFEval accuracy evaluation
+│   ├── evaluate_accuracy.py # Legacy IFEval script (replaced by lighteval)
 │   ├── generate_results.py # Generate benchmark result files
 │   └── update_pricing.py   # Updates pricing in docs
 └── .github/workflows/
     ├── build-and-push.yml      # Build vLLM Docker image
-    └── deploy-and-benchmark.yml # Deploy and run benchmarks
+    └── deploy-and-benchmark.yml # Deploy and run benchmarks (uses lighteval)
 ```
 
 ## License

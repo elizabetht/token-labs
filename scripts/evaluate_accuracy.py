@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 """
+DEPRECATED: This script has been replaced by lighteval in the CI/CD workflow.
+
+This script provides a legacy implementation of IFEval accuracy evaluation.
+The workflow now uses Hugging Face's lighteval framework instead:
+  
+  lighteval endpoint litellm "provider=openai,model_name=<model>,api_base=<url>" ifeval
+
+For manual testing, you can still use this script as a fallback, but lighteval is recommended.
+
+---
+
 Accuracy evaluation using IFEval (Instruction Following Evaluation).
 
 Evaluates quantized models on instruction-following capability by testing

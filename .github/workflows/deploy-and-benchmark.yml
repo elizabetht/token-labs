@@ -132,43 +132,110 @@ jobs:
       - name: Run IFEval accuracy evaluation
         id: ifeval
         run: |
-          echo "Running IFEval accuracy benchmark..."
+          echo "Running IFEval accuracy benchmark with lighteval..."
           
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
           source .venv-ifeval/bin/activate
           
-          # Install dependencies - ifeval must be installed from GitHub
+          # Install lighteval
           pip install --upgrade pip
-          pip install requests
-          pip install git+https://github.com/oKatanaaa/ifeval.git
-          
-          # Download NLTK data required by ifeval
-          python3 -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
+          pip install lighteval
           
           # Run IFEval with a subset for CI (full eval takes ~30min)
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
           
-          python3 scripts/evaluate_accuracy.py \
-            --base-url "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}" \
-            --model "${{ env.MODEL }}" \
-            --num-samples "$NUM_SAMPLES" \
-            --output ifeval_results.json || {
+          # Run lighteval using litellm endpoint
+          lighteval endpoint litellm \
+            "provider=openai,model_name=${{ env.MODEL }},api_base=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1" \
+            ifeval \
+            --output-dir ./lighteval_results \
+            --max-samples "$NUM_SAMPLES" \
+            --save-details || {
               echo "IFEval evaluation failed, continuing with zero accuracy"
               echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
+              echo "prompt_accuracy=0" >> $GITHUB_OUTPUT
+              echo "instruction_accuracy=0" >> $GITHUB_OUTPUT
+              echo "num_samples=0" >> $GITHUB_OUTPUT
+              exit 0
             }
           
-          # Extract results
-          PROMPT_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('prompt_level_accuracy', 0))")
-          INST_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('instruction_level_accuracy', 0))")
-          NUM_SAMPLES=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('num_samples', 0))")
+          # Find the latest results file
+          RESULTS_FILE=$(find ./lighteval_results -name "results_*.json" | sort -r | head -1)
           
-          echo "prompt_accuracy=$PROMPT_ACC" >> $GITHUB_OUTPUT
-          echo "instruction_accuracy=$INST_ACC" >> $GITHUB_OUTPUT
-          echo "num_samples=$NUM_SAMPLES" >> $GITHUB_OUTPUT
+          if [ -z "$RESULTS_FILE" ]; then
+            echo "No results file found, creating empty results"
+            echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
+            echo "prompt_accuracy=0" >> $GITHUB_OUTPUT
+            echo "instruction_accuracy=0" >> $GITHUB_OUTPUT
+            echo "num_samples=0" >> $GITHUB_OUTPUT
+          else
+            # Parse lighteval results and convert to expected format
+            cat > /tmp/parse_lighteval.py << 'PYEOF'
+          import json
+          import sys
+          import os
           
-          echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
+          try:
+              results_file = os.environ.get("RESULTS_FILE")
+              if not results_file:
+                  raise ValueError("RESULTS_FILE environment variable not set")
+              
+              with open(results_file) as f:
+                  lighteval_results = json.load(f)
+              
+              # Extract IFEval metrics from lighteval results
+              # lighteval returns results in format: {"results": {"ifeval:prompt_level_strict_acc": value, ...}}
+              results = lighteval_results.get("results", {})
+              
+              # Get strict accuracy metrics
+              # Note: lighteval returns accuracy as a float between 0.0 and 1.0, so we multiply by 100 for percentage
+              prompt_acc = results.get("ifeval:prompt_level_strict_acc", 0) * 100
+              inst_acc = results.get("ifeval:inst_level_strict_acc", 0) * 100
+              prompt_acc_loose = results.get("ifeval:prompt_level_loose_acc", 0) * 100
+              inst_acc_loose = results.get("ifeval:inst_level_loose_acc", 0) * 100
+              
+              # Create output in expected format
+              output = {
+                  "model": os.environ.get("MODEL", ""),
+                  "num_samples": int(os.environ.get("NUM_SAMPLES", "0")),
+                  "prompt_level_accuracy": prompt_acc,
+                  "instruction_level_accuracy": inst_acc,
+                  "prompt_level_accuracy_loose": prompt_acc_loose,
+                  "instruction_level_accuracy_loose": inst_acc_loose,
+                  "timestamp": lighteval_results.get("config_general", {}).get("start_time", ""),
+                  "raw_lighteval_results": results
+              }
+              
+              print(json.dumps(output, indent=2))
+          except Exception as e:
+              error_output = {
+                  "error": f"Failed to parse results: {str(e)}",
+                  "prompt_level_accuracy": 0,
+                  "instruction_level_accuracy": 0,
+                  "num_samples": 0
+              }
+              print(json.dumps(error_output), file=sys.stderr)
+              print('{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}')
+          PYEOF
+            
+            export RESULTS_FILE
+            export MODEL="${{ env.MODEL }}"
+            export NUM_SAMPLES
+            python3 /tmp/parse_lighteval.py > ifeval_results.json
+            
+            # Extract results for GitHub outputs
+            PROMPT_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('prompt_level_accuracy', 0))")
+            INST_ACC=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('instruction_level_accuracy', 0))")
+            NUM_SAMPLES=$(python3 -c "import json; print(json.load(open('ifeval_results.json')).get('num_samples', 0))")
+            
+            echo "prompt_accuracy=$PROMPT_ACC" >> $GITHUB_OUTPUT
+            echo "instruction_accuracy=$INST_ACC" >> $GITHUB_OUTPUT
+            echo "num_samples=$NUM_SAMPLES" >> $GITHUB_OUTPUT
+            
+            echo "IFEval Results: Prompt=${PROMPT_ACC}%, Instruction=${INST_ACC}%"
+          fi
 
       - name: Compare with baseline
         id: baseline_comparison
