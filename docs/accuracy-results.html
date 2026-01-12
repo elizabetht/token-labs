@@ -448,6 +448,13 @@
                 });
                 
                 const labels = sortedHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
+                // Store model names for display on chart
+                const modelNames = sortedHistory.map(h => {
+                    const model = h.model || 'Unknown';
+                    // Extract short model name (last part after /)
+                    const parts = model.split('/');
+                    return parts[parts.length - 1];
+                });
                 // Use valid numbers for chart, but don't show 0% for missing data
                 const promptAccData = sortedHistory.map(h => {
                     const val = Number(h.accuracy.ifeval.prompt_level_accuracy);
