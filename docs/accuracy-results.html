@@ -415,12 +415,12 @@
             const historySection = document.getElementById('history-section');
             
             try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                const response = await fetch('accuracy-history.json?t=' + Date.now());
                 if (!response.ok) throw new Error('No history available');
                 
                 const history = await response.json();
                 
-                // Filter history entries that have accuracy data
+                // All entries in accuracy-history.json should have accuracy data
                 const historyWithAccuracy = history.filter(h => 
                     h.accuracy && h.accuracy.ifeval && h.accuracy.ifeval.evaluated
                 );
@@ -516,8 +516,8 @@
                                 </tbody>
                             </table>
                         </div>
-                        <a href="benchmark-history.json" class="json-link">
-                            📄 View Full History JSON
+                        <a href="accuracy-history.json" class="json-link">
+                            📄 View Full Accuracy History JSON
                         </a>
                     </div>
                 `;

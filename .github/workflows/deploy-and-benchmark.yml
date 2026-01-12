@@ -456,6 +456,7 @@ jobs:
           new_result['version'] = version
           
           if not re.search(r'\b(rc|beta|alpha|dev|pre|snapshot|latest)\b', version, re.I):
+              # Update benchmark history
               try:
                   with open('docs/benchmark-history.json') as f: history = json.load(f)
               except: history = []
@@ -470,6 +471,32 @@ jobs:
               
               with open('docs/benchmark-history.json', 'w') as f:
                   json.dump(history[-50:], f, indent=2)
+              
+              # Update accuracy history (only entries with accuracy data)
+              if new_result.get('accuracy') and new_result['accuracy'].get('ifeval') and new_result['accuracy']['ifeval'].get('evaluated'):
+                  try:
+                      with open('docs/accuracy-history.json') as f: acc_history = json.load(f)
+                  except: acc_history = []
+                  
+                  # Extract only accuracy-related fields
+                  acc_entry = {
+                      'model': new_result.get('model'),
+                      'version': new_result.get('version'),
+                      'timestamp': new_result.get('timestamp'),
+                      'image_tag': new_result.get('image_tag'),
+                      'accuracy': new_result.get('accuracy')
+                  }
+                  
+                  # Use version + model as composite key
+                  for i, e in enumerate(acc_history):
+                      if e.get('version') == version and e.get('model') == model:
+                          acc_history[i] = acc_entry
+                          break
+                  else:
+                      acc_history.append(acc_entry)
+                  
+                  with open('docs/accuracy-history.json', 'w') as f:
+                      json.dump(acc_history[-50:], f, indent=2)
           "
 
       - name: Commit and push
