@@ -147,8 +147,10 @@ jobs:
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
           
           # Run lighteval using litellm endpoint
+          # Note: model_name needs openai/ prefix for litellm to use OpenAI-compatible API
+          # api_key=dummy is required even though vLLM doesn't need authentication
           lighteval endpoint litellm \
-            "provider=openai,model_name=${{ env.MODEL }},api_base=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1" \
+            "model_name=openai/${{ env.MODEL }},base_url=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1,api_key=dummy" \
             ifeval \
             --output-dir ./lighteval_results \
             --max-samples "$NUM_SAMPLES" \
