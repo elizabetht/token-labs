@@ -1,1 +1,31 @@
-{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "num_samples": 50,
+  "prompt_level_accuracy": 0,
+  "instruction_level_accuracy": 0,
+  "prompt_level_accuracy_loose": 0,
+  "instruction_level_accuracy_loose": 0,
+  "timestamp": 3372497.376234656,
+  "raw_lighteval_results": {
+    "ifeval|0": {
+      "prompt_level_strict_acc": 0.76,
+      "prompt_level_strict_acc_stderr": 0.0610118757258932,
+      "inst_level_strict_acc": 0.8378378378378378,
+      "inst_level_strict_acc_stderr": 0.0012898692271003074,
+      "prompt_level_loose_acc": 0.8,
+      "prompt_level_loose_acc_stderr": 0.05714285714285715,
+      "inst_level_loose_acc": 0.8648648648648649,
+      "inst_level_loose_acc_stderr": 0.0012194565950285933
+    },
+    "all": {
+      "prompt_level_strict_acc": 0.76,
+      "prompt_level_strict_acc_stderr": 0.0610118757258932,
+      "inst_level_strict_acc": 0.8378378378378378,
+      "inst_level_strict_acc_stderr": 0.0012898692271003074,
+      "prompt_level_loose_acc": 0.8,
+      "prompt_level_loose_acc_stderr": 0.05714285714285715,
+      "inst_level_loose_acc": 0.8648648648648649,
+      "inst_level_loose_acc_stderr": 0.0012194565950285933
+    }
+  }
+}
