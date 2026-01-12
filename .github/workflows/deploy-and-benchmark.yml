@@ -452,6 +452,7 @@ jobs:
           import json, re
           with open('bench_results.json') as f: new_result = json.load(f)
           version = '${{ steps.vars.outputs.VERSION_TAG }}'
+          model = '${{ env.MODEL }}'
           new_result['version'] = version
           
           if not re.search(r'\b(rc|beta|alpha|dev|pre|snapshot|latest)\b', version, re.I):
@@ -459,8 +460,9 @@ jobs:
                   with open('docs/benchmark-history.json') as f: history = json.load(f)
               except: history = []
               
+              # Use version + model as composite key to allow multiple models per version
               for i, e in enumerate(history):
-                  if e.get('version') == version:
+                  if e.get('version') == version and e.get('model') == model:
                       history[i] = new_result
                       break
               else:
