@@ -201,15 +201,19 @@ jobs:
               prompt_acc_loose = all_results.get("prompt_level_loose_acc", 0) * 100
               inst_acc_loose = all_results.get("inst_level_loose_acc", 0) * 100
               
+              # Get actual number of samples from lighteval config
+              config_general = lighteval_results.get("config_general", {})
+              num_samples = config_general.get("max_samples") or int(os.environ.get("NUM_SAMPLES", "0"))
+              
               # Create output in expected format
               output = {
                   "model": os.environ.get("MODEL", ""),
-                  "num_samples": int(os.environ.get("NUM_SAMPLES", "0")),
+                  "num_samples": num_samples,
                   "prompt_level_accuracy": prompt_acc,
                   "instruction_level_accuracy": inst_acc,
                   "prompt_level_accuracy_loose": prompt_acc_loose,
                   "instruction_level_accuracy_loose": inst_acc_loose,
-                  "timestamp": lighteval_results.get("config_general", {}).get("start_time", ""),
+                  "timestamp": config_general.get("start_time", ""),
                   "raw_lighteval_results": results
               }
               
