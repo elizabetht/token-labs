@@ -543,7 +543,9 @@
                                 backgroundColor: 'rgba(99, 102, 241, 0.1)',
                                 fill: true,
                                 tension: 0.3,
-                                spanGaps: false // Don't connect lines across null values
+                                spanGaps: false, // Don't connect lines across null values
+                                pointRadius: 6,
+                                pointHoverRadius: 8
                             },
                             {
                                 label: 'Instruction-level Accuracy (%)',
@@ -552,7 +554,9 @@
                                 backgroundColor: 'rgba(168, 85, 247, 0.1)',
                                 fill: true,
                                 tension: 0.3,
-                                spanGaps: false // Don't connect lines across null values
+                                spanGaps: false, // Don't connect lines across null values
+                                pointRadius: 6,
+                                pointHoverRadius: 8
                             }
                         ]
                     },
@@ -564,11 +568,34 @@
                                 labels: {
                                     color: '#94a3b8'
                                 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const idx = context[0].dataIndex;
+                                        return `Version: ${labels[idx]}`;
+                                    },
+                                    afterTitle: function(context) {
+                                        const idx = context[0].dataIndex;
+                                        return `Model: ${modelNames[idx]}`;
+                                    },
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.parsed.y?.toFixed(2) || 'N/A'}%`;
+                                    }
+                                }
                             }
                         },
                         scales: {
                             x: {
-                                ticks: { color: '#94a3b8' },
+                                ticks: { 
+                                    color: '#94a3b8',
+                                    callback: function(value, index) {
+                                        // Show version + short model name on x-axis
+                                        return labels[index] + '\n' + modelNames[index];
+                                    },
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
                                 grid: { color: '#334155' }
                             },
                             y: {
