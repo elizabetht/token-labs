@@ -1,31 +1,31 @@
 {
   "model": "meta-llama/Llama-3.1-8B-Instruct",
-  "num_samples": 50,
-  "prompt_level_accuracy": 74.0,
-  "instruction_level_accuracy": 82.43243243243244,
-  "prompt_level_accuracy_loose": 78.0,
-  "instruction_level_accuracy_loose": 85.13513513513513,
-  "timestamp": 3377607.411063984,
+  "num_samples": 541,
+  "prompt_level_accuracy": 73.56746765249538,
+  "instruction_level_accuracy": 81.5347721822542,
+  "prompt_level_accuracy_loose": 78.55822550831792,
+  "instruction_level_accuracy_loose": 85.37170263788968,
+  "timestamp": 3381214.957744284,
   "raw_lighteval_results": {
     "ifeval|0": {
-      "prompt_level_strict_acc": 0.74,
-      "prompt_level_strict_acc_stderr": 0.06266203485560373,
-      "inst_level_strict_acc": 0.8243243243243243,
-      "inst_level_strict_acc_stderr": 0.001342775347482867,
-      "prompt_level_loose_acc": 0.78,
-      "prompt_level_loose_acc_stderr": 0.059178043363451366,
-      "inst_level_loose_acc": 0.8513513513513513,
-      "inst_level_loose_acc_stderr": 0.0012882656140718062
+      "prompt_level_strict_acc": 0.7356746765249538,
+      "prompt_level_strict_acc_stderr": 0.01897646919334662,
+      "inst_level_strict_acc": 0.815347721822542,
+      "inst_level_strict_acc_stderr": 0.0004236075676338934,
+      "prompt_level_loose_acc": 0.7855822550831792,
+      "prompt_level_loose_acc_stderr": 0.017661570312173965,
+      "inst_level_loose_acc": 0.8537170263788969,
+      "inst_level_loose_acc_stderr": 0.0003900443325603841
     },
     "all": {
-      "prompt_level_strict_acc": 0.74,
-      "prompt_level_strict_acc_stderr": 0.06266203485560373,
-      "inst_level_strict_acc": 0.8243243243243243,
-      "inst_level_strict_acc_stderr": 0.001342775347482867,
-      "prompt_level_loose_acc": 0.78,
-      "prompt_level_loose_acc_stderr": 0.059178043363451366,
-      "inst_level_loose_acc": 0.8513513513513513,
-      "inst_level_loose_acc_stderr": 0.0012882656140718062
+      "prompt_level_strict_acc": 0.7356746765249538,
+      "prompt_level_strict_acc_stderr": 0.01897646919334662,
+      "inst_level_strict_acc": 0.815347721822542,
+      "inst_level_strict_acc_stderr": 0.0004236075676338934,
+      "prompt_level_loose_acc": 0.7855822550831792,
+      "prompt_level_loose_acc_stderr": 0.017661570312173965,
+      "inst_level_loose_acc": 0.8537170263788969,
+      "inst_level_loose_acc_stderr": 0.0003900443325603841
     }
   }
 }
