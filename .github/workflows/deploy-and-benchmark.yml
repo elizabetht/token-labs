@@ -29,6 +29,11 @@ on:
           - '100'
           - '200'
           - '541'
+      accuracy_only:
+        description: 'Run only accuracy tests (skip performance benchmarks)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -299,6 +304,7 @@ jobs:
 
       - name: Run benchmarks
         id: benchmark
+        if: ${{ github.event.inputs.accuracy_only != 'true' }}
         run: |
           VERSION="${{ steps.vars.outputs.VERSION_TAG }}"
           
@@ -420,15 +426,29 @@ jobs:
           export DGX_COST=$(echo "scale=4; (${{ env.DGX_HARDWARE_COST_PER_HOUR }} * ${{ env.GPU_MEMORY_UTILIZATION }}) + ${{ env.DGX_ELECTRICITY_COST_PER_HOUR }}" | bc)
           export FULL_IMAGE="${{ steps.vars.outputs.FULL_IMAGE }}"
           export GPU_MEMORY_UTILIZATION="${{ env.GPU_MEMORY_UTILIZATION }}"
-          export INPUT_TPS="${{ steps.benchmark.outputs.prefill_tps }}"
-          export OUTPUT_TPS="${{ steps.benchmark.outputs.decode_tps }}"
-          export CACHED_TPS="${{ steps.benchmark.outputs.cached_tps }}"
-          export COST_IN="${{ steps.benchmark.outputs.cost_in }}"
-          export COST_OUT="${{ steps.benchmark.outputs.cost_out }}"
-          export COST_CACHED="${{ steps.benchmark.outputs.cost_cached }}"
-          export PREFILL_NUM_PROMPTS=100 PREFILL_REQUEST_RATE=10 PREFILL_INPUT_LEN=3072 PREFILL_OUTPUT_LEN=1024
-          export DECODE_NUM_PROMPTS=100 DECODE_REQUEST_RATE=10 DECODE_INPUT_LEN=1024 DECODE_OUTPUT_LEN=3072
-          export CACHE_NUM_PROMPTS=100 CACHE_PREFIX_LEN=512 CACHE_SUFFIX_LEN=128 CACHE_NUM_PREFIXES=5 CACHE_OUTPUT_LEN=128
+          
+          # Only include benchmark metrics if benchmarks were run
+          if [[ "${{ github.event.inputs.accuracy_only }}" != "true" ]]; then
+            export INPUT_TPS="${{ steps.benchmark.outputs.prefill_tps }}"
+            export OUTPUT_TPS="${{ steps.benchmark.outputs.decode_tps }}"
+            export CACHED_TPS="${{ steps.benchmark.outputs.cached_tps }}"
+            export COST_IN="${{ steps.benchmark.outputs.cost_in }}"
+            export COST_OUT="${{ steps.benchmark.outputs.cost_out }}"
+            export COST_CACHED="${{ steps.benchmark.outputs.cost_cached }}"
+            export PREFILL_NUM_PROMPTS=100 PREFILL_REQUEST_RATE=10 PREFILL_INPUT_LEN=3072 PREFILL_OUTPUT_LEN=1024
+            export DECODE_NUM_PROMPTS=100 DECODE_REQUEST_RATE=10 DECODE_INPUT_LEN=1024 DECODE_OUTPUT_LEN=3072
+            export CACHE_NUM_PROMPTS=100 CACHE_PREFIX_LEN=512 CACHE_SUFFIX_LEN=128 CACHE_NUM_PREFIXES=5 CACHE_OUTPUT_LEN=128
+            export ACCURACY_ONLY="false"
+          else
+            export INPUT_TPS="0"
+            export OUTPUT_TPS="0"
+            export CACHED_TPS="0"
+            export COST_IN="0"
+            export COST_OUT="0"
+            export COST_CACHED="0"
+            export ACCURACY_ONLY="true"
+          fi
+          
           export IFEVAL_PROMPT_ACCURACY="${{ steps.ifeval.outputs.prompt_accuracy }}"
           export IFEVAL_INSTRUCTION_ACCURACY="${{ steps.ifeval.outputs.instruction_accuracy }}"
           export IFEVAL_NUM_SAMPLES="${{ steps.ifeval.outputs.num_samples }}"
@@ -449,28 +469,30 @@ jobs:
           
           # Update history
           python3 -c "
-          import json, re
+          import json, re, os
           with open('bench_results.json') as f: new_result = json.load(f)
           version = '${{ steps.vars.outputs.VERSION_TAG }}'
           model = '${{ env.MODEL }}'
+          accuracy_only = '${{ github.event.inputs.accuracy_only }}' == 'true'
           new_result['version'] = version
           
           if not re.search(r'\b(rc|beta|alpha|dev|pre|snapshot|latest)\b', version, re.I):
-              # Update benchmark history
-              try:
-                  with open('docs/benchmark-history.json') as f: history = json.load(f)
-              except: history = []
-              
-              # Use version + model as composite key to allow multiple models per version
-              for i, e in enumerate(history):
-                  if e.get('version') == version and e.get('model') == model:
-                      history[i] = new_result
-                      break
-              else:
-                  history.append(new_result)
-              
-              with open('docs/benchmark-history.json', 'w') as f:
-                  json.dump(history[-50:], f, indent=2)
+              # Update benchmark history (only if not accuracy_only mode)
+              if not accuracy_only:
+                  try:
+                      with open('docs/benchmark-history.json') as f: history = json.load(f)
+                  except: history = []
+                  
+                  # Use version + model as composite key to allow multiple models per version
+                  for i, e in enumerate(history):
+                      if e.get('version') == version and e.get('model') == model:
+                          history[i] = new_result
+                          break
+                  else:
+                      history.append(new_result)
+                  
+                  with open('docs/benchmark-history.json', 'w') as f:
+                      json.dump(history[-50:], f, indent=2)
               
               # Update accuracy history (only entries with accuracy data)
               if new_result.get('accuracy') and new_result['accuracy'].get('ifeval') and new_result['accuracy']['ifeval'].get('evaluated'):
