@@ -188,15 +188,18 @@ jobs:
                   lighteval_results = json.load(f)
               
               # Extract IFEval metrics from lighteval results
-              # lighteval returns results in format: {"results": {"ifeval:prompt_level_strict_acc": value, ...}}
+              # lighteval returns results nested under task keys like "all" or "ifeval|0"
               results = lighteval_results.get("results", {})
+              
+              # Get metrics from "all" key (aggregated results)
+              all_results = results.get("all", {})
               
               # Get strict accuracy metrics
               # Note: lighteval returns accuracy as a float between 0.0 and 1.0, so we multiply by 100 for percentage
-              prompt_acc = results.get("ifeval:prompt_level_strict_acc", 0) * 100
-              inst_acc = results.get("ifeval:inst_level_strict_acc", 0) * 100
-              prompt_acc_loose = results.get("ifeval:prompt_level_loose_acc", 0) * 100
-              inst_acc_loose = results.get("ifeval:inst_level_loose_acc", 0) * 100
+              prompt_acc = all_results.get("prompt_level_strict_acc", 0) * 100
+              inst_acc = all_results.get("inst_level_strict_acc", 0) * 100
+              prompt_acc_loose = all_results.get("prompt_level_loose_acc", 0) * 100
+              inst_acc_loose = all_results.get("inst_level_loose_acc", 0) * 100
               
               # Create output in expected format
               output = {
