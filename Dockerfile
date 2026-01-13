@@ -1,29 +1,30 @@
 FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
-# Install build essentials and runtime dependencies
+# Install Python and build dependencies needed for CUDA extensions
 RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
     apt-get update && apt-get install -y \
     python3.12 python3.12-dev python3.12-venv python3-pip \
-    git wget patch curl ca-certificates cmake build-essential ninja-build \
-    gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+    build-essential cmake ninja-build \
     && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
-WORKDIR /app
 
 # Create virtual env
 RUN python3.12 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ENV CUDA_HOME=/usr/local/cuda
 
-# Upgrade pip (use explicit path to ensure venv pip is used)
-RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install --upgrade pip
+# Upgrade pip and install Python build tools
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install --upgrade pip setuptools==79.0.1 setuptools_scm packaging wheel
+
+# Install numpy first (required for LMCache CUDA extension build)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install numpy==1.26.4
 
 # Install PyTorch + CUDA
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
-# Install pre-release deps
+# Install flashinfer dependencies
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install xgrammar triton && \
     /opt/venv/bin/pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps && \
@@ -34,7 +35,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Set essential environment variables
 ENV TORCH_CUDA_ARCH_LIST="12.1a"
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
-ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV TORCH_USE_CUDA_DSA=0
 
@@ -42,32 +42,15 @@ ENV TORCH_USE_CUDA_DSA=0
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install vllm==0.12.0
 
-# Clone and install LMCache
-RUN --mount=type=cache,target=/root/.cache/git git clone https://github.com/LMCache/LMCache.git
-WORKDIR /app/LMCache
-RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install -r requirements/build.txt
-
-# Set additional environment variables specifically for LMCache build
-ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
-
-# Try installation without build isolation first, if it fails try with build isolation
+# Install LMCache from PyPI with --no-build-isolation to use pre-installed numpy
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/app/LMCache/build \
-    /opt/venv/bin/pip install -e . --no-build-isolation || pip install -e .
+    /opt/venv/bin/pip install --no-build-isolation lmcache==0.3.9
 
-# Clean up build artifacts
-RUN rm -rf /tmp/*
-
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    apt-get update && apt-get install -y python3-dev && rm -rf /var/lib/apt/lists/*
-
-# Set environment
-ENV PATH="/opt/venv/bin:$PATH"
+# Set runtime environment
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Working directory
+# Set working directory
 WORKDIR /app
 
 # Expose port
