@@ -16,12 +16,12 @@
   {
     "model": "meta-llama/Llama-3.1-8B-Instruct",
     "version": "0.3.0",
-    "timestamp": "2026-01-12T20:01:06.088868Z",
+    "timestamp": "2026-01-13T02:11:28.882470Z",
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "accuracy": {
       "ifeval": {
-        "prompt_level_accuracy": 73.19778188539742,
-        "instruction_level_accuracy": 81.17505995203837,
+        "prompt_level_accuracy": 74.4916820702403,
+        "instruction_level_accuracy": 81.77458033573141,
         "num_samples": 541,
         "evaluated": true
       }
