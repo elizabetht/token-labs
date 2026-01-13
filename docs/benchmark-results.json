@@ -1,10 +1,10 @@
 {
-  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
   "prefill": {
-    "tokens_per_second": 487.37,
-    "cost_per_million_tokens": 0.0633,
+    "tokens_per_second": 0.0,
+    "cost_per_million_tokens": 0.0,
     "latency": {
       "mean_ttft_ms": 0.0,
       "median_ttft_ms": 0.0,
@@ -18,8 +18,8 @@
     }
   },
   "cached": {
-    "tokens_per_second": 2674.5,
-    "cost_per_million_tokens": 0.0115,
+    "tokens_per_second": 0.0,
+    "cost_per_million_tokens": 0.0,
     "latency": {
       "mean_ttft_ms": 0.0,
       "median_ttft_ms": 0.0,
@@ -33,8 +33,8 @@
     }
   },
   "decode": {
-    "tokens_per_second": 208.54,
-    "cost_per_million_tokens": 0.1481,
+    "tokens_per_second": 0.0,
+    "cost_per_million_tokens": 0.0,
     "latency": {
       "mean_ttft_ms": 0.0,
       "median_ttft_ms": 0.0,
@@ -47,7 +47,7 @@
       "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2026-01-13T02:11:28.882470Z",
+  "timestamp": "2026-01-13T05:22:14.734274Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
@@ -95,8 +95,8 @@
   },
   "accuracy": {
     "ifeval": {
-      "prompt_level_accuracy": 74.4916820702403,
-      "instruction_level_accuracy": 81.77458033573141,
+      "prompt_level_accuracy": 0.0,
+      "instruction_level_accuracy": 0.0,
       "num_samples": 541,
       "evaluated": true
     }
