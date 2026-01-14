@@ -454,6 +454,15 @@
                 
                 // Build table rows with reversed history (newest first in table)
                 const reversedHistory = [...sortedHistory].reverse();
+                
+                // Helper to shorten model name for display
+                const shortModelName = (model) => {
+                    if (!model) return 'N/A';
+                    // Extract just the model name after the last /
+                    const parts = model.split('/');
+                    return parts[parts.length - 1] || model;
+                };
+                
                 const tableRows = reversedHistory.map((h, i, arr) => {
                     const prev = arr[i + 1];
                     const prefillTrend = prev ? (h.prefill?.tokens_per_second > prev.prefill?.tokens_per_second ? '↑' : h.prefill?.tokens_per_second < prev.prefill?.tokens_per_second ? '↓' : '') : '';
@@ -468,14 +477,6 @@
                     const costDisplay = hideCost ? '-' : `$${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     const cachedCostDisplay = hideCost ? '-' : `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     const decodeCostDisplay = hideCost ? '-' : `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    
-                    // Helper to shorten model name for display
-                    const shortModelName = (model) => {
-                        if (!model) return 'N/A';
-                        // Extract just the model name after the last /
-                        const parts = model.split('/');
-                        return parts[parts.length - 1] || model;
-                    };
                     
                     return `<tr>
                         <td><span class="version-badge">${h.version || 'N/A'}</span></td>
