@@ -422,8 +422,19 @@
                     return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
                 };
                 
+                // Deduplicate by model + version, keeping the latest (by timestamp)
+                const dedupeMap = new Map();
+                for (const h of history) {
+                    const key = `${h.model || 'unknown'}|${h.version || 'unknown'}`;
+                    const existing = dedupeMap.get(key);
+                    if (!existing || new Date(h.timestamp) > new Date(existing.timestamp)) {
+                        dedupeMap.set(key, h);
+                    }
+                }
+                const dedupedHistory = Array.from(dedupeMap.values());
+                
                 // Sort by version ascending (oldest first for chart, newest last)
-                const sortedHistory = [...history].sort((a, b) => {
+                const sortedHistory = [...dedupedHistory].sort((a, b) => {
                     const vA = parseVersion(a.version);
                     const vB = parseVersion(b.version);
                     // Compare major, minor, patch in order
@@ -458,8 +469,17 @@
                     const cachedCostDisplay = hideCost ? '-' : `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     const decodeCostDisplay = hideCost ? '-' : `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     
+                    // Helper to shorten model name for display
+                    const shortModelName = (model) => {
+                        if (!model) return 'N/A';
+                        // Extract just the model name after the last /
+                        const parts = model.split('/');
+                        return parts[parts.length - 1] || model;
+                    };
+                    
                     return `<tr>
                         <td><span class="version-badge">${h.version || 'N/A'}</span></td>
+                        <td title="${h.model || 'N/A'}">${shortModelName(h.model)}</td>
                         <td>${h.timestamp ? new Date(h.timestamp).toLocaleDateString() : 'N/A'}</td>
                         <td class="${prefillClass}">${h.prefill?.tokens_per_second?.toLocaleString() || 'N/A'} ${prefillTrend}</td>
                         <td class="${cachedClass}">${h.cached?.tokens_per_second?.toLocaleString() || 'N/A'} ${cachedTrend}</td>
@@ -512,6 +532,7 @@
                                 <thead>
                                     <tr>
                                         <th>Version</th>
+                                        <th>Model</th>
                                         <th>Date</th>
                                         <th>Prefill (tok/s)</th>
                                         <th>Cached Input (tok/s)</th>
