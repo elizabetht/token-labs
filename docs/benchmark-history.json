@@ -198,8 +198,8 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "prefill": {
-      "tokens_per_second": 597.35,
-      "cost_per_million_tokens": 0.0517,
+      "tokens_per_second": 595.63,
+      "cost_per_million_tokens": 0.0518,
       "latency": {
         "mean_ttft_ms": 0.0,
         "median_ttft_ms": 0.0,
@@ -213,7 +213,7 @@
       }
     },
     "cached": {
-      "tokens_per_second": 4425.5,
+      "tokens_per_second": 4446.53,
       "cost_per_million_tokens": 0.0069,
       "latency": {
         "mean_ttft_ms": 0.0,
@@ -228,8 +228,8 @@
       }
     },
     "decode": {
-      "tokens_per_second": 262.79,
-      "cost_per_million_tokens": 0.1175,
+      "tokens_per_second": 263.76,
+      "cost_per_million_tokens": 0.1171,
       "latency": {
         "mean_ttft_ms": 0.0,
         "median_ttft_ms": 0.0,
@@ -242,7 +242,7 @@
         "p99_itl_ms": 0.0
       }
     },
-    "timestamp": "2026-01-13T06:10:26.135060Z",
+    "timestamp": "2026-01-14T08:16:33.506985Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,

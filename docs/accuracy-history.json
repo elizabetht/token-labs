@@ -2,7 +2,7 @@
   {
     "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
     "version": "0.3.0",
-    "timestamp": "2026-01-13T06:10:26.135060Z",
+    "timestamp": "2026-01-14T08:16:33.506985Z",
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.3.0",
     "accuracy": {
       "ifeval": {
