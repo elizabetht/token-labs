@@ -472,11 +472,9 @@
                     const cachedClass = cachedTrend === '↑' ? 'trend-up' : cachedTrend === '↓' ? 'trend-down' : '';
                     const decodeClass = decodeTrend === '↑' ? 'trend-up' : decodeTrend === '↓' ? 'trend-down' : '';
                     
-                    // Hide cost columns for v0.3.0
-                    const hideCost = h.version === '0.3.0';
-                    const costDisplay = hideCost ? '-' : `$${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    const cachedCostDisplay = hideCost ? '-' : `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    const decodeCostDisplay = hideCost ? '-' : `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
+                    const costDisplay = `$${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
+                    const cachedCostDisplay = `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
+                    const decodeCostDisplay = `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     
                     return `<tr>
                         <td><span class="version-badge">${h.version || 'N/A'}</span></td>
