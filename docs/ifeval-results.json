@@ -1,31 +1,31 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
   "num_samples": 541,
-  "prompt_level_accuracy": 71.34935304990758,
-  "instruction_level_accuracy": 79.97601918465229,
-  "prompt_level_accuracy_loose": 75.97042513863215,
-  "instruction_level_accuracy_loose": 83.45323741007195,
-  "timestamp": 3727879.204576273,
+  "prompt_level_accuracy": 0.0,
+  "instruction_level_accuracy": 0.0,
+  "prompt_level_accuracy_loose": 0.0,
+  "instruction_level_accuracy_loose": 0.0,
+  "timestamp": 3735701.853745823,
   "raw_lighteval_results": {
     "ifeval|0": {
-      "prompt_level_strict_acc": 0.7134935304990758,
-      "prompt_level_strict_acc_stderr": 0.019456528583211702,
-      "inst_level_strict_acc": 0.7997601918465228,
-      "inst_level_strict_acc_stderr": 0.00043658508768569033,
-      "prompt_level_loose_acc": 0.7597042513863216,
-      "prompt_level_loose_acc_stderr": 0.018386473581487074,
-      "inst_level_loose_acc": 0.8345323741007195,
-      "inst_level_loose_acc_stderr": 0.0004047939104279092
+      "prompt_level_strict_acc": 0.0,
+      "prompt_level_strict_acc_stderr": 0.0,
+      "inst_level_strict_acc": 0.0,
+      "inst_level_strict_acc_stderr": 0.0,
+      "prompt_level_loose_acc": 0.0,
+      "prompt_level_loose_acc_stderr": 0.0,
+      "inst_level_loose_acc": 0.0,
+      "inst_level_loose_acc_stderr": 0.0
     },
     "all": {
-      "prompt_level_strict_acc": 0.7134935304990758,
-      "prompt_level_strict_acc_stderr": 0.019456528583211702,
-      "inst_level_strict_acc": 0.7997601918465228,
-      "inst_level_strict_acc_stderr": 0.00043658508768569033,
-      "prompt_level_loose_acc": 0.7597042513863216,
-      "prompt_level_loose_acc_stderr": 0.018386473581487074,
-      "inst_level_loose_acc": 0.8345323741007195,
-      "inst_level_loose_acc_stderr": 0.0004047939104279092
+      "prompt_level_strict_acc": 0.0,
+      "prompt_level_strict_acc_stderr": 0.0,
+      "inst_level_strict_acc": 0.0,
+      "inst_level_strict_acc_stderr": 0.0,
+      "prompt_level_loose_acc": 0.0,
+      "prompt_level_loose_acc_stderr": 0.0,
+      "inst_level_loose_acc": 0.0,
+      "inst_level_loose_acc_stderr": 0.0
     }
   }
 }
