@@ -1,4 +1,4 @@
-FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu24.04
 
 # Install build essentials and runtime dependencies
 RUN --mount=type=cache,target=/var/cache/apt \

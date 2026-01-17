@@ -88,7 +88,7 @@ See [`baselines/README.md`](baselines/README.md) for detailed documentation.
 ## 📁 Repository Structure
 
 ```
-├── Dockerfile              # vLLM build for ARM64/CUDA 13.0
+├── Dockerfile              # vLLM build for ARM64/CUDA 12.6
 ├── baselines/              # Baseline accuracy values for comparison
 │   ├── README.md           # Documentation for baseline testing
 │   └── llama-3.1-8b-instruct.json  # Baseline for Llama 3.1 8B
