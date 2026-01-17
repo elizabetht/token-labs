@@ -29,7 +29,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install -U --pre flashinfer-python --index-url https://flashinfer.ai/whl/nightly --no-deps && \
     /opt/venv/bin/pip install flashinfer-python && \
     /opt/venv/bin/pip install -U --pre flashinfer-cubin --index-url https://flashinfer.ai/whl/nightly && \
-    /opt/venv/bin/pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130
+    /opt/venv/bin/pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130 && \
+    /opt/venv/bin/pip install torchao>=0.14.0
 
 # Set essential environment variables
 ENV TORCH_CUDA_ARCH_LIST="12.1a"
