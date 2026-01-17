@@ -41,37 +41,16 @@ ENV TORCH_USE_CUDA_DSA=0
 
 # Install vLLM from PyPI
 RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install vllm==0.12.0
-
-# Clone and install LMCache
-RUN --mount=type=cache,target=/root/.cache/git git clone https://github.com/LMCache/LMCache.git
-WORKDIR /app/LMCache
-RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install -r requirements/build.txt
-
-# Set additional environment variables specifically for LMCache build
-ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
-
-# Try installation without build isolation first, if it fails try with build isolation
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/app/LMCache/build \
-    /opt/venv/bin/pip install -e . --no-build-isolation || pip install -e .
+    /opt/venv/bin/pip install vllm==0.13.0
 
 # Clean up build artifacts
 RUN rm -rf /tmp/*
-
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    apt-get update && apt-get install -y python3-dev && rm -rf /var/lib/apt/lists/*
 
 # Set environment
 ENV PATH="/opt/venv/bin:$PATH"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Working directory
-WORKDIR /app
-
-# Expose port
 EXPOSE 8000
 
 ENTRYPOINT ["vllm", "serve"]
