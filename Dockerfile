@@ -19,6 +19,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Upgrade pip (use explicit path to ensure venv pip is used)
 RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install --upgrade pip
 
+# Set CUDA architecture list for compilation (Grace Hopper GB10 is compute capability 12.1)
+ARG TORCH_CUDA_ARCH_LIST='7.0 7.5 8.0 8.9 9.0 10.0 12.0'
+ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
+
 # Install PyTorch + CUDA
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
@@ -33,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install torchao>=0.14.0
 
 # Set essential environment variables
-ENV TORCH_CUDA_ARCH_LIST="12.1a"
+ENV TORCH_CUDA_ARCH_LIST="12.1"
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
@@ -43,25 +47,33 @@ ENV TORCH_USE_CUDA_DSA=0
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install vllm==0.12.0
 
-# Clone and install LMCache
-RUN --mount=type=cache,target=/root/.cache/git git clone https://github.com/LMCache/LMCache.git
-WORKDIR /app/LMCache
-RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install -r requirements/build.txt
-
-# Set additional environment variables specifically for LMCache build
-ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
-
-# Try installation without build isolation first, if it fails try with build isolation
+# Install LMCache and KV connectors (adapted from vLLM's pattern for venv usage)
+# Note: LMCache disabled for ARM64 due to CUDA_HOME environment propagation issues in pip subprocess
+# vLLM functions fully without LMCache - it's an optional caching layer
+ARG INSTALL_KV_CONNECTORS=false
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/app/LMCache/build \
-    /opt/venv/bin/pip install -e . --no-build-isolation || pip install -e .
+    --mount=type=bind,source=requirements/kv_connectors.txt,target=/tmp/kv_connectors.txt,ro \
+    CUDA_MAJOR="${CUDA_VERSION%%.*}"; \
+    CUDA_VERSION_DASH=$(echo $CUDA_VERSION | cut -d. -f1,2 | tr '.' '-'); \
+    BUILD_PKGS="libcusparse-dev-${CUDA_VERSION_DASH} \
+                libcublas-dev-${CUDA_VERSION_DASH} \
+                libcusolver-dev-${CUDA_VERSION_DASH}"; \
+    if [ "$INSTALL_KV_CONNECTORS" = "true" ]; then \
+        if [ "$CUDA_MAJOR" -ge 13 ]; then \
+            /opt/venv/bin/pip install nixl-cu13; \
+        fi; \
+        /opt/venv/bin/pip install -r /tmp/kv_connectors.txt --no-build || ( \
+            apt-get update -y && \
+            apt-get install -y --no-install-recommends ${BUILD_PKGS} && \
+            env CUDA_HOME=/usr/local/cuda PATH="/usr/local/cuda/bin:$PATH" LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH" \
+                /opt/venv/bin/pip install -r /tmp/kv_connectors.txt --no-build-isolation && \
+            apt-get purge -y ${BUILD_PKGS} && \
+            rm -rf /var/lib/apt/lists/* \
+        ); \
+    fi
 
 # Clean up build artifacts
 RUN rm -rf /tmp/*
-
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    apt-get update && apt-get install -y python3-dev && rm -rf /var/lib/apt/lists/*
 
 # Set environment
 ENV PATH="/opt/venv/bin:$PATH"
