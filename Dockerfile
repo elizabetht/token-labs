@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
 # Install build essentials and runtime dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
@@ -20,8 +20,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install --upgrade pip
 
 # Install PyTorch + CUDA
-# Note: cu130 refers to PyTorch's CUDA compatibility version, not CUDA 13.0
-# These wheels are compatible with CUDA 12.x runtimes
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
