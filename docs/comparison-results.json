@@ -1,7 +1,7 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
   "baseline_model": "meta-llama/Llama-3.1-8B-Instruct",
-  "timestamp": "2026-01-16T09:11:49.154637Z",
+  "timestamp": "2026-01-17T22:30:06.091026Z",
   "metrics": {
     "prompt_level_accuracy": {
       "name": "Prompt-level Accuracy (Strict)",

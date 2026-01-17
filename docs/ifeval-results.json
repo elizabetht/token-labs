@@ -1,11 +1,11 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
-  "num_samples": 541,
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+  "num_samples": 50,
   "prompt_level_accuracy": 0.0,
   "instruction_level_accuracy": 0.0,
   "prompt_level_accuracy_loose": 0.0,
   "instruction_level_accuracy_loose": 0.0,
-  "timestamp": 3735701.853745823,
+  "timestamp": 3880073.728305988,
   "raw_lighteval_results": {
     "ifeval|0": {
       "prompt_level_strict_acc": 0.0,
