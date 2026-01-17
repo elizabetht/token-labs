@@ -32,24 +32,58 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install -U --pre flashinfer-jit-cache --index-url https://flashinfer.ai/whl/cu130 && \
     /opt/venv/bin/pip install torchao>=0.14.0
 
-# Set essential environment variables
+# Set essential environment variables for build BEFORE building packages
 ENV TORCH_CUDA_ARCH_LIST="12.1a"
 ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV FORCE_CUDA=1
+ENV MAX_JOBS=8
 ENV TORCH_USE_CUDA_DSA=0
 
-# Install vLLM from PyPI
+# Clone vLLM
+RUN --mount=type=cache,target=/root/.cache/git \
+    git clone https://github.com/vllm-project/vllm.git
+
+WORKDIR /app/vllm
+
+# Install build requirements for vLLM
+RUN python3 use_existing_torch.py
+RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install -r requirements/build.txt
+
+# Install vLLM with local build (source build for ARM64)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install vllm==0.13.0
+    --mount=type=cache,target=/app/vllm/build \
+    /opt/venv/bin/pip install --no-build-isolation -e . -v --pre
+
+# Clone and install LMCache
+RUN --mount=type=cache,target=/root/.cache/git git clone https://github.com/LMCache/LMCache.git
+WORKDIR /app/vllm/LMCache
+RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install -r requirements/build.txt
+
+# Set additional environment variables specifically for LMCache build
+ENV NVCC_APPEND_FLAGS="-gencode arch=compute_121,code=sm_121"
+
+# Install LMCache - try without build isolation first, if it fails try with build isolation
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/app/vllm/LMCache/build \
+    /opt/venv/bin/pip install -e . --no-build-isolation || /opt/venv/bin/pip install -e .
 
 # Clean up build artifacts
-RUN rm -rf /tmp/*
+RUN rm -rf /app/vllm/.git && rm -rf /tmp/* && rm -rf /app/vllm/LMCache/.git
+
+# Install python3-dev for runtime
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y python3-dev && rm -rf /var/lib/apt/lists/*
 
 # Set environment
 ENV PATH="/opt/venv/bin:$PATH"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Working directory
+WORKDIR /app
 
 EXPOSE 8000
 
