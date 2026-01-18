@@ -24,6 +24,23 @@ Self-hosted LLM inference on NVIDIA DGX Spark with automated benchmarking and co
 - **Model**: Meta Llama 3.1 8B Instruct
 - **CI/CD**: GitHub Actions with self-hosted runner
 
+## 🔬 Performance Benchmarking
+
+Token Labs uses [GuideLLM](https://github.com/vllm-project/guidellm) for performance benchmarking and SLO-aware evaluation.
+
+### Benchmarking Framework
+
+- **Tool**: [GuideLLM](https://github.com/vllm-project/guidellm) - vLLM project's benchmarking platform for real-world LLM inference
+- **Metrics**: TTFT (Time to First Token), TPOT (Time per Output Token), ITL (Inter-Token Latency), throughput
+- **Test Modes**: Prefill-heavy (3072:1024), Decode-heavy (1024:3072), and Cache tests
+
+### Test Configuration
+
+The workflow runs three types of benchmarks:
+- **Prefill Test**: 100 requests with 3072 prompt tokens and 1024 output tokens
+- **Decode Test**: 100 requests with 1024 prompt tokens and 3072 output tokens  
+- **Cache Test**: Prefix repetition test with LMCache/prefix caching enabled
+
 ## 💰 Cost Economics
 
 DGX Spark running costs:
@@ -103,7 +120,7 @@ See [`baselines/README.md`](baselines/README.md) for detailed documentation.
 │   └── update_pricing.py   # Updates pricing in docs
 └── .github/workflows/
     ├── build-and-push.yml      # Build vLLM Docker image
-    └── deploy-and-benchmark.yml # Deploy and run benchmarks (uses lighteval)
+    └── deploy-and-benchmark.yml # Deploy and run benchmarks (uses guidellm and lighteval)
 ```
 
 ## License
