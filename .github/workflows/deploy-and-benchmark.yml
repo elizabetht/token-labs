@@ -367,15 +367,6 @@ jobs:
           import json
           import sys
           
-          def safe_get(d, *keys):
-              """Safely get nested dict values"""
-              for key in keys:
-                  if isinstance(d, dict):
-                      d = d.get(key, {})
-                  else:
-                      return None
-              return d if d != {} else None
-          
           def extract_metrics(json_file):
               """Extract metrics from guidellm JSON output"""
               try:
@@ -402,23 +393,30 @@ jobs:
                   stats = benchmark.get('report', benchmark.get('statistics', benchmark.get('stats', {})))
                   print(f"DEBUG: {json_file} stats keys: {list(stats.keys()) if isinstance(stats, dict) else 'not a dict'}", file=sys.stderr)
                   
+                  # Helper to get value with fallback field names
+                  def get_with_fallback(field_names, default=0):
+                      for field in field_names:
+                          val = stats.get(field)
+                          if val is not None:
+                              return val
+                      return default
+                  
                   # Extract throughput metrics with fallbacks for different field names
-                  # Use explicit None checks to handle zero values correctly
-                  prompt_token_throughput = (
-                      stats.get('prompt_token_throughput') if stats.get('prompt_token_throughput') is not None else
-                      stats.get('prompt_tokens_per_second') if stats.get('prompt_tokens_per_second') is not None else
-                      stats.get('input_token_throughput') if stats.get('input_token_throughput') is not None else 0
-                  )
-                  output_token_throughput = (
-                      stats.get('output_token_throughput') if stats.get('output_token_throughput') is not None else
-                      stats.get('output_tokens_per_second') if stats.get('output_tokens_per_second') is not None else
-                      stats.get('decode_token_throughput') if stats.get('decode_token_throughput') is not None else 0
-                  )
-                  total_token_throughput = (
-                      stats.get('total_token_throughput') if stats.get('total_token_throughput') is not None else
-                      stats.get('total_tokens_per_second') if stats.get('total_tokens_per_second') is not None else
-                      stats.get('throughput') if stats.get('throughput') is not None else 0
-                  )
+                  prompt_token_throughput = get_with_fallback([
+                      'prompt_token_throughput',
+                      'prompt_tokens_per_second', 
+                      'input_token_throughput'
+                  ])
+                  output_token_throughput = get_with_fallback([
+                      'output_token_throughput',
+                      'output_tokens_per_second',
+                      'decode_token_throughput'
+                  ])
+                  total_token_throughput = get_with_fallback([
+                      'total_token_throughput',
+                      'total_tokens_per_second',
+                      'throughput'
+                  ])
                   
                   # Extract latency metrics - guidellm outputs in seconds, convert to ms
                   # Based on guidellm metrics documentation, all latency values are in seconds
