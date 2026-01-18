@@ -473,20 +473,17 @@ jobs:
           # Export latency metrics for prefill
           for key, val in prefill.items():
               if key.startswith(('ttft_', 'tpot_', 'itl_')):
-                  metric_name = key.upper().replace('_', '_')
-                  print(f"PREFILL_{metric_name.upper()}={val}")
+                  print(f"PREFILL_{key.upper()}={val}")
           
           # Export latency metrics for decode
           for key, val in decode.items():
               if key.startswith(('ttft_', 'tpot_', 'itl_')):
-                  metric_name = key.upper().replace('_', '_')
-                  print(f"DECODE_{metric_name.upper()}={val}")
+                  print(f"DECODE_{key.upper()}={val}")
           
           # Export latency metrics for cache
           for key, val in cache.items():
               if key.startswith(('ttft_', 'tpot_', 'itl_')):
-                  metric_name = key.upper().replace('_', '_')
-                  print(f"CACHE_{metric_name.upper()}={val}")
+                  print(f"CACHE_{key.upper()}={val}")
           PYEOF
           
           # Run parser and source the output
