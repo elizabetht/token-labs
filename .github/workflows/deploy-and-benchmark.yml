@@ -367,41 +367,80 @@ jobs:
           import json
           import sys
           
+          def safe_get(d, *keys):
+              """Safely get nested dict values"""
+              for key in keys:
+                  if isinstance(d, dict):
+                      d = d.get(key, {})
+                  else:
+                      return None
+              return d if d != {} else None
+          
           def extract_metrics(json_file):
               """Extract metrics from guidellm JSON output"""
               try:
                   with open(json_file) as f:
                       data = json.load(f)
                   
-                  # guidellm outputs a list of benchmarks
-                  if not data or 'benchmarks' not in data or not data['benchmarks']:
+                  # Debug: print structure
+                  print(f"DEBUG: {json_file} top-level keys: {list(data.keys())}", file=sys.stderr)
+                  
+                  # guidellm outputs a dict with benchmarks list
+                  if not data:
+                      return {}
+                  
+                  benchmarks = data.get('benchmarks', [])
+                  if not benchmarks:
+                      print(f"DEBUG: {json_file} has no benchmarks", file=sys.stderr)
                       return {}
                   
                   # Get the first benchmark (we only run one per file)
-                  benchmark = data['benchmarks'][0] if isinstance(data['benchmarks'], list) else data['benchmarks']
-                  stats = benchmark.get('report', {})
+                  benchmark = benchmarks[0] if isinstance(benchmarks, list) else benchmarks
+                  print(f"DEBUG: {json_file} benchmark keys: {list(benchmark.keys())}", file=sys.stderr)
                   
-                  # Extract throughput metrics (tokens/second)
-                  request_throughput = stats.get('request_throughput', 0)
-                  prompt_token_throughput = stats.get('prompt_token_throughput', 0)
-                  output_token_throughput = stats.get('output_token_throughput', 0)
-                  total_token_throughput = stats.get('total_token_throughput', 0)
+                  # Try different possible paths to stats
+                  stats = benchmark.get('report', benchmark.get('statistics', benchmark.get('stats', {})))
+                  print(f"DEBUG: {json_file} stats keys: {list(stats.keys()) if isinstance(stats, dict) else 'not a dict'}", file=sys.stderr)
                   
-                  # Extract latency metrics (convert to ms if needed)
-                  ttft_mean = stats.get('ttft_mean', 0) * 1000  # Convert to ms
-                  ttft_median = stats.get('ttft_median', 0) * 1000
-                  ttft_p99 = stats.get('ttft_p99', 0) * 1000
+                  # Extract throughput metrics with fallbacks for different field names
+                  prompt_token_throughput = (
+                      stats.get('prompt_token_throughput') or 
+                      stats.get('prompt_tokens_per_second') or 
+                      stats.get('input_token_throughput') or 0
+                  )
+                  output_token_throughput = (
+                      stats.get('output_token_throughput') or 
+                      stats.get('output_tokens_per_second') or 
+                      stats.get('decode_token_throughput') or 0
+                  )
+                  total_token_throughput = (
+                      stats.get('total_token_throughput') or 
+                      stats.get('total_tokens_per_second') or 
+                      stats.get('throughput') or 0
+                  )
                   
-                  tpot_mean = stats.get('tpot_mean', 0) * 1000
-                  tpot_median = stats.get('tpot_median', 0) * 1000
-                  tpot_p99 = stats.get('tpot_p99', 0) * 1000
+                  # Extract latency metrics - guidellm likely outputs in seconds, convert to ms
+                  # Try both direct access and nested stats
+                  def get_latency(name):
+                      val = (stats.get(name) or 
+                             safe_get(stats, name.replace('_', ' ').title().replace(' ', '')) or 
+                             0)
+                      # Convert to ms if value seems to be in seconds (< 100)
+                      return val * 1000 if val < 100 else val
                   
-                  itl_mean = stats.get('itl_mean', 0) * 1000
-                  itl_median = stats.get('itl_median', 0) * 1000
-                  itl_p99 = stats.get('itl_p99', 0) * 1000
+                  ttft_mean = get_latency('ttft_mean')
+                  ttft_median = get_latency('ttft_median')
+                  ttft_p99 = get_latency('ttft_p99')
+                  
+                  tpot_mean = get_latency('tpot_mean')
+                  tpot_median = get_latency('tpot_median')
+                  tpot_p99 = get_latency('tpot_p99')
+                  
+                  itl_mean = get_latency('itl_mean')
+                  itl_median = get_latency('itl_median')
+                  itl_p99 = get_latency('itl_p99')
                   
                   return {
-                      'request_throughput': request_throughput,
                       'prompt_token_throughput': prompt_token_throughput,
                       'output_token_throughput': output_token_throughput,
                       'total_token_throughput': total_token_throughput,
@@ -417,6 +456,8 @@ jobs:
                   }
               except Exception as e:
                   print(f"Error parsing {json_file}: {e}", file=sys.stderr)
+                  import traceback
+                  traceback.print_exc(file=sys.stderr)
                   return {}
           
           # Parse each benchmark file
