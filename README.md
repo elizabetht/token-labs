@@ -37,9 +37,9 @@ Token Labs uses [GuideLLM](https://github.com/vllm-project/guidellm) for perform
 ### Test Configuration
 
 The workflow runs three types of benchmarks:
-- **Prefill Test**: 100 requests with 3072 prompt tokens and 1024 output tokens
-- **Decode Test**: 100 requests with 1024 prompt tokens and 3072 output tokens  
-- **Cache Test**: Prefix repetition test with LMCache/prefix caching enabled
+- **Prefill Test**: 100 requests with 3072 prompt tokens and 1024 output tokens (tests input-heavy workloads)
+- **Decode Test**: 100 requests with 1024 prompt tokens and 3072 output tokens (tests output-heavy workloads)
+- **Cache Test**: 100 requests with 512 prompt tokens and 128 output tokens (tests prefix caching when enabled)
 
 ## 💰 Cost Economics
 

@@ -419,14 +419,14 @@ jobs:
                       stats.get('throughput') or 0
                   )
                   
-                  # Extract latency metrics - guidellm likely outputs in seconds, convert to ms
-                  # Try both direct access and nested stats
+                  # Extract latency metrics - guidellm outputs in seconds, convert to ms
+                  # Based on guidellm metrics documentation, all latency values are in seconds
                   def get_latency(name):
                       val = (stats.get(name) or 
                              safe_get(stats, name.replace('_', ' ').title().replace(' ', '')) or 
                              0)
-                      # Convert to ms if value seems to be in seconds (< 100)
-                      return val * 1000 if val < 100 else val
+                      # Always convert from seconds to milliseconds
+                      return val * 1000 if val > 0 else 0
                   
                   ttft_mean = get_latency('ttft_mean')
                   ttft_median = get_latency('ttft_median')
