@@ -423,14 +423,10 @@ jobs:
                   # Extract latency metrics - guidellm outputs in seconds, convert to ms
                   # Based on guidellm metrics documentation, all latency values are in seconds
                   def get_latency(name):
-                      # Try primary field name first
+                      # Try primary field name
                       val = stats.get(name)
-                      if val is None:
-                          # Try alternative field name format
-                          alt_name = name.replace('_', ' ').title().replace(' ', '')
-                          val = safe_get(stats, alt_name)
-                      # Always convert from seconds to milliseconds
-                      return (val * 1000) if val is not None and val > 0 else 0
+                      # Always convert from seconds to milliseconds if value exists
+                      return (val * 1000) if val is not None else 0
                   
                   ttft_mean = get_latency('ttft_mean')
                   ttft_median = get_latency('ttft_median')
