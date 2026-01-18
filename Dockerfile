@@ -19,9 +19,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Upgrade pip (use explicit path to ensure venv pip is used)
 RUN --mount=type=cache,target=/root/.cache/pip /opt/venv/bin/pip install --upgrade pip
 
-# Install PyTorch + CUDA
-RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+# Install PyTorch + CUDA (no cache to ensure we get cu130 version, not cpu)
+RUN /opt/venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
 # Install pre-release deps
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -39,9 +38,12 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV TORCH_USE_CUDA_DSA=0
 
-# Install vLLM from PyPI
+# Install vLLM from PyPI (this will install CPU torch)
 RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install vllm==0.13.0
+    /opt/venv/bin/pip install vllm --extra-index-url https://wheels.vllm.ai/0.13.0/cu130 --extra-index-url https://download.pytorch.org/whl/cu130
+
+# Force reinstall PyTorch with CUDA after vLLM (vLLM pulls in CPU torch)
+RUN /opt/venv/bin/pip install --no-cache-dir --force-reinstall --no-deps torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
 # Clean up build artifacts
 RUN rm -rf /tmp/*
