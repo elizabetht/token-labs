@@ -96,5 +96,19 @@
         "evaluated": true
       }
     }
+  },
+  {
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "version": "0.4.0",
+    "timestamp": "2026-01-18T05:25:01.870565Z",
+    "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
+    "accuracy": {
+      "ifeval": {
+        "prompt_level_accuracy": 72.64325323475046,
+        "instruction_level_accuracy": 80.93525179856115,
+        "num_samples": 541,
+        "evaluated": true
+      }
+    }
   }
 ]
