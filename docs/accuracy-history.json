@@ -82,5 +82,19 @@
         "evaluated": true
       }
     }
+  },
+  {
+    "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
+    "version": "0.4.0",
+    "timestamp": "2026-01-18T03:25:40.842386Z",
+    "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
+    "accuracy": {
+      "ifeval": {
+        "prompt_level_accuracy": 76.15526802218115,
+        "instruction_level_accuracy": 82.73381294964028,
+        "num_samples": 541,
+        "evaluated": true
+      }
+    }
   }
 ]

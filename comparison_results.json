@@ -1,50 +1,50 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
   "baseline_model": "meta-llama/Llama-3.1-8B-Instruct",
-  "timestamp": "2026-01-17T22:30:06.091026Z",
+  "timestamp": "2026-01-18T02:51:44.195915Z",
   "metrics": {
     "prompt_level_accuracy": {
       "name": "Prompt-level Accuracy (Strict)",
-      "current": 0.0,
+      "current": 76.15526802218115,
       "baseline": 74.12199630314234,
-      "delta": -74.12199630314234,
+      "delta": 2.033271719038808,
       "threshold": 5.0,
-      "status": "FAIL",
-      "message": "Current 0.00% vs baseline 74.12% (degraded by 74.12%)"
+      "status": "PASS",
+      "message": "Current 76.16% vs baseline 74.12% (improved by 2.03%)"
     },
     "prompt_level_accuracy_loose": {
       "name": "Prompt-level Accuracy (Loose)",
-      "current": 0.0,
+      "current": 81.51571164510166,
       "baseline": 78.55822550831792,
-      "delta": -78.55822550831792,
+      "delta": 2.957486136783743,
       "threshold": 5.0,
-      "status": "FAIL",
-      "message": "Current 0.00% vs baseline 78.56% (degraded by 78.56%)"
+      "status": "PASS",
+      "message": "Current 81.52% vs baseline 78.56% (improved by 2.96%)"
     },
     "instruction_level_accuracy": {
       "name": "Instruction-level Accuracy (Strict)",
-      "current": 0.0,
+      "current": 82.73381294964028,
       "baseline": 81.89448441247002,
-      "delta": -81.89448441247002,
+      "delta": 0.8393285371702603,
       "threshold": 5.0,
-      "status": "FAIL",
-      "message": "Current 0.00% vs baseline 81.89% (degraded by 81.89%)"
+      "status": "PASS",
+      "message": "Current 82.73% vs baseline 81.89% (improved by 0.84%)"
     },
     "instruction_level_accuracy_loose": {
       "name": "Instruction-level Accuracy (Loose)",
-      "current": 0.0,
+      "current": 86.93045563549161,
       "baseline": 85.01199040767386,
-      "delta": -85.01199040767386,
+      "delta": 1.918465227817748,
       "threshold": 5.0,
-      "status": "FAIL",
-      "message": "Current 0.00% vs baseline 85.01% (degraded by 85.01%)"
+      "status": "PASS",
+      "message": "Current 86.93% vs baseline 85.01% (improved by 1.92%)"
     }
   },
-  "status": "FAIL",
+  "status": "PASS",
   "summary": [
-    "\u274c Prompt-level Accuracy (Strict): 0.00% (baseline: 74.12%, \u0394 -74.12%)",
-    "\u274c Prompt-level Accuracy (Loose): 0.00% (baseline: 78.56%, \u0394 -78.56%)",
-    "\u274c Instruction-level Accuracy (Strict): 0.00% (baseline: 81.89%, \u0394 -81.89%)",
-    "\u274c Instruction-level Accuracy (Loose): 0.00% (baseline: 85.01%, \u0394 -85.01%)"
+    "\u2705 Prompt-level Accuracy (Strict): 76.16% (baseline: 74.12%, \u0394 +2.03%)",
+    "\u2705 Prompt-level Accuracy (Loose): 81.52% (baseline: 78.56%, \u0394 +2.96%)",
+    "\u2705 Instruction-level Accuracy (Strict): 82.73% (baseline: 81.89%, \u0394 +0.84%)",
+    "\u2705 Instruction-level Accuracy (Loose): 86.93% (baseline: 85.01%, \u0394 +1.92%)"
   ]
 }
