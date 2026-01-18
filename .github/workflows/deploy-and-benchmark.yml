@@ -90,7 +90,7 @@ jobs:
           IMAGE="${FULL_IMAGE:-${{ steps.vars.outputs.FULL_IMAGE }}}"
           
           case "$VERSION" in
-            0.1.0|v0.1.0)
+            0.1.0|v0.1.0|0.4.0|v0.4.0)
               export LMCACHE_ENABLED="false" SPECULATIVE_DECODING_ENABLED="false" PREFIX_CACHING_ENABLED="false"
               docker run -d --gpus all --name ${{ env.CONTAINER_NAME }} \
                 -p ${{ env.DGX_TAILSCALE_IP}}:${{ env.VLLM_PORT }}:8000 \
