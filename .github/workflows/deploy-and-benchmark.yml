@@ -403,30 +403,34 @@ jobs:
                   print(f"DEBUG: {json_file} stats keys: {list(stats.keys()) if isinstance(stats, dict) else 'not a dict'}", file=sys.stderr)
                   
                   # Extract throughput metrics with fallbacks for different field names
+                  # Use explicit None checks to handle zero values correctly
                   prompt_token_throughput = (
-                      stats.get('prompt_token_throughput') or 
-                      stats.get('prompt_tokens_per_second') or 
-                      stats.get('input_token_throughput') or 0
+                      stats.get('prompt_token_throughput') if stats.get('prompt_token_throughput') is not None else
+                      stats.get('prompt_tokens_per_second') if stats.get('prompt_tokens_per_second') is not None else
+                      stats.get('input_token_throughput') if stats.get('input_token_throughput') is not None else 0
                   )
                   output_token_throughput = (
-                      stats.get('output_token_throughput') or 
-                      stats.get('output_tokens_per_second') or 
-                      stats.get('decode_token_throughput') or 0
+                      stats.get('output_token_throughput') if stats.get('output_token_throughput') is not None else
+                      stats.get('output_tokens_per_second') if stats.get('output_tokens_per_second') is not None else
+                      stats.get('decode_token_throughput') if stats.get('decode_token_throughput') is not None else 0
                   )
                   total_token_throughput = (
-                      stats.get('total_token_throughput') or 
-                      stats.get('total_tokens_per_second') or 
-                      stats.get('throughput') or 0
+                      stats.get('total_token_throughput') if stats.get('total_token_throughput') is not None else
+                      stats.get('total_tokens_per_second') if stats.get('total_tokens_per_second') is not None else
+                      stats.get('throughput') if stats.get('throughput') is not None else 0
                   )
                   
                   # Extract latency metrics - guidellm outputs in seconds, convert to ms
                   # Based on guidellm metrics documentation, all latency values are in seconds
                   def get_latency(name):
-                      val = (stats.get(name) or 
-                             safe_get(stats, name.replace('_', ' ').title().replace(' ', '')) or 
-                             0)
+                      # Try primary field name first
+                      val = stats.get(name)
+                      if val is None:
+                          # Try alternative field name format
+                          alt_name = name.replace('_', ' ').title().replace(' ', '')
+                          val = safe_get(stats, alt_name)
                       # Always convert from seconds to milliseconds
-                      return val * 1000 if val > 0 else 0
+                      return (val * 1000) if val is not None and val > 0 else 0
                   
                   ttft_mean = get_latency('ttft_mean')
                   ttft_median = get_latency('ttft_median')
