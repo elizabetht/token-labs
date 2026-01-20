@@ -3,10 +3,10 @@
   "description": "Baseline accuracy for unquantized Llama 3.1 8B Instruct model",
   "accuracy": {
     "ifeval": {
-      "prompt_level_accuracy_strict": 72.64325323475046,
-      "prompt_level_accuracy_loose": 77.07948243992607,
-      "instruction_level_accuracy_strict": 80.93525179856115,
-      "instruction_level_accuracy_loose": 83.93285371702638,
+      "prompt_level_accuracy_strict": 73.93715341959334,
+      "prompt_level_accuracy_loose": 78.74306839186691,
+      "instruction_level_accuracy_strict": 81.4148681055156,
+      "instruction_level_accuracy_loose": 85.01199040767386,
       "num_samples": 541,
       "notes": "Baseline values to be established from first successful run"
     }
@@ -16,6 +16,6 @@
     "decode_tokens_per_second": null,
     "cached_tokens_per_second": null
   },
-  "last_updated": "2026-01-18T04:51:35.119592Z",
-  "run_id": "21105952784"
+  "last_updated": "2026-01-20T20:46:46.883006Z",
+  "run_id": "21184675658"
 }
