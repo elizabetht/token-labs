@@ -618,7 +618,7 @@
     "dgx_cost_per_hour": 0.1112,
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
     "prefill": {
-      "tokens_per_second": 1194.71,
+      "tokens_per_second": 1196.0,
       "cost_per_million_tokens": 0.0258,
       "latency": {
         "mean_ttft_ms": 0.0,
@@ -633,7 +633,7 @@
       }
     },
     "cached": {
-      "tokens_per_second": 10535.81,
+      "tokens_per_second": 10484.36,
       "cost_per_million_tokens": 0.0029,
       "latency": {
         "mean_ttft_ms": 0.0,
@@ -648,7 +648,7 @@
       }
     },
     "decode": {
-      "tokens_per_second": 488.49,
+      "tokens_per_second": 488.71,
       "cost_per_million_tokens": 0.0632,
       "latency": {
         "mean_ttft_ms": 0.0,
@@ -662,7 +662,7 @@
         "p99_itl_ms": 0.0
       }
     },
-    "timestamp": "2026-01-20T19:43:42.856596Z",
+    "timestamp": "2026-01-20T22:26:35.779231Z",
     "vllm_server_args": {
       "gpu_memory_utilization": 0.6,
       "max_model_len": 131072,
@@ -710,8 +710,8 @@
     },
     "accuracy": {
       "ifeval": {
-        "prompt_level_accuracy": 70.97966728280961,
-        "instruction_level_accuracy": 79.49640287769785,
+        "prompt_level_accuracy": 70.60998151571165,
+        "instruction_level_accuracy": 79.37649880095923,
         "num_samples": 541,
         "evaluated": true
       }
