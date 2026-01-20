@@ -401,7 +401,7 @@
         <pre><code id="curl-example">curl https://api.tokenlabs.run/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
     "messages": [
       {"role": "user", "content": "Say hello from TokenLabs."}
     ]
@@ -515,14 +515,14 @@
         description: "Meta's official Llama 3.1 8B instruction-tuned model."
       },
       "llama-8b-nvfp4": {
-        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
+        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
         context: "128K tokens",
         gpu: "DGX Spark · 40GB",
         instanceLabel: "Primary",
         baseUrl: DEFAULT_API_BASE_URL,
-        inputPricePerM: 0.00,
-        cachedInputPricePerM: 0.0000,
-        outputPricePerM: 0.00,
+        inputPricePerM: 0.03,
+        cachedInputPricePerM: 0.0029,
+        outputPricePerM: 0.06,
         description: "NVFP4 quantized model for maximum throughput with minimal quality loss."
       },
       "llama-8b-fp8": {
@@ -644,7 +644,7 @@
 `curl ${baseUrl}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
     "messages": [
       {"role": "user", "content": "Say hello from TokenLabs."}
     ]
