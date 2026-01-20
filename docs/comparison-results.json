@@ -1,50 +1,50 @@
 {
   "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
   "baseline_model": "meta-llama/Llama-3.1-8B-Instruct",
-  "timestamp": "2026-01-20T06:38:42.959146Z",
+  "timestamp": "2026-01-20T16:33:26.551004Z",
   "metrics": {
     "prompt_level_accuracy": {
       "name": "Prompt-level Accuracy (Strict)",
-      "current": 59.14972273567468,
+      "current": 60.998151571164506,
       "baseline": 72.64325323475046,
-      "delta": -13.493530499075781,
+      "delta": -11.645101663585955,
       "threshold": 5.0,
       "status": "FAIL",
-      "message": "Current 59.15% vs baseline 72.64% (degraded by 13.49%)"
+      "message": "Current 61.00% vs baseline 72.64% (degraded by 11.65%)"
     },
     "prompt_level_accuracy_loose": {
       "name": "Prompt-level Accuracy (Loose)",
-      "current": 64.87985212569316,
+      "current": 67.28280961182995,
       "baseline": 77.07948243992607,
-      "delta": -12.199630314232905,
+      "delta": -9.79667282809612,
       "threshold": 5.0,
       "status": "FAIL",
-      "message": "Current 64.88% vs baseline 77.08% (degraded by 12.20%)"
+      "message": "Current 67.28% vs baseline 77.08% (degraded by 9.80%)"
     },
     "instruction_level_accuracy": {
       "name": "Instruction-level Accuracy (Strict)",
-      "current": 65.10791366906474,
+      "current": 71.46282973621103,
       "baseline": 80.93525179856115,
-      "delta": -15.827338129496411,
+      "delta": -9.47242206235012,
       "threshold": 5.0,
       "status": "FAIL",
-      "message": "Current 65.11% vs baseline 80.94% (degraded by 15.83%)"
+      "message": "Current 71.46% vs baseline 80.94% (degraded by 9.47%)"
     },
     "instruction_level_accuracy_loose": {
       "name": "Instruction-level Accuracy (Loose)",
-      "current": 69.54436450839329,
+      "current": 76.2589928057554,
       "baseline": 83.93285371702638,
-      "delta": -14.38848920863309,
+      "delta": -7.673860911270978,
       "threshold": 5.0,
       "status": "FAIL",
-      "message": "Current 69.54% vs baseline 83.93% (degraded by 14.39%)"
+      "message": "Current 76.26% vs baseline 83.93% (degraded by 7.67%)"
     }
   },
   "status": "FAIL",
   "summary": [
-    "\u274c Prompt-level Accuracy (Strict): 59.15% (baseline: 72.64%, \u0394 -13.49%)",
-    "\u274c Prompt-level Accuracy (Loose): 64.88% (baseline: 77.08%, \u0394 -12.20%)",
-    "\u274c Instruction-level Accuracy (Strict): 65.11% (baseline: 80.94%, \u0394 -15.83%)",
-    "\u274c Instruction-level Accuracy (Loose): 69.54% (baseline: 83.93%, \u0394 -14.39%)"
+    "\u274c Prompt-level Accuracy (Strict): 61.00% (baseline: 72.64%, \u0394 -11.65%)",
+    "\u274c Prompt-level Accuracy (Loose): 67.28% (baseline: 77.08%, \u0394 -9.80%)",
+    "\u274c Instruction-level Accuracy (Strict): 71.46% (baseline: 80.94%, \u0394 -9.47%)",
+    "\u274c Instruction-level Accuracy (Loose): 76.26% (baseline: 83.93%, \u0394 -7.67%)"
   ]
 }
