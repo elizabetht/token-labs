@@ -72,13 +72,13 @@
   {
     "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
     "version": "0.4.0",
-    "timestamp": "2026-01-17T22:30:06.355698Z",
+    "timestamp": "2026-01-20T19:43:42.856596Z",
     "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
     "accuracy": {
       "ifeval": {
-        "prompt_level_accuracy": 0.0,
-        "instruction_level_accuracy": 0.0,
-        "num_samples": 50,
+        "prompt_level_accuracy": 70.97966728280961,
+        "instruction_level_accuracy": 79.49640287769785,
+        "num_samples": 541,
         "evaluated": true
       }
     }
