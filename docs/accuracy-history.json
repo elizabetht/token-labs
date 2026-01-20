@@ -56,20 +56,6 @@
     }
   },
   {
-    "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
-    "version": "0.1.0",
-    "timestamp": "2026-01-16T09:11:49.409658Z",
-    "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.1.0",
-    "accuracy": {
-      "ifeval": {
-        "prompt_level_accuracy": 0.0,
-        "instruction_level_accuracy": 0.0,
-        "num_samples": 541,
-        "evaluated": true
-      }
-    }
-  },
-  {
     "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4",
     "version": "0.4.0",
     "timestamp": "2026-01-20T19:43:42.856596Z",
@@ -78,20 +64,6 @@
       "ifeval": {
         "prompt_level_accuracy": 70.97966728280961,
         "instruction_level_accuracy": 79.49640287769785,
-        "num_samples": 541,
-        "evaluated": true
-      }
-    }
-  },
-  {
-    "model": "tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT",
-    "version": "0.4.0",
-    "timestamp": "2026-01-18T03:25:40.842386Z",
-    "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
-    "accuracy": {
-      "ifeval": {
-        "prompt_level_accuracy": 76.15526802218115,
-        "instruction_level_accuracy": 82.73381294964028,
         "num_samples": 541,
         "evaluated": true
       }
