@@ -152,9 +152,10 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark with lighteval..."
           
-          # Ensure Hugging Face cache directory exists and has correct permissions
-          mkdir -p $HOME/.cache/huggingface/hub
-          chmod -R 755 $HOME/.cache/huggingface || true
+          # Use workspace-local HF cache to avoid permission issues with Docker-created files
+          export HF_HOME="${{ github.workspace }}/.hf_cache"
+          export HF_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
+          mkdir -p "$HF_HOME"
           
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
