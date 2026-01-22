@@ -152,6 +152,10 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark with lighteval..."
           
+          # Ensure Hugging Face cache directory exists and has correct permissions
+          mkdir -p $HOME/.cache/huggingface/hub
+          chmod -R 755 $HOME/.cache/huggingface || true
+          
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
           source .venv-ifeval/bin/activate
