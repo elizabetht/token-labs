@@ -163,13 +163,21 @@ jobs:
           
           # Create cache directories with proper permissions
           mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$HF_DATASETS_CACHE"
+          # Also create lighteval-specific cache directory in workspace
+          mkdir -p "$HF_HOME/lighteval"
           chmod -R u+w "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
           
-          # Attempt to fix permissions on Docker-created HF cache directory if it exists
-          # This is best-effort only; the workspace cache above is the primary solution
+          # Fix permissions on Docker-created HF cache directory if it exists
+          # This includes the lighteval subdirectory that caused the permission error
           if [ -d "$HOME/.cache/huggingface" ]; then
+            echo "Fixing permissions on $HOME/.cache/huggingface..."
             sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
             chmod -R u+w "$HOME/.cache/huggingface" 2>/dev/null || true
+            # Specifically ensure lighteval cache directory is writable
+            if [ -d "$HOME/.cache/huggingface/lighteval" ]; then
+              sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
+              chmod -R u+w "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
+            fi
           fi
           
           # Create virtual environment for evaluation
