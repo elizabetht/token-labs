@@ -175,7 +175,7 @@ jobs:
           # Now fix permissions on the entire HF cache directory
           if [ -d "$HOME/.cache/huggingface" ]; then
             echo "Fixing permissions on $HOME/.cache/huggingface..."
-            sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
+            sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
             chmod -R u+w "$HOME/.cache/huggingface" 2>/dev/null || true
           fi
           
