@@ -167,9 +167,19 @@ jobs:
             sleep 2
           done
           
-          # Test the API endpoint with a simple completion
-          echo "Testing API endpoint..."
-          curl -s "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1/models" | head -c 200
+          # Get the actual model name from vLLM
+          echo "Querying vLLM for available models..."
+          VLLM_MODELS=$(curl -s "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1/models")
+          echo "Available models: $VLLM_MODELS"
+          VLLM_MODEL_ID=$(echo "$VLLM_MODELS" | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])" 2>/dev/null || echo "${{ env.MODEL }}")
+          echo "Using model ID: $VLLM_MODEL_ID"
+          
+          # Test with a simple completion request
+          echo "Testing completion endpoint..."
+          curl -s "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -d "{\"model\": \"$VLLM_MODEL_ID\", \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}], \"max_tokens\": 5}" \
+            | head -c 300
           echo ""
           
           # Create virtual environment and install lighteval
@@ -180,9 +190,11 @@ jobs:
           
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
           
-          # Run lighteval
+          # Run lighteval with the correct model ID
+          # Use openai/ prefix for litellm to route to OpenAI-compatible endpoint
+          echo "Running lighteval with model: openai/$VLLM_MODEL_ID"
           if HOME="$HOME" lighteval endpoint litellm \
-            "model_name=openai/${{ env.MODEL }},base_url=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1,api_key=dummy" \
+            "model_name=openai/$VLLM_MODEL_ID,base_url=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1,api_key=dummy" \
             ifeval \
             --output-dir ./lighteval_results \
             --max-samples "$NUM_SAMPLES" \
