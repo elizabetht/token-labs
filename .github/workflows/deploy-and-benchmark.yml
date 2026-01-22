@@ -173,9 +173,10 @@ jobs:
             echo "Fixing permissions on $HOME/.cache/huggingface..."
             sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
             chmod -R u+w "$HOME/.cache/huggingface" 2>/dev/null || true
-            # Specifically ensure lighteval cache directory is writable
+            # Extra check for lighteval cache directory as it was the specific source of the error
+            # This is redundant with the -R above but provides explicit feedback
             if [ -d "$HOME/.cache/huggingface/lighteval" ]; then
-              sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
+              sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface/lighteval" 2>/dev/null || echo "Note: Could not fix lighteval cache permissions"
               chmod -R u+w "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
             fi
           fi
