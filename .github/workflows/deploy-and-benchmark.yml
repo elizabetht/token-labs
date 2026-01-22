@@ -163,27 +163,43 @@ jobs:
           
           # Create cache directories with proper permissions
           mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$HF_DATASETS_CACHE"
-          # Also create lighteval-specific cache directory in workspace
+          # Also create lighteval-specific cache directory in workspace (with nested structure)
           mkdir -p "$HF_HOME/lighteval"
-          chmod -R u+w "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
+          chmod -R u+rwx "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
           
           # Lighteval ignores HF_HOME and always uses ~/.cache/huggingface/lighteval
-          # We need to either fix permissions on the existing directory or create a symlink
-          LIGHTEVAL_CACHE="$HOME/.cache/huggingface/lighteval"
+          # Force a symlink from ~/.cache/huggingface to our workspace cache
+          # This is the most reliable approach since we control the workspace directory
+          echo "Setting up HuggingFace cache symlink..."
           
-          # Try to create/fix the directory with proper permissions
-          if sudo mkdir -p "$LIGHTEVAL_CACHE" 2>/dev/null && sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null; then
-            echo "Created and fixed permissions on $HOME/.cache/huggingface"
-            chmod -R u+rwx "$HOME/.cache/huggingface" 2>/dev/null || true
-          elif mkdir -p "$LIGHTEVAL_CACHE" 2>/dev/null; then
-            echo "Created $LIGHTEVAL_CACHE without sudo"
+          # First, ensure ~/.cache exists and is writable
+          mkdir -p "$HOME/.cache" 2>/dev/null || sudo mkdir -p "$HOME/.cache" 2>/dev/null || true
+          sudo chown "$(whoami):$(whoami)" "$HOME/.cache" 2>/dev/null || true
+          
+          # Remove existing huggingface cache (whether directory or symlink) and create fresh symlink
+          if [ -L "$HOME/.cache/huggingface" ]; then
+            echo "Removing existing symlink at $HOME/.cache/huggingface"
+            rm -f "$HOME/.cache/huggingface"
+          elif [ -d "$HOME/.cache/huggingface" ]; then
+            echo "Removing existing directory at $HOME/.cache/huggingface (may require sudo)"
+            rm -rf "$HOME/.cache/huggingface" 2>/dev/null || sudo rm -rf "$HOME/.cache/huggingface" 2>/dev/null || {
+              echo "ERROR: Cannot remove $HOME/.cache/huggingface - trying to fix permissions"
+              sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null || true
+              rm -rf "$HOME/.cache/huggingface" 2>/dev/null || true
+            }
+          fi
+          
+          # Create the symlink
+          ln -sf "$HF_HOME" "$HOME/.cache/huggingface"
+          
+          # Verify the symlink was created
+          if [ -L "$HOME/.cache/huggingface" ]; then
+            echo "✓ Successfully symlinked $HOME/.cache/huggingface -> $HF_HOME"
+            ls -la "$HOME/.cache/huggingface"
           else
-            # If we can't fix permissions, remove the problematic directory and symlink to workspace
-            echo "Cannot fix permissions. Creating symlink to workspace cache..."
-            sudo rm -rf "$HOME/.cache/huggingface" 2>/dev/null || rm -rf "$HOME/.cache/huggingface" 2>/dev/null || true
-            mkdir -p "$HOME/.cache"
-            ln -sf "$HF_HOME" "$HOME/.cache/huggingface"
-            echo "Symlinked $HOME/.cache/huggingface -> $HF_HOME"
+            echo "ERROR: Failed to create symlink. Attempting direct directory creation..."
+            mkdir -p "$HOME/.cache/huggingface/lighteval"
+            chmod -R u+rwx "$HOME/.cache/huggingface" 2>/dev/null || true
           fi
           
           # Create virtual environment for evaluation
