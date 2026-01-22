@@ -1,5 +1,5 @@
 {
-  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
   "prefill": {
@@ -47,7 +47,7 @@
       "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2026-01-22T07:29:29.481128Z",
+  "timestamp": "2026-01-22T07:51:10.252561Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
