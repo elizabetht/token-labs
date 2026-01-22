@@ -184,6 +184,23 @@ jobs:
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
           
+          # Create helper script for generating zero-accuracy results
+          cat > /tmp/create_zero_results.py << 'PYEOF'
+          import json
+          import sys
+          
+          output = {
+              "prompt_level_accuracy": 0,
+              "instruction_level_accuracy": 0,
+              "num_samples": 0
+          }
+          with open('ifeval_results.json', 'w') as f:
+              json.dump(output, f, indent=2)
+          print("prompt_accuracy=0")
+          print("instruction_accuracy=0")
+          print("num_samples=0")
+          PYEOF
+          
           # Run lighteval using litellm endpoint
           # Note: model_name needs openai/ prefix for litellm to use OpenAI-compatible API
           # api_key=dummy is required even though vLLM doesn't need authentication
@@ -201,7 +218,7 @@ jobs:
             echo "WARNING: IFEval evaluation encountered an error (exit code: $LIGHTEVAL_EXIT_CODE)"
             
             # Check if it's a permission-related error
-            if grep -qi "permission denied\|errno 13" /tmp/lighteval_output.log 2>/dev/null; then
+            if grep -qi "permission denied\|errno 13\|access denied\|operation not permitted\|eacces" /tmp/lighteval_output.log 2>/dev/null; then
               echo "Detected permission-related error. This should not happen with workspace cache."
               echo "Continuing with zero accuracy for this run."
             else
@@ -212,10 +229,7 @@ jobs:
             fi
             
             # Create zero-accuracy results to allow workflow to continue
-            echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
-            echo "prompt_accuracy=0" >> $GITHUB_OUTPUT
-            echo "instruction_accuracy=0" >> $GITHUB_OUTPUT
-            echo "num_samples=0" >> $GITHUB_OUTPUT
+            python3 /tmp/create_zero_results.py >> $GITHUB_OUTPUT
             
             # Exit without failing the workflow since cache permissions should be fixed
             echo "Continuing workflow with zero accuracy results"
