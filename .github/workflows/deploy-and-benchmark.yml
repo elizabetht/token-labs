@@ -156,6 +156,22 @@ jobs:
           export HOME="${{ github.workspace }}/.lighteval_home"
           mkdir -p "$HOME/.cache/huggingface"
           
+          # Verify vLLM server is reachable before starting evaluation
+          echo "Checking vLLM server connectivity..."
+          for i in {1..30}; do
+            if curl -sf "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1/models" > /dev/null 2>&1; then
+              echo "✓ vLLM server is ready"
+              break
+            fi
+            echo "Waiting for vLLM server... ($i/30)"
+            sleep 2
+          done
+          
+          # Test the API endpoint with a simple completion
+          echo "Testing API endpoint..."
+          curl -s "http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1/models" | head -c 200
+          echo ""
+          
           # Create virtual environment and install lighteval
           python3 -m venv .venv-ifeval
           source .venv-ifeval/bin/activate
