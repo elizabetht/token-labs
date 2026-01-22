@@ -167,16 +167,23 @@ jobs:
           mkdir -p "$HF_HOME/lighteval"
           chmod -R u+w "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
           
-          # Proactively create and fix permissions on HF cache directory
-          # This includes the lighteval subdirectory that caused the permission error
-          # Create the directory structure first to ensure it exists and has correct ownership
-          sudo mkdir -p "$HOME/.cache/huggingface/lighteval" 2>/dev/null || mkdir -p "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
+          # Lighteval ignores HF_HOME and always uses ~/.cache/huggingface/lighteval
+          # We need to either fix permissions on the existing directory or create a symlink
+          LIGHTEVAL_CACHE="$HOME/.cache/huggingface/lighteval"
           
-          # Now fix permissions on the entire HF cache directory
-          if [ -d "$HOME/.cache/huggingface" ]; then
-            echo "Fixing permissions on $HOME/.cache/huggingface..."
-            sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
-            chmod -R u+w "$HOME/.cache/huggingface" 2>/dev/null || true
+          # Try to create/fix the directory with proper permissions
+          if sudo mkdir -p "$LIGHTEVAL_CACHE" 2>/dev/null && sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null; then
+            echo "Created and fixed permissions on $HOME/.cache/huggingface"
+            chmod -R u+rwx "$HOME/.cache/huggingface" 2>/dev/null || true
+          elif mkdir -p "$LIGHTEVAL_CACHE" 2>/dev/null; then
+            echo "Created $LIGHTEVAL_CACHE without sudo"
+          else
+            # If we can't fix permissions, remove the problematic directory and symlink to workspace
+            echo "Cannot fix permissions. Creating symlink to workspace cache..."
+            sudo rm -rf "$HOME/.cache/huggingface" 2>/dev/null || rm -rf "$HOME/.cache/huggingface" 2>/dev/null || true
+            mkdir -p "$HOME/.cache"
+            ln -sf "$HF_HOME" "$HOME/.cache/huggingface"
+            echo "Symlinked $HOME/.cache/huggingface -> $HF_HOME"
           fi
           
           # Create virtual environment for evaluation
