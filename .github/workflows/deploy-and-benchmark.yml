@@ -155,6 +155,9 @@ jobs:
           # Use workspace-local HF cache to avoid permission issues with Docker-created files
           export HF_HOME="${{ github.workspace }}/.hf_cache"
           export HF_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
+          export HUGGINGFACE_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
+          export TRANSFORMERS_CACHE="${{ github.workspace }}/.hf_cache/transformers"
+          export HF_DATASETS_CACHE="${{ github.workspace }}/.hf_cache/datasets"
           mkdir -p "$HF_HOME"
           
           # Create virtual environment for evaluation
