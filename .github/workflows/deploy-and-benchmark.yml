@@ -152,13 +152,20 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark with lighteval..."
           
-          # Use workspace-local HF cache to avoid permission issues with Docker-created files
+          # Fix permissions on Docker-created HF cache directory
+          if [ -d "$HOME/.cache/huggingface" ]; then
+            sudo chown -R $(whoami):$(whoami) "$HOME/.cache/huggingface" || true
+            chmod -R u+w "$HOME/.cache/huggingface" || true
+          fi
+          
+          # Use workspace-local cache to avoid permission issues with Docker-created files
+          export XDG_CACHE_HOME="${{ github.workspace }}/.cache"
           export HF_HOME="${{ github.workspace }}/.hf_cache"
           export HF_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
           export HUGGINGFACE_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
           export TRANSFORMERS_CACHE="${{ github.workspace }}/.hf_cache/transformers"
           export HF_DATASETS_CACHE="${{ github.workspace }}/.hf_cache/datasets"
-          mkdir -p "$HF_HOME"
+          mkdir -p "$XDG_CACHE_HOME" "$HF_HOME"
           
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
