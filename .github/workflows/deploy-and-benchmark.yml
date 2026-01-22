@@ -156,7 +156,7 @@ jobs:
           # Note: This attempts to fix permissions but only warns on failure since
           # we use a separate workspace cache as the primary solution
           if [ -d "$HOME/.cache/huggingface" ]; then
-            if ! sudo chown -R $(whoami):$(whoami) "$HOME/.cache/huggingface" 2>/dev/null; then
+            if ! sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface" 2>/dev/null; then
               echo "Warning: Failed to change ownership of $HOME/.cache/huggingface"
               echo "Continuing with workspace-local cache only"
             fi
@@ -196,7 +196,7 @@ jobs:
             --output-dir ./lighteval_results \
             --max-samples "$NUM_SAMPLES" \
             --save-details; then
-              echo "ERROR: IFEval evaluation failed with exit code $?"
+              echo "ERROR: IFEval evaluation failed"
               echo "This indicates a problem with the evaluation setup or API connectivity"
               echo "Common causes:"
               echo "  - vLLM server not responding"
