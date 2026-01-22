@@ -152,55 +152,17 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark with lighteval..."
           
-          # Use workspace-local cache to avoid permission issues with Docker-created files
-          # This ensures all cache directories are owned by the current user
-          export XDG_CACHE_HOME="${{ github.workspace }}/.cache"
-          export HF_HOME="${{ github.workspace }}/.hf_cache"
-          export HF_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
-          export HUGGINGFACE_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
-          export TRANSFORMERS_CACHE="${{ github.workspace }}/.hf_cache/transformers"
-          export HF_DATASETS_CACHE="${{ github.workspace }}/.hf_cache/datasets"
+          # Use workspace as HOME to avoid permission issues with Docker-created files
+          # Lighteval hardcodes ~/.cache/huggingface/lighteval, so we override HOME
+          export LIGHTEVAL_HOME="${{ github.workspace }}/.lighteval_home"
+          mkdir -p "$LIGHTEVAL_HOME/.cache/huggingface/lighteval"
           
-          # Create cache directories with proper permissions
-          mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$HF_DATASETS_CACHE"
-          # Also create lighteval-specific cache directory in workspace (with nested structure)
-          mkdir -p "$HF_HOME/lighteval"
-          chmod -R u+rwx "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
-          
-          # Lighteval ignores HF_HOME and always uses ~/.cache/huggingface/lighteval
-          # Force a symlink from ~/.cache/huggingface to our workspace cache
-          # This is the most reliable approach since we control the workspace directory
-          echo "Setting up HuggingFace cache symlink..."
-          
-          # First, ensure ~/.cache exists and is writable
-          mkdir -p "$HOME/.cache" 2>/dev/null || sudo mkdir -p "$HOME/.cache" 2>/dev/null || true
-          sudo chown "$(whoami):$(whoami)" "$HOME/.cache" 2>/dev/null || true
-          
-          # Remove existing huggingface cache (whether directory or symlink) and create fresh symlink
-          if [ -L "$HOME/.cache/huggingface" ]; then
-            echo "Removing existing symlink at $HOME/.cache/huggingface"
-            rm -f "$HOME/.cache/huggingface"
-          elif [ -d "$HOME/.cache/huggingface" ]; then
-            echo "Removing existing directory at $HOME/.cache/huggingface (may require sudo)"
-            rm -rf "$HOME/.cache/huggingface" 2>/dev/null || sudo rm -rf "$HOME/.cache/huggingface" 2>/dev/null || {
-              echo "ERROR: Cannot remove $HOME/.cache/huggingface - trying to fix permissions"
-              sudo chown -R "$(whoami):$(whoami)" "$HOME/.cache/huggingface" 2>/dev/null || true
-              rm -rf "$HOME/.cache/huggingface" 2>/dev/null || true
-            }
-          fi
-          
-          # Create the symlink
-          ln -sf "$HF_HOME" "$HOME/.cache/huggingface"
-          
-          # Verify the symlink was created
-          if [ -L "$HOME/.cache/huggingface" ]; then
-            echo "✓ Successfully symlinked $HOME/.cache/huggingface -> $HF_HOME"
-            ls -la "$HOME/.cache/huggingface"
-          else
-            echo "ERROR: Failed to create symlink. Attempting direct directory creation..."
-            mkdir -p "$HOME/.cache/huggingface/lighteval"
-            chmod -R u+rwx "$HOME/.cache/huggingface" 2>/dev/null || true
-          fi
+          # Also set up HF cache environment variables (for other libraries)
+          export HF_HOME="$LIGHTEVAL_HOME/.cache/huggingface"
+          export HF_HUB_CACHE="$HF_HOME/hub"
+          export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
+          export HF_DATASETS_CACHE="$HF_HOME/datasets"
+          mkdir -p "$HF_HUB_CACHE" "$HF_DATASETS_CACHE"
           
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
@@ -234,8 +196,9 @@ jobs:
           # Run lighteval using litellm endpoint
           # Note: model_name needs openai/ prefix for litellm to use OpenAI-compatible API
           # api_key=dummy is required even though vLLM doesn't need authentication
+          # HOME is overridden to use workspace cache (lighteval hardcodes ~/.cache/huggingface/lighteval)
           set +e  # Don't exit immediately on error, we'll handle it
-          lighteval endpoint litellm \
+          HOME="$LIGHTEVAL_HOME" lighteval endpoint litellm \
             "model_name=openai/${{ env.MODEL }},base_url=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1,api_key=dummy" \
             ifeval \
             --output-dir ./lighteval_results \
