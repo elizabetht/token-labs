@@ -152,20 +152,34 @@ jobs:
         run: |
           echo "Running IFEval accuracy benchmark with lighteval..."
           
-          # Fix permissions on Docker-created HF cache directory
-          if [ -d "$HOME/.cache/huggingface" ]; then
-            sudo chown -R $(whoami):$(whoami) "$HOME/.cache/huggingface" || true
-            chmod -R u+w "$HOME/.cache/huggingface" || true
-          fi
-          
           # Use workspace-local cache to avoid permission issues with Docker-created files
+          # This ensures all cache directories are owned by the current user
           export XDG_CACHE_HOME="${{ github.workspace }}/.cache"
           export HF_HOME="${{ github.workspace }}/.hf_cache"
           export HF_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
           export HUGGINGFACE_HUB_CACHE="${{ github.workspace }}/.hf_cache/hub"
           export TRANSFORMERS_CACHE="${{ github.workspace }}/.hf_cache/transformers"
           export HF_DATASETS_CACHE="${{ github.workspace }}/.hf_cache/datasets"
-          mkdir -p "$XDG_CACHE_HOME" "$HF_HOME"
+          
+          # Create cache directories with proper permissions
+          mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$HF_HUB_CACHE" "$TRANSFORMERS_CACHE" "$HF_DATASETS_CACHE"
+          # Also create lighteval-specific cache directory in workspace
+          mkdir -p "$HF_HOME/lighteval"
+          chmod -R u+w "$XDG_CACHE_HOME" "$HF_HOME" 2>/dev/null || true
+          
+          # Fix permissions on Docker-created HF cache directory if it exists
+          # This includes the lighteval subdirectory that caused the permission error
+          if [ -d "$HOME/.cache/huggingface" ]; then
+            echo "Fixing permissions on $HOME/.cache/huggingface..."
+            sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface" 2>/dev/null || echo "Note: Could not fix permissions on $HOME/.cache/huggingface (will use workspace cache)"
+            chmod -R u+w "$HOME/.cache/huggingface" 2>/dev/null || true
+            # Extra check for lighteval cache directory as it was the specific source of the error
+            # This is redundant with the -R above but provides explicit feedback
+            if [ -d "$HOME/.cache/huggingface/lighteval" ]; then
+              sudo chown -R "$USER:$USER" "$HOME/.cache/huggingface/lighteval" 2>/dev/null || echo "Note: Could not fix lighteval cache permissions"
+              chmod -R u+w "$HOME/.cache/huggingface/lighteval" 2>/dev/null || true
+            fi
+          fi
           
           # Create virtual environment for evaluation
           python3 -m venv .venv-ifeval
@@ -179,33 +193,69 @@ jobs:
           # Use 50 samples for quick CI, or set IFEVAL_SAMPLES for full eval
           NUM_SAMPLES="${{ github.event.inputs.ifeval_samples || '50' }}"
           
+          # Create helper script for generating zero-accuracy results
+          cat > /tmp/create_zero_results.py << 'PYEOF'
+          import json
+          import sys
+          
+          output = {
+              "prompt_level_accuracy": 0,
+              "instruction_level_accuracy": 0,
+              "num_samples": 0
+          }
+          with open('ifeval_results.json', 'w') as f:
+              json.dump(output, f, indent=2)
+          print("prompt_accuracy=0")
+          print("instruction_accuracy=0")
+          print("num_samples=0")
+          PYEOF
+          
           # Run lighteval using litellm endpoint
           # Note: model_name needs openai/ prefix for litellm to use OpenAI-compatible API
           # api_key=dummy is required even though vLLM doesn't need authentication
+          set +e  # Don't exit immediately on error, we'll handle it
           lighteval endpoint litellm \
             "model_name=openai/${{ env.MODEL }},base_url=http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }}/v1,api_key=dummy" \
             ifeval \
             --output-dir ./lighteval_results \
             --max-samples "$NUM_SAMPLES" \
-            --save-details || {
-              echo "IFEval evaluation failed, continuing with zero accuracy"
-              echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
-              echo "prompt_accuracy=0" >> $GITHUB_OUTPUT
-              echo "instruction_accuracy=0" >> $GITHUB_OUTPUT
-              echo "num_samples=0" >> $GITHUB_OUTPUT
-              exit 0
-            }
+            --save-details 2>&1 | tee /tmp/lighteval_output.log
+          LIGHTEVAL_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
           
-          # Find the latest results file
-          RESULTS_FILE=$(find ./lighteval_results -name "results_*.json" | sort -r | head -1)
-          
-          if [ -z "$RESULTS_FILE" ]; then
-            echo "No results file found, creating empty results"
-            echo '{"prompt_level_accuracy": 0, "instruction_level_accuracy": 0, "num_samples": 0}' > ifeval_results.json
-            echo "prompt_accuracy=0" >> $GITHUB_OUTPUT
-            echo "instruction_accuracy=0" >> $GITHUB_OUTPUT
-            echo "num_samples=0" >> $GITHUB_OUTPUT
+          if [ $LIGHTEVAL_EXIT_CODE -ne 0 ]; then
+            echo "WARNING: IFEval evaluation encountered an error (exit code: $LIGHTEVAL_EXIT_CODE)"
+            
+            # Check if it's a permission-related error
+            if grep -qi "permission denied\|errno 13\|access denied\|operation not permitted\|eacces" /tmp/lighteval_output.log 2>/dev/null; then
+              echo "Detected permission-related error. This should not happen with workspace cache."
+              echo "Continuing with zero accuracy for this run."
+            else
+              echo "Non-permission error detected. Checking if it's a critical failure..."
+              # For v0.4.0 with proper cache setup, we expect evaluation to work
+              # Log the error but continue to allow the workflow to complete
+              echo "Error output saved to lighteval logs"
+            fi
+            
+            # Create zero-accuracy results to allow workflow to continue
+            python3 /tmp/create_zero_results.py >> $GITHUB_OUTPUT
+            
+            # Exit without failing the workflow since cache permissions should be fixed
+            echo "Continuing workflow with zero accuracy results"
           else
+            # Success - process results normally
+            echo "IFEval evaluation completed successfully"
+            
+            # Find the latest results file
+            RESULTS_FILE=$(find ./lighteval_results -name "results_*.json" | sort -r | head -1)
+            
+            if [ -z "$RESULTS_FILE" ]; then
+              echo "ERROR: Lighteval completed but no results file was found"
+              echo "Expected to find results_*.json in ./lighteval_results/"
+              echo "This indicates a problem with lighteval output generation"
+              exit 1
+            fi
+            
             # Parse lighteval results and convert to expected format
             cat > /tmp/parse_lighteval.py << 'PYEOF'
           import json
