@@ -21,6 +21,7 @@ on:
           - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8'
           - 'tokenlabsdotrun/Llama-3.1-8B-Unsloth-FP8-QAT'
           - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT'
+          - 'tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8-QAT'
       ifeval_samples:
         description: 'Number of IFEval samples (50 for quick, 541 for full)'
         required: false
