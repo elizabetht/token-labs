@@ -47,7 +47,7 @@
       "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2026-01-22T19:07:50.104569Z",
+  "timestamp": "2026-01-22T19:32:33.695651Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
@@ -95,7 +95,7 @@
   },
   "accuracy": {
     "ifeval": {
-      "prompt_level_accuracy": 32.16266173752311,
+      "prompt_level_accuracy": 32.34750462107209,
       "instruction_level_accuracy": 44.36450839328538,
       "num_samples": 541,
       "evaluated": true

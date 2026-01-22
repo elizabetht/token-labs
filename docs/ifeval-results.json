@@ -1,6 +1,8 @@
 {
   "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
   "num_samples": 541,
-  "prompt_level_accuracy": 32.16266173752311,
-  "instruction_level_accuracy": 44.36450839328538
+  "prompt_level_accuracy": 32.34750462107209,
+  "instruction_level_accuracy": 44.36450839328538,
+  "prompt_level_accuracy_loose": 36.04436229205176,
+  "instruction_level_accuracy_loose": 48.08153477218225
 }

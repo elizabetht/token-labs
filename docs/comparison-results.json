@@ -1,25 +1,25 @@
 {
   "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
   "baseline_model": "meta-llama/Llama-3.1-8B-Instruct",
-  "timestamp": "2026-01-22T19:07:50.058191Z",
+  "timestamp": "2026-01-22T19:32:33.643980Z",
   "metrics": {
     "prompt_level_accuracy": {
       "name": "Prompt-level Accuracy (Strict)",
-      "current": 32.16266173752311,
+      "current": 32.34750462107209,
       "baseline": 0,
-      "delta": 32.16266173752311,
+      "delta": 32.34750462107209,
       "threshold": 5.0,
       "status": "IMPROVED",
-      "message": "Current 32.16% vs baseline 0.00% (improved by 32.16%)"
+      "message": "Current 32.35% vs baseline 0.00% (improved by 32.35%)"
     },
     "prompt_level_accuracy_loose": {
       "name": "Prompt-level Accuracy (Loose)",
-      "current": 0,
+      "current": 36.04436229205176,
       "baseline": 0,
-      "delta": 0,
+      "delta": 36.04436229205176,
       "threshold": 5.0,
-      "status": "PASS",
-      "message": "Current 0.00% vs baseline 0.00% (unchanged)"
+      "status": "IMPROVED",
+      "message": "Current 36.04% vs baseline 0.00% (improved by 36.04%)"
     },
     "instruction_level_accuracy": {
       "name": "Instruction-level Accuracy (Strict)",
@@ -32,19 +32,19 @@
     },
     "instruction_level_accuracy_loose": {
       "name": "Instruction-level Accuracy (Loose)",
-      "current": 0,
+      "current": 48.08153477218225,
       "baseline": 0,
-      "delta": 0,
+      "delta": 48.08153477218225,
       "threshold": 5.0,
-      "status": "PASS",
-      "message": "Current 0.00% vs baseline 0.00% (unchanged)"
+      "status": "IMPROVED",
+      "message": "Current 48.08% vs baseline 0.00% (improved by 48.08%)"
     }
   },
   "status": "PASS",
   "summary": [
-    "\ud83c\udf89 Prompt-level Accuracy (Strict): 32.16% (baseline: 0.00%, \u0394 +32.16%)",
-    "\u2705 Prompt-level Accuracy (Loose): 0.00% (baseline: 0.00%, \u0394 +0.00%)",
+    "\ud83c\udf89 Prompt-level Accuracy (Strict): 32.35% (baseline: 0.00%, \u0394 +32.35%)",
+    "\ud83c\udf89 Prompt-level Accuracy (Loose): 36.04% (baseline: 0.00%, \u0394 +36.04%)",
     "\ud83c\udf89 Instruction-level Accuracy (Strict): 44.36% (baseline: 0.00%, \u0394 +44.36%)",
-    "\u2705 Instruction-level Accuracy (Loose): 0.00% (baseline: 0.00%, \u0394 +0.00%)"
+    "\ud83c\udf89 Instruction-level Accuracy (Loose): 48.08% (baseline: 0.00%, \u0394 +48.08%)"
   ]
 }
