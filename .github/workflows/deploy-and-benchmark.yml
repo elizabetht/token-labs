@@ -198,11 +198,15 @@ jobs:
           results = data.get("results", {}).get("all", {})
           prompt_acc = results.get("prompt_level_strict_acc", 0) * 100
           inst_acc = results.get("inst_level_strict_acc", 0) * 100
+          prompt_acc_loose = results.get("prompt_level_loose_acc", 0) * 100
+          inst_acc_loose = results.get("inst_level_loose_acc", 0) * 100
           output = {
               "model": "${{ env.MODEL }}",
               "num_samples": $NUM_SAMPLES,
               "prompt_level_accuracy": prompt_acc,
               "instruction_level_accuracy": inst_acc,
+              "prompt_level_accuracy_loose": prompt_acc_loose,
+              "instruction_level_accuracy_loose": inst_acc_loose,
           }
           with open("ifeval_results.json", "w") as f:
               json.dump(output, f, indent=2)
