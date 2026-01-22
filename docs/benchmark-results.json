@@ -1,5 +1,5 @@
 {
-  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
+  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8-QAT",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
   "prefill": {
@@ -47,7 +47,7 @@
       "p99_itl_ms": 0.0
     }
   },
-  "timestamp": "2026-01-21T19:27:42.095542Z",
+  "timestamp": "2026-01-22T05:50:36.738845Z",
   "vllm_server_args": {
     "gpu_memory_utilization": 0.6,
     "max_model_len": 131072,
@@ -95,8 +95,8 @@
   },
   "accuracy": {
     "ifeval": {
-      "prompt_level_accuracy": 31.79297597042514,
-      "instruction_level_accuracy": 44.24460431654676,
+      "prompt_level_accuracy": 31.608133086876155,
+      "instruction_level_accuracy": 43.28537170263789,
       "num_samples": 541,
       "evaluated": true
     }
