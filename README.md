@@ -89,13 +89,16 @@ See [`baselines/README.md`](baselines/README.md) for detailed documentation.
 
 ```
 ├── Dockerfile              # vLLM build for ARM64/CUDA 13.0
+├── flake.nix               # Nix flake for reproducible dev environment
+├── .envrc                  # direnv integration for automatic env loading
 ├── baselines/              # Baseline accuracy values for comparison
 │   ├── README.md           # Documentation for baseline testing
 │   └── llama-3.1-8b-instruct.json  # Baseline for Llama 3.1 8B
 ├── docs/
 │   ├── index.html          # Main landing page
 │   ├── benchmark-results.html  # Detailed benchmark results
-│   └── benchmark-results.json  # Raw JSON data (auto-updated)
+│   ├── benchmark-results.json  # Raw JSON data (auto-updated)
+│   └── NIX_FLAKE.md        # Nix flake documentation
 ├── scripts/
 │   ├── compare_baseline.py # Compare accuracy against baseline
 │   ├── evaluate_accuracy.py # Legacy IFEval script (replaced by lighteval)
@@ -105,6 +108,23 @@ See [`baselines/README.md`](baselines/README.md) for detailed documentation.
     ├── build-and-push.yml      # Build vLLM Docker image
     └── deploy-and-benchmark.yml # Deploy and run benchmarks (uses lighteval)
 ```
+
+## 🛠️ Development with Nix
+
+This repository includes a [Nix flake](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html) for reproducible development environments:
+
+```bash
+# Enter development shell (requires Nix with flakes enabled)
+nix develop
+
+# Build Docker image
+nix run .#build-docker
+
+# Run Docker container
+nix run .#run-docker
+```
+
+See [docs/NIX_FLAKE.md](docs/NIX_FLAKE.md) for complete documentation.
 
 ## License
 

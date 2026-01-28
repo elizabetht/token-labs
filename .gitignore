@@ -42,3 +42,9 @@ Thumbs.db
 bench_results.json
 prefill_bench.txt
 decode_bench.txt
+
+# Nix
+.direnv/
+result
+result-*
+.devenv/
