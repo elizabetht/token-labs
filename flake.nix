@@ -13,7 +13,6 @@
           inherit system;
           config = {
             allowUnfree = true;
-            cudaSupport = true;
           };
         };
 
@@ -29,12 +28,11 @@
       {
         # Development shell
         devShells.default = pkgs.mkShell {
-          name = "token-labs-dev";
+          name = "token-labs-vllm-dev";
           
           buildInputs = with pkgs; [
             # Python and build tools
             pythonEnv
-            python312Packages.pip
             
             # Docker tools
             docker
@@ -51,9 +49,9 @@
             curl
             wget
             
-            # CUDA toolkit (for local development if NVIDIA GPU is available)
-            # Note: This assumes CUDA support in nixpkgs
-            # cudaPackages.cuda_cudart
+            # Note: CUDA packages are not included by default as they are large
+            # and environment-specific. To add CUDA support, uncomment:
+            # cudaPackages.cudatoolkit
             # cudaPackages.cudnn
           ];
 
@@ -80,6 +78,8 @@
         };
 
         # Package for building the Docker image using Nix
+        # Note: This is a minimal example. For production use, continue using
+        # the existing Dockerfile which includes vLLM and all dependencies.
         packages = {
           # Docker image builder
           docker-image = pkgs.dockerTools.buildLayeredImage {
@@ -107,6 +107,7 @@
 
             extraCommands = ''
               mkdir -p app
+              # Note: Application code should be copied or mounted at runtime
             '';
           };
 

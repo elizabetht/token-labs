@@ -12,13 +12,20 @@ Nix flakes are a way to manage reproducible, composable software environments. T
 ## Prerequisites
 
 1. **Install Nix** (with flakes enabled):
-   ```bash
-   # Install Nix
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    
-   # Or if you already have Nix, enable flakes
+   **Option A - Official Nix installer (recommended):**
+   ```bash
+   # Multi-user installation (recommended)
+   sh <(curl -L https://nixos.org/nix/install) --daemon
+   
+   # Enable flakes
    mkdir -p ~/.config/nix
    echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+   ```
+   
+   **Option B - Determinate Systems installer (includes flakes by default):**
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
    ```
 
 2. **(Optional) Install direnv** for automatic environment loading:
