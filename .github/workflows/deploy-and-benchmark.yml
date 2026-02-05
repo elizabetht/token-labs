@@ -301,58 +301,177 @@ jobs:
           # Run benchmarks sequentially to avoid issues
           # Skip cache benchmark for v0.1.0 as it doesn't have prefix caching
           if [[ "$VERSION" != "0.1.0" && "$VERSION" != "v0.1.0" ]]; then
-            echo "Running cache benchmark..."
+            echo "Running cache benchmark with guidellm..."
             docker exec ${{ env.CONTAINER_NAME }} bash -c "source /opt/venv/bin/activate && \
-              FLASHINFER_DISABLE_VERSION_CHECK=1 vllm bench serve \
-              --model ${{ env.MODEL }} --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-              --dataset-name prefix_repetition --num-prompts 100 \
-              --prefix-repetition-prefix-len 512 --prefix-repetition-suffix-len 128 \
-              --prefix-repetition-num-prefixes 5 --prefix-repetition-output-len 128" \
+              FLASHINFER_DISABLE_VERSION_CHECK=1 guidellm benchmark \
+              --target http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+              --profile constant \
+              --rate 10 \
+              --max-requests 100 \
+              --data 'prompt_tokens=512,output_tokens=128' \
+              --output-path /tmp/cache_bench" \
               2>&1 | tee cache_bench.txt
+            
+            # Copy benchmark results from container
+            docker cp ${{ env.CONTAINER_NAME }}:/tmp/cache_bench/benchmarks.json cache_bench.json || echo '{}' > cache_bench.json
           else
             echo "Skipping cache benchmark for v0.1.0 (no prefix caching support)"
-            echo "" > cache_bench.txt
+            echo '{}' > cache_bench.json
           fi
           
-          echo "Running prefill benchmark..."
+          echo "Running prefill benchmark with guidellm..."
           docker exec ${{ env.CONTAINER_NAME }} bash -c "source /opt/venv/bin/activate && \
-            FLASHINFER_DISABLE_VERSION_CHECK=1 vllm bench serve \
-            --model ${{ env.MODEL }} --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 100 --request-rate 10 \
-            --random-input-len 3072 --random-output-len 1024" \
+            FLASHINFER_DISABLE_VERSION_CHECK=1 guidellm benchmark \
+            --target http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+            --profile constant \
+            --rate 10 \
+            --max-requests 100 \
+            --data 'prompt_tokens=3072,output_tokens=1024' \
+            --output-path /tmp/prefill_bench" \
             2>&1 | tee prefill_bench.txt
           
-          echo "Running decode benchmark..."
+          # Copy benchmark results from container
+          docker cp ${{ env.CONTAINER_NAME }}:/tmp/prefill_bench/benchmarks.json prefill_bench.json || echo '{}' > prefill_bench.json
+          
+          echo "Running decode benchmark with guidellm..."
           docker exec ${{ env.CONTAINER_NAME }} bash -c "source /opt/venv/bin/activate && \
-            FLASHINFER_DISABLE_VERSION_CHECK=1 vllm bench serve \
-            --model ${{ env.MODEL }} --base-url http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
-            --num-prompts 100 --request-rate 10 \
-            --random-input-len 1024 --random-output-len 3072" \
+            FLASHINFER_DISABLE_VERSION_CHECK=1 guidellm benchmark \
+            --target http://${{ env.DGX_TAILSCALE_IP }}:${{ env.VLLM_PORT }} \
+            --profile constant \
+            --rate 10 \
+            --max-requests 100 \
+            --data 'prompt_tokens=1024,output_tokens=3072' \
+            --output-path /tmp/decode_bench" \
             2>&1 | tee decode_bench.txt
           
-          # Extract metrics
-          extract() { 
-            local result=$(grep -oP "$2" "$1" 2>/dev/null | tail -1)
-            echo "${result:-0}"
-          }
+          # Copy benchmark results from container
+          docker cp ${{ env.CONTAINER_NAME }}:/tmp/decode_bench/benchmarks.json decode_bench.json || echo '{}' > decode_bench.json
           
-          # Debug: show what we're working with
-          echo "=== Prefill benchmark output (last 20 lines) ==="
-          tail -20 prefill_bench.txt || true
-          echo "=== Decode benchmark output (last 20 lines) ==="
-          tail -20 decode_bench.txt || true
-          echo "=== Cache benchmark output (last 20 lines) ==="
-          tail -20 cache_bench.txt || true
-          echo "=== End debug output ==="
+          # Parse guidellm JSON output and extract metrics
+          cat > /tmp/parse_guidellm.py << 'PYEOF'
+          import json
+          import sys
           
-          INPUT_TPS=$(extract prefill_bench.txt 'Input token throughput \(tok/s\):\s*\K[\d.]+')
-          OUTPUT_TPS=$(extract decode_bench.txt 'Output token throughput \(tok/s\):\s*\K[\d.]+')
-          CACHED_TPS=$(extract cache_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
+          def extract_metrics(json_file):
+              """Extract metrics from guidellm JSON output"""
+              try:
+                  with open(json_file) as f:
+                      data = json.load(f)
+                  
+                  # Debug: print structure
+                  print(f"DEBUG: {json_file} top-level keys: {list(data.keys())}", file=sys.stderr)
+                  
+                  # guidellm outputs a dict with benchmarks list
+                  if not data:
+                      return {}
+                  
+                  benchmarks = data.get('benchmarks', [])
+                  if not benchmarks:
+                      print(f"DEBUG: {json_file} has no benchmarks", file=sys.stderr)
+                      return {}
+                  
+                  # Get the first benchmark (we only run one per file)
+                  benchmark = benchmarks[0] if isinstance(benchmarks, list) else benchmarks
+                  print(f"DEBUG: {json_file} benchmark keys: {list(benchmark.keys())}", file=sys.stderr)
+                  
+                  # Try different possible paths to stats
+                  stats = benchmark.get('report', benchmark.get('statistics', benchmark.get('stats', {})))
+                  print(f"DEBUG: {json_file} stats keys: {list(stats.keys()) if isinstance(stats, dict) else 'not a dict'}", file=sys.stderr)
+                  
+                  # Helper to get value with fallback field names
+                  def get_with_fallback(field_names, default=0):
+                      for field in field_names:
+                          val = stats.get(field)
+                          if val is not None:
+                              return val
+                      return default
+                  
+                  # Extract throughput metrics with fallbacks for different field names
+                  prompt_token_throughput = get_with_fallback([
+                      'prompt_token_throughput',
+                      'prompt_tokens_per_second', 
+                      'input_token_throughput'
+                  ])
+                  output_token_throughput = get_with_fallback([
+                      'output_token_throughput',
+                      'output_tokens_per_second',
+                      'decode_token_throughput'
+                  ])
+                  total_token_throughput = get_with_fallback([
+                      'total_token_throughput',
+                      'total_tokens_per_second',
+                      'throughput'
+                  ])
+                  
+                  # Extract latency metrics - guidellm outputs in seconds, convert to ms
+                  # Based on guidellm metrics documentation, all latency values are in seconds
+                  def get_latency(name):
+                      # Try primary field name
+                      val = stats.get(name)
+                      # Always convert from seconds to milliseconds if value exists
+                      return (val * 1000) if val is not None else 0
+                  
+                  ttft_mean = get_latency('ttft_mean')
+                  ttft_median = get_latency('ttft_median')
+                  ttft_p99 = get_latency('ttft_p99')
+                  
+                  tpot_mean = get_latency('tpot_mean')
+                  tpot_median = get_latency('tpot_median')
+                  tpot_p99 = get_latency('tpot_p99')
+                  
+                  itl_mean = get_latency('itl_mean')
+                  itl_median = get_latency('itl_median')
+                  itl_p99 = get_latency('itl_p99')
+                  
+                  return {
+                      'prompt_token_throughput': prompt_token_throughput,
+                      'output_token_throughput': output_token_throughput,
+                      'total_token_throughput': total_token_throughput,
+                      'ttft_mean': ttft_mean,
+                      'ttft_median': ttft_median,
+                      'ttft_p99': ttft_p99,
+                      'tpot_mean': tpot_mean,
+                      'tpot_median': tpot_median,
+                      'tpot_p99': tpot_p99,
+                      'itl_mean': itl_mean,
+                      'itl_median': itl_median,
+                      'itl_p99': itl_p99
+                  }
+              except Exception as e:
+                  print(f"Error parsing {json_file}: {e}", file=sys.stderr)
+                  import traceback
+                  traceback.print_exc(file=sys.stderr)
+                  return {}
           
-          # Ensure we have valid numbers (fallback to Total if specific metric not found)
-          [[ "$INPUT_TPS" == "0" || -z "$INPUT_TPS" ]] && INPUT_TPS=$(extract prefill_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
-          [[ "$OUTPUT_TPS" == "0" || -z "$OUTPUT_TPS" ]] && OUTPUT_TPS=$(extract decode_bench.txt 'Total token throughput \(tok/s\):\s*\K[\d.]+')
-          [[ "$CACHED_TPS" == "0" || -z "$CACHED_TPS" ]] && CACHED_TPS=$(extract cache_bench.txt 'Output token throughput \(tok/s\):\s*\K[\d.]+')
+          # Parse each benchmark file
+          prefill = extract_metrics('prefill_bench.json')
+          decode = extract_metrics('decode_bench.json')
+          cache = extract_metrics('cache_bench.json')
+          
+          # Output in shell variable format
+          print(f"INPUT_TPS={prefill.get('prompt_token_throughput', 0)}")
+          print(f"OUTPUT_TPS={decode.get('output_token_throughput', 0)}")
+          print(f"CACHED_TPS={cache.get('total_token_throughput', 0)}")
+          
+          # Export latency metrics for prefill
+          for key, val in prefill.items():
+              if key.startswith(('ttft_', 'tpot_', 'itl_')):
+                  print(f"PREFILL_{key.upper()}={val}")
+          
+          # Export latency metrics for decode
+          for key, val in decode.items():
+              if key.startswith(('ttft_', 'tpot_', 'itl_')):
+                  print(f"DECODE_{key.upper()}={val}")
+          
+          # Export latency metrics for cache
+          for key, val in cache.items():
+              if key.startswith(('ttft_', 'tpot_', 'itl_')):
+                  print(f"CACHE_{key.upper()}={val}")
+          PYEOF
+          
+          # Run parser and source the output
+          python3 /tmp/parse_guidellm.py > /tmp/metrics.env
+          source /tmp/metrics.env
           
           # Default to 0 if still empty
           INPUT_TPS="${INPUT_TPS:-0}"
@@ -360,17 +479,6 @@ jobs:
           CACHED_TPS="${CACHED_TPS:-0}"
           
           echo "Extracted throughput: INPUT=$INPUT_TPS OUTPUT=$OUTPUT_TPS CACHED=$CACHED_TPS"
-          
-          # Latency metrics
-          for test in PREFILL DECODE CACHE; do
-            file="${test,,}_bench.txt"
-            for metric in MEAN_TTFT MEDIAN_TTFT P99_TTFT MEAN_TPOT MEDIAN_TPOT P99_TPOT MEAN_ITL MEDIAN_ITL P99_ITL; do
-              pattern=$(echo $metric | sed 's/_/ /g' | sed 's/MEAN/Mean/;s/MEDIAN/Median/;s/P99/P99/;s/TTFT/TTFT/;s/TPOT/TPOT/;s/ITL/ITL/')
-              val=$(extract "$file" "${pattern} \(ms\):\s*\K[\d.]+")
-              val="${val:-0}"
-              export "${test}_${metric}=$val"
-            done
-          done
           
           # Calculate costs (handle division by zero)
           calc_cost() { 
