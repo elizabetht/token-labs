@@ -24,19 +24,19 @@ All configuration is declarative Kubernetes CRDs — no FastAPI, no custom gatew
 │                                                                     │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐        │
 │  │  controller     │  │  spark-01      │  │  spark-02      │        │
-│  │  (CPU, ARM64)   │  │  (GH200 GPU)   │  │  (GH200 GPU)   │        │
+│  │  (CPU, ARM64)   │  │  (GB10 GPU)    │  │  (GB10 GPU)    │        │
 │  │                 │  │  ARM64         │  │  ARM64         │        │
 │  │  • Envoy GW     │  │  • vLLM pod    │  │  • vLLM pod    │        │
 │  │  • Kuadrant     │  │    Llama 3.1   │  │    Nemotron VL │        │
 │  │  • llm-d EPPs   │  │    8B Instruct │  │    12B FP8     │        │
-│  │  • Magpie TTS   │  │              │  │              │        │
-│  │    (CPU, 357M)  │  │              │  │              │        │
+│  │                 │  │  • Magpie TTS  │  │              │        │
+│  │                 │  │    (GPU, 357M) │  │              │        │
 │  └────────────────┘  └────────────────┘  └────────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Controller node**: Runs Envoy Gateway proxy, Kuadrant operators (Authorino + Limitador), llm-d EPPs (one per InferencePool), and Magpie TTS (357M, CPU-only)
-- **spark-01**: vLLM serving `meta-llama/Llama-3.1-8B-Instruct` (text/chat LLM)
+- **Controller node**: Runs Envoy Gateway proxy, Kuadrant operators (Authorino + Limitador), llm-d EPPs (one per InferencePool)
+- **spark-01**: vLLM serving `meta-llama/Llama-3.1-8B-Instruct` (text/chat LLM, 80% GPU utilization) + Magpie TTS (357M, GPU-accelerated)
 - **spark-02**: vLLM serving `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (vision-language model)
 
 ---
@@ -183,7 +183,7 @@ type: Opaque
 | llm-d-modelservice (Llama) | v0.4.5 | vLLM Llama 3.1 8B on spark-01 |
 | llm-d-modelservice (Nemotron VL) | v0.4.5 | vLLM Nemotron VL 12B FP8 on spark-02 |
 | vLLM image | v0.5.0 | `ghcr.io/llm-d/llm-d-cuda:v0.5.0` |
-| Magpie TTS | 357M | Custom container on controller (CPU) |
+| Magpie TTS | 357M | Custom container on spark-01 (GPU) |
 | Gateway API Inference Extension | v0.4.0 | CRD manifests |
 
 ### Models Served
@@ -192,7 +192,7 @@ type: Opaque
 |---|---|---|---|---|
 | `meta-llama/Llama-3.1-8B-Instruct` | Text LLM | spark-01 | `token-labs-pool` | ~16 GB |
 | `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` | Vision-Language | spark-02 | `nemotron-vl-pool` | ~13 GB |
-| `nvidia/magpie_tts_multilingual_357m` | Text-to-Speech | controller | N/A (K8s Service) | CPU only |
+| `nvidia/magpie_tts_multilingual_357m` | Text-to-Speech | spark-01 | N/A (K8s Service) | ~700 MB |
 | Gateway API Inference Extension | v0.4.0 | CRD manifests |
 
 ---
@@ -206,7 +206,7 @@ type: Opaque
 4. llm-d helmfile (infra + 2× modelservice + 2× inferencepool)
 5. InferenceModel CRDs (model-name → pool mapping)
 6. Gateway + HTTPRoutes (LLM routes + TTS route)
-7. Magpie TTS deployment (CPU, controller node)
+7. Magpie TTS deployment (GPU, spark-01)
 8. Kuadrant policies (AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy)
 9. Tenant secrets
 ```
@@ -251,7 +251,7 @@ type: Opaque
                           │                     └──────────────┘   │
                           │                                        │
                           │    ┌──────────────────────────────┐    │
-                          │    │  Magpie TTS (controller/CPU)  │    │
+                          │    │  Magpie TTS (spark-01/GPU)    │    │
                           │    │  /v1/audio/speech             │    │
                           │    │  357M params, NeMo            │    │
                           │    └──────────────────────────────┘    │
@@ -277,6 +277,6 @@ type: Opaque
 
 6. **Multi-model routing via InferenceModel CRDs** — Each LLM model gets its own InferencePool + EPP. `InferenceModel` CRDs map the client's `"model"` field to the correct pool. The EPP inspects the request body and routes accordingly.
 
-7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. At 357M params it runs on CPU on the controller node. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
+7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. It runs on GPU on spark-01 (shared with Llama) for faster inference. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
 
-8. **GPU allocation: Llama + TTS on spark-01, Nemotron VL on spark-02** — Llama 3.1 8B (~16 GB) uses spark-01's GH200. Nemotron VL 12B FP8 (~13 GB) uses spark-02. Magpie TTS runs on CPU (controller), leaving both GPUs fully dedicated to LLM workloads.
+8. **GPU allocation: Llama + TTS on spark-01, Nemotron VL on spark-02** — Llama 3.1 8B runs at 80% GPU utilization on spark-01, leaving room for Magpie TTS (~700 MB). Nemotron VL 12B FP8 (~13 GB) uses spark-02 at 90% utilization.

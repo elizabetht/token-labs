@@ -1,5 +1,5 @@
 # Magpie TTS — NeMo-based text-to-speech service
-# Runs on the controller node (CPU) — 357M params, no GPU needed
+# Runs on spark-01 (GPU, shared with Llama 3.1 8B)
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -19,14 +19,9 @@ spec:
       labels:
         app: magpie-tts
     spec:
-      # Schedule on controller node (CPU only, no GPU needed)
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role.tokenlabs.run/gpu
-                operator: DoesNotExist
+      # Schedule on spark-01 (shares GPU with Llama 3.1 8B)
+      nodeSelector:
+        kubernetes.io/hostname: spark-01
       containers:
       - name: magpie-tts
         image: ghcr.io/elizabetht/token-labs/magpie-tts:latest
@@ -38,9 +33,11 @@ spec:
           requests:
             cpu: "2"
             memory: 4Gi
+            nvidia.com/gpu: "1"
           limits:
             cpu: "4"
             memory: 8Gi
+            nvidia.com/gpu: "1"
         readinessProbe:
           httpGet:
             path: /health

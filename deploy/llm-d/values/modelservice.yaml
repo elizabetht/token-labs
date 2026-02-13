@@ -23,7 +23,7 @@ decode:
 
   # Node affinity — schedule on DGX Spark GPU workers
   nodeSelector:
-    nvidia.com/gpu.product: "GH200"
+    nvidia.com/gpu.product: "NVIDIA-GB10"
 
   tolerations:
   - key: nvidia.com/gpu
@@ -35,7 +35,7 @@ decode:
   - "--max-model-len=8192"
   - "--dtype=auto"
   - "--enforce-eager"
-  - "--gpu-memory-utilization=0.90"
+  - "--gpu-memory-utilization=0.80"
 
 # HuggingFace token for gated models (if needed)
 # huggingFaceSecret: hf-token-secret

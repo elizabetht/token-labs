@@ -50,11 +50,11 @@ Client receives response
 
 This produces better tail latency and higher throughput than round-robin or least-connections load balancing.
 
-**[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GH200 GPUs. Served via the `ghcr.io/llm-d/llm-d-cuda:v0.5.0` container image. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves two models:
+**[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GB10 GPUs. Served via the `ghcr.io/llm-d/llm-d-cuda:v0.5.0` container image. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves two models:
 - **Llama 3.1 8B Instruct** (spark-01) — general-purpose chat model
 - **Nemotron VL 12B FP8** (spark-02) — NVIDIA vision-language model with FP8 quantization, supports image+text inputs
 
-**[Magpie TTS](https://huggingface.co/nvidia/magpie_tts_multilingual_357m)** — NVIDIA's multilingual text-to-speech model (357M parameters). Runs on the controller node (CPU-only, no GPU required). Served via a custom FastAPI wrapper that exposes an OpenAI-compatible `/v1/audio/speech` endpoint. Supports 5 voices and 7 languages (en, es, de, fr, vi, it, zh). Built on the NeMo framework.
+**[Magpie TTS](https://huggingface.co/nvidia/magpie_tts_multilingual_357m)** — NVIDIA's multilingual text-to-speech model (357M parameters). Runs on spark-01 (GPU, shared with Llama 3.1 8B). Served via a custom FastAPI wrapper that exposes an OpenAI-compatible `/v1/audio/speech` endpoint. Supports 5 voices and 7 languages (en, es, de, fr, vi, it, zh). Built on the NeMo framework.
 
 ### Infrastructure
 
@@ -64,21 +64,30 @@ This produces better tail latency and higher throughput than round-robin or leas
 │                                                                      │
 │  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐       │
 │  │  controller     │   │  spark-01      │   │  spark-02      │       │
-│  │  (CPU, ARM64)   │   │  (GH200 GPU)   │   │  (GH200 GPU)   │       │
+│  │  (CPU, ARM64)   │   │  (GB10 GPU)    │   │  (GB10 GPU)    │       │
 │  │                 │   │                │   │                │       │
 │  │  Envoy GW       │   │  vLLM:         │   │  vLLM:         │       │
 │  │  Kuadrant       │   │  Llama 3.1 8B  │   │  Nemotron VL   │       │
-│  │  llm-d EPPs     │   │                │   │  12B FP8       │       │
-│  │  Magpie TTS     │   │                │   │                │       │
+│  │  llm-d EPPs     │   │  Magpie TTS    │   │  12B FP8       │       │
 │  └────────────────┘   └────────────────┘   └────────────────┘       │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-The cluster has three nodes. The CPU controller runs control-plane components (Envoy Gateway proxy, Kuadrant operators, llm-d EPPs) and the Magpie TTS service. The two DGX Spark GPU workers each run one vLLM pod: **spark-01** serves `meta-llama/Llama-3.1-8B-Instruct` and **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model). Both use `tensor_parallelism=1`.
+The cluster has three nodes. The CPU controller runs control-plane components (Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `meta-llama/Llama-3.1-8B-Instruct` (80% GPU utilization) and Magpie TTS (GPU-accelerated, ~700 MB). **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model). Both use `tensor_parallelism=1`.
 
 ### Tenant Model
 
-Tenants are Kubernetes Secrets with standardized labels and annotations. There is no database — adding a tenant is `kubectl apply`, removing one is `kubectl delete`:
+There is no external identity provider (no Keycloak, no Auth0). Tenants are Kubernetes Secrets — Authorino validates API keys by looking up Secrets directly. No database, no restarts, no config reloads. The moment you `kubectl apply` a tenant Secret, the API key is live.
+
+#### How authentication works
+
+1. Client sends a request with `Authorization: Bearer <api-key>`
+2. Authorino searches for a Secret in `kuadrant-system` labeled `authorino.kuadrant.io/managed-by: authorino`
+3. Compares the `api_key` field in each Secret against the bearer token
+4. On match, extracts the tenant's tier (`kuadrant.io/groups`) and ID (`secret.kuadrant.io/user-id`) from annotations
+5. Passes this metadata downstream — RateLimitPolicy and TokenRateLimitPolicy use it to enforce per-tenant quotas
+
+#### Tenant Secret structure
 
 ```yaml
 apiVersion: v1
@@ -96,7 +105,52 @@ stringData:
   api_key: "tlabs_sk_acme_..."                     # API key value
 ```
 
-Rate limits are enforced per tier:
+#### Onboarding a new tenant
+
+```bash
+# 1. Generate a secure API key
+API_KEY="tlabs_sk_$(openssl rand -hex 24)"
+
+# 2. Create the tenant Secret (choose tier: free, pro, or enterprise)
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tenant-acme
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: token-labs
+  annotations:
+    kuadrant.io/groups: "pro"
+    secret.kuadrant.io/user-id: "acme"
+stringData:
+  api_key: "$API_KEY"
+EOF
+
+# 3. Share the API key with the client (securely, out-of-band)
+echo "API Key: $API_KEY"
+```
+
+The client can use the key immediately — no waiting, no restart:
+
+```bash
+curl https://inference.token-labs.local/v1/chat/completions \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "meta-llama/Llama-3.1-8B-Instruct", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+#### Managing tenants
+
+| Action | Command |
+|--------|---------|
+| List all tenants | `kubectl get secrets -n kuadrant-system -l app=token-labs` |
+| Change tier | `kubectl annotate secret tenant-acme -n kuadrant-system kuadrant.io/groups=enterprise --overwrite` |
+| Rotate API key | `kubectl create secret generic tenant-acme -n kuadrant-system --from-literal=api_key="$(openssl rand -hex 24)" --dry-run=client -o yaml \| kubectl apply -f -` |
+| Revoke access | `kubectl delete secret tenant-acme -n kuadrant-system` |
+
+#### Rate limits by tier
 
 | Tier | Requests/day | Requests/min | Tokens/day | Tokens/min |
 |------|-------------|-------------|-----------|-----------|
@@ -117,6 +171,27 @@ Rate limits are enforced per tier:
 - `helm` v3.12+
 - `helmfile` v1.1+
 - HuggingFace token with access to `meta-llama/Llama-3.1-8B-Instruct` and `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8`
+
+#### MicroK8s CLI aliases
+
+All scripts and commands in this guide use standard `kubectl` and `helm`. On a MicroK8s cluster, create aliases so they resolve to the MicroK8s-bundled binaries:
+
+```bash
+# Permanent system-wide aliases (recommended)
+sudo snap alias microk8s.kubectl kubectl
+sudo snap alias microk8s.helm helm
+
+# Or add to ~/.bashrc / ~/.zshrc
+echo 'alias kubectl="microk8s kubectl"' >> ~/.zshrc
+echo 'alias helm="microk8s helm"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Verify:
+```bash
+kubectl version --client
+helm version
+```
 
 ### Step 1: Install Gateway API CRDs
 
@@ -233,7 +308,7 @@ kubectl apply -f deploy/magpie-tts/
 ```
 
 What it deploys:
-- A Deployment running the FastAPI TTS wrapper on the controller node (CPU-only, no GPU)
+- A Deployment running the FastAPI TTS wrapper on spark-01 (GPU-accelerated, shared with Llama)
 - A Service exposing port 8000
 - An HTTPRoute mapping `/v1/audio/speech` through the same Gateway
 
@@ -277,7 +352,7 @@ kubectl get tokenratelimitpolicy -n token-labs  # Accepted: True
 
 ### Step 8: Create tenant API keys
 
-Each tenant is a Kubernetes Secret. Demo tenants are provided for testing:
+Demo tenants are provided for testing (see [Tenant Model](#tenant-model) above for full onboarding instructions):
 
 ```bash
 kubectl apply -f deploy/tenants/
@@ -287,34 +362,7 @@ This creates two demo tenants:
 - `tenant-free-demo` — free tier, key `tlabs_free_demo_key_change_me`
 - `tenant-pro-demo` — pro tier, key `tlabs_pro_demo_key_change_me`
 
-To create a production tenant:
-```bash
-# Copy the template
-cp deploy/tenants/tenant-template.yaml deploy/tenants/tenant-acme.yaml
-
-# Edit: set name, tier, user-id, and generate a real API key
-#   openssl rand -hex 32
-
-kubectl apply -f deploy/tenants/tenant-acme.yaml
-```
-
-Common tenant operations:
-```bash
-# Change tier
-kubectl annotate secret tenant-acme -n kuadrant-system \
-  kuadrant.io/groups=enterprise --overwrite
-
-# Rotate API key
-kubectl create secret generic tenant-acme -n kuadrant-system \
-  --from-literal=api_key="new_key_here" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# List all tenants
-kubectl get secrets -n kuadrant-system -l app=token-labs
-
-# Remove a tenant
-kubectl delete secret tenant-acme -n kuadrant-system
-```
+For production tenants, follow the [onboarding steps](#onboarding-a-new-tenant) in the Tenant Model section.
 
 ### Test it
 

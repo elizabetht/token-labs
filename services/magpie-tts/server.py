@@ -2,7 +2,7 @@
 Magpie TTS API Server
 
 Wraps nvidia/magpie_tts_multilingual_357m (NeMo) in an OpenAI-compatible
-/v1/audio/speech endpoint. Runs on CPU (357M params, no GPU required).
+/v1/audio/speech endpoint. Runs on GPU (spark-01, shared with Llama 3.1 8B).
 
 Speakers: John (0), Sofia (1), Aria (2), Jason (3), Leo (4)
 Languages: en, es, de, fr, vi, it, zh
@@ -46,6 +46,9 @@ async def lifespan(app: FastAPI):
     from nemo.collections.tts.models import MagpieTTSModel
 
     tts_model = MagpieTTSModel.from_pretrained("nvidia/magpie_tts_multilingual_357m")
+    if torch.cuda.is_available():
+        tts_model = tts_model.cuda()
+        logger.info("MagpieTTS model moved to GPU")
     tts_model.eval()
     logger.info("MagpieTTS model loaded successfully")
     yield

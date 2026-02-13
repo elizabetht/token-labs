@@ -22,7 +22,7 @@ decode:
       nvidia.com/gpu: "1"
 
   nodeSelector:
-    nvidia.com/gpu.product: "GH200"
+    nvidia.com/gpu.product: "NVIDIA-GB10"
 
   tolerations:
   - key: nvidia.com/gpu
