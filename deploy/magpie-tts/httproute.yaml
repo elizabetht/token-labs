@@ -1,0 +1,42 @@
+# HTTPRoute for Magpie TTS — routes /v1/audio/speech to the TTS service
+# This is a regular Kubernetes Service backend (NOT an InferencePool)
+# Kuadrant policies still apply since the route is attached to the same Gateway
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: magpie-tts
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+  hostnames:
+  - "inference.token-labs.local"
+  rules:
+  # Text-to-speech endpoint
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/audio/speech
+      method: POST
+    backendRefs:
+    - name: magpie-tts
+      port: 8000
+  # TTS model listing
+  - matches:
+    - path:
+        type: Exact
+        value: /v1/audio/models
+      method: GET
+    backendRefs:
+    - name: magpie-tts
+      port: 8000
+  # TTS health check
+  - matches:
+    - path:
+        type: Exact
+        value: /v1/audio/health
+      method: GET
+    backendRefs:
+    - name: magpie-tts
+      port: 8000

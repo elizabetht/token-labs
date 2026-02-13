@@ -1,0 +1,61 @@
+# llm-d helmfile — 3-chart deployment pattern
+# Charts: llm-d-infra (CRDs), inferencepool (EPP), llm-d-modelservice (vLLM workers)
+environments:
+  default:
+    values:
+    - env: default
+
+---
+repositories:
+- name: llm-d
+  url: ghcr.io/llm-d
+  oci: true
+
+releases:
+  # 1. Infrastructure — InferencePool CRDs and Gateway configuration
+  - name: llm-d-infra
+    namespace: token-labs
+    chart: llm-d/llm-d-infra
+    version: 1.3.6
+    values:
+    - values/infra.yaml
+
+  # 2. InferencePool + EPP — Inference-aware ext_proc routing
+  - name: llm-d-inferencepool
+    namespace: token-labs
+    chart: llm-d/inferencepool
+    version: 1.3.0
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/inferencepool.yaml
+
+  # 3. Model Service — vLLM Llama workers on DGX Spark GPU nodes
+  - name: llm-d-modelservice
+    namespace: token-labs
+    chart: llm-d/llm-d-modelservice
+    version: 0.4.5
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/modelservice.yaml
+
+  # 4. InferencePool + EPP for Nemotron VL 12B
+  - name: llm-d-inferencepool-nemotron-vl
+    namespace: token-labs
+    chart: llm-d/inferencepool
+    version: 1.3.0
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/inferencepool-nemotron-vl.yaml
+
+  # 5. Model Service — Nemotron VL 12B FP8 on spark-02
+  - name: llm-d-modelservice-nemotron-vl
+    namespace: token-labs
+    chart: llm-d/llm-d-modelservice
+    version: 0.4.5
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/modelservice-nemotron-vl.yaml

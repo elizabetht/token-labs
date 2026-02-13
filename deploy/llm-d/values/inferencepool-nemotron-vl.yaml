@@ -1,0 +1,20 @@
+# InferencePool + EPP values — Nemotron VL 12B FP8
+pool:
+  name: nemotron-vl-pool
+  modelName: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8"
+
+  # EPP (Endpoint Picker) — inference-aware ext_proc routing
+  epp:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  # Scheduling configuration
+  scheduling:
+    kvCacheAware: true
+    queueDepthAware: true

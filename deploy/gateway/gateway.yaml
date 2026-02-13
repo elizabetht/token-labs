@@ -1,0 +1,17 @@
+# Gateway resource — Envoy Gateway as the data-plane proxy
+# Kuadrant policies and llm-d EPP both attach to this Gateway
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: token-labs-gateway
+  namespace: token-labs
+spec:
+  gatewayClassName: eg  # Envoy Gateway
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    hostname: "inference.token-labs.local"
+    allowedRoutes:
+      namespaces:
+        from: Same

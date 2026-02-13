@@ -1,0 +1,58 @@
+# RateLimitPolicy — Per-tenant request-count rate limiting
+#
+# Limits the number of requests per tenant per time window.
+# Complements TokenRateLimitPolicy (which limits by token consumption).
+# Provides burst protection independent of token counting.
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: token-labs-request-limits
+  namespace: token-labs
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+
+  limits:
+    # Free tier: 100 requests per day, 10 req/min burst
+    free-daily:
+      rates:
+      - limit: 100
+        window: 24h
+      - limit: 10
+        window: 1m
+      when:
+      - predicate: request.method == "POST"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "free")
+      counters:
+      - expression: auth.identity.userid
+
+    # Pro tier: 5,000 requests per day, 100 req/min burst
+    pro-daily:
+      rates:
+      - limit: 5000
+        window: 24h
+      - limit: 100
+        window: 1m
+      when:
+      - predicate: request.method == "POST"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "pro")
+      counters:
+      - expression: auth.identity.userid
+
+    # Enterprise tier: 50,000 requests per day, 1000 req/min burst
+    enterprise-daily:
+      rates:
+      - limit: 50000
+        window: 24h
+      - limit: 1000
+        window: 1m
+      when:
+      - predicate: request.method == "POST"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "enterprise")
+      counters:
+      - expression: auth.identity.userid

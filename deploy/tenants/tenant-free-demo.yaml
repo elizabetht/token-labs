@@ -1,0 +1,17 @@
+# Demo tenant: free tier
+# API keys are stored as Kubernetes Secrets with Authorino labels.
+# Kuadrant's AuthPolicy discovers these via label selectors.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tenant-free-demo
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: token-labs
+  annotations:
+    kuadrant.io/groups: "free"
+    secret.kuadrant.io/user-id: "demo-free-user"
+stringData:
+  api_key: "tlabs_free_demo_key_change_me"
+type: Opaque

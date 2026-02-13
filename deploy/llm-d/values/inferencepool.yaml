@@ -1,0 +1,22 @@
+# InferencePool + EPP values
+pool:
+  name: token-labs-pool
+  modelName: "meta-llama/Llama-3.1-8B-Instruct"
+
+  # EPP (Endpoint Picker) — inference-aware ext_proc routing
+  epp:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  # Scheduling configuration
+  scheduling:
+    # KV-cache aware load balancing
+    kvCacheAware: true
+    # Queue-depth aware routing
+    queueDepthAware: true

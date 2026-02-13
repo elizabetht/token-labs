@@ -1,0 +1,24 @@
+# InferenceModel CRDs — map client model names to InferencePools
+#
+# When a client sends "model": "<name>" in the request body, the EPP
+# uses these CRDs to route to the correct vLLM backend pool.
+---
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferenceModel
+metadata:
+  name: llama-3-1-8b
+  namespace: token-labs
+spec:
+  modelName: "meta-llama/Llama-3.1-8B-Instruct"
+  poolRef:
+    name: token-labs-pool
+---
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferenceModel
+metadata:
+  name: nemotron-vl-12b
+  namespace: token-labs
+spec:
+  modelName: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8"
+  poolRef:
+    name: nemotron-vl-pool

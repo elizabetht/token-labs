@@ -1,0 +1,56 @@
+# ServiceMonitor for Prometheus-based observability
+#
+# Monitors:
+# - Limitador metrics (rate limit counters, token usage)
+# - Authorino metrics (auth decisions)
+# - Envoy Gateway proxy metrics
+#
+# Requires: prometheus-operator or kube-prometheus-stack
+---
+# Limitador metrics — token consumption and rate limit counters
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: limitador-metrics
+  namespace: kuadrant-system
+  labels:
+    app.kubernetes.io/part-of: token-labs
+spec:
+  selector:
+    matchLabels:
+      app: limitador
+  endpoints:
+  - port: metrics
+    interval: 15s
+---
+# Authorino metrics — auth decisions per tenant
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: authorino-metrics
+  namespace: kuadrant-system
+  labels:
+    app.kubernetes.io/part-of: token-labs
+spec:
+  selector:
+    matchLabels:
+      app: authorino
+  endpoints:
+  - port: metrics
+    interval: 15s
+---
+# Envoy Gateway proxy metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-proxy-metrics
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+spec:
+  selector:
+    matchLabels:
+      gateway.envoyproxy.io/owning-gateway-name: token-labs-gateway
+  endpoints:
+  - port: metrics
+    interval: 15s

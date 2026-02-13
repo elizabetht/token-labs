@@ -1,0 +1,65 @@
+# TokenRateLimitPolicy — Per-tenant token-based quota limiting
+#
+# Automatically extracts usage.total_tokens from OpenAI-compatible responses.
+# Counts actual token consumption against per-tenant quotas.
+# This is the key CRD for LLM billing/budget enforcement.
+#
+# How it works:
+#   1. Request comes in, predicates are evaluated
+#   2. Response returns with usage.total_tokens in the body
+#   3. Kuadrant extracts total_tokens and sends to Limitador as hits_addend
+#   4. Limitador tracks cumulative token usage per tenant per window
+#   5. When limit is exceeded, subsequent requests get HTTP 429
+apiVersion: kuadrant.io/v1alpha1
+kind: TokenRateLimitPolicy
+metadata:
+  name: token-labs-token-limits
+  namespace: token-labs
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+
+  limits:
+    # Free tier: 50,000 tokens per day
+    free-tokens:
+      rates:
+      - limit: 50000
+        window: 24h
+      - limit: 5000       # burst: 5k tokens per minute
+        window: 1m
+      when:
+      - predicate: request.path == "/v1/chat/completions"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "free")
+      counters:
+      - expression: auth.identity.userid
+
+    # Pro tier: 500,000 tokens per day
+    pro-tokens:
+      rates:
+      - limit: 500000
+        window: 24h
+      - limit: 50000      # burst: 50k tokens per minute
+        window: 1m
+      when:
+      - predicate: request.path == "/v1/chat/completions"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "pro")
+      counters:
+      - expression: auth.identity.userid
+
+    # Enterprise tier: 5,000,000 tokens per day
+    enterprise-tokens:
+      rates:
+      - limit: 5000000
+        window: 24h
+      - limit: 500000     # burst: 500k tokens per minute
+        window: 1m
+      when:
+      - predicate: request.path == "/v1/chat/completions"
+      - predicate: |
+          auth.identity.groups.split(",").exists(g, g == "enterprise")
+      counters:
+      - expression: auth.identity.userid

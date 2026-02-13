@@ -1,0 +1,15 @@
+# Demo tenant: pro tier
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tenant-pro-demo
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: token-labs
+  annotations:
+    kuadrant.io/groups: "pro"
+    secret.kuadrant.io/user-id: "demo-pro-user"
+stringData:
+  api_key: "tlabs_pro_demo_key_change_me"
+type: Opaque

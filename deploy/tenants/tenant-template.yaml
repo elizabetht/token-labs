@@ -1,0 +1,30 @@
+# Template for creating new tenant API keys
+#
+# Usage:
+#   1. Copy this file and rename: tenant-<company>.yaml
+#   2. Set metadata.name to a unique name
+#   3. Set kuadrant.io/groups annotation to the tenant's tier (free|pro|enterprise)
+#   4. Set secret.kuadrant.io/user-id to a unique tenant identifier
+#   5. Set api_key to a secure, unique API key
+#   6. Apply: kubectl apply -f tenant-<company>.yaml
+#
+# The tenant will immediately be able to authenticate and will be
+# subject to the rate limits defined in the RateLimitPolicy and
+# TokenRateLimitPolicy for their tier.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tenant-COMPANY-NAME
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: token-labs
+  annotations:
+    # Tier: free | pro | enterprise
+    kuadrant.io/groups: "pro"
+    # Unique tenant identifier (used as rate limit counter key)
+    secret.kuadrant.io/user-id: "COMPANY-NAME"
+stringData:
+  # Generate with: openssl rand -hex 32
+  api_key: "tlabs_CHANGEME"
+type: Opaque

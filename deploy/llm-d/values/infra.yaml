@@ -1,0 +1,6 @@
+# llm-d-infra values — Gateway API configuration for Envoy Gateway
+gateway:
+  className: eg  # Envoy Gateway (replaces "istio")
+  # The llm-d-infra chart creates the Gateway resource
+  # Set to false if using deploy/gateway/gateway.yaml instead
+  create: false  # We manage the Gateway in deploy/gateway/gateway.yaml

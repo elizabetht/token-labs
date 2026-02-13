@@ -1,0 +1,45 @@
+# llm-d-modelservice values — Nemotron VL 12B FP8 on spark-02
+model:
+  name: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8"
+
+image:
+  repository: ghcr.io/llm-d/llm-d-cuda
+  tag: v0.5.0
+
+# Single decode worker on spark-02
+decode:
+  replicas: 1
+  tensor_parallelism: 1
+
+  resources:
+    requests:
+      cpu: "4"
+      memory: 32Gi
+      nvidia.com/gpu: "1"
+    limits:
+      cpu: "8"
+      memory: 64Gi
+      nvidia.com/gpu: "1"
+
+  nodeSelector:
+    nvidia.com/gpu.product: "GH200"
+
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+
+  # vLLM engine arguments for vision-language model
+  extraArgs:
+  - "--trust-remote-code"
+  - "--quantization=modelopt"
+  - "--max-model-len=4096"
+  - "--dtype=auto"
+  - "--enforce-eager"
+  - "--gpu-memory-utilization=0.90"
+
+# HuggingFace token (if needed for gated model)
+# huggingFaceSecret: hf-token-secret
+
+prefill:
+  replicas: 0
