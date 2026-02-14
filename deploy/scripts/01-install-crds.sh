@@ -3,10 +3,10 @@
 set -euo pipefail
 
 echo "==> Installing Gateway API CRDs..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
 
 echo "==> Installing Gateway API Inference Extension CRDs..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v0.4.0/manifests.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.3.0/manifests.yaml
 
 echo "==> Verifying CRDs..."
 kubectl get crd gateways.gateway.networking.k8s.io
