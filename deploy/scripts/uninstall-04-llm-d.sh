@@ -5,9 +5,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LLM_D_DIR="${SCRIPT_DIR}/../llm-d"
 
-echo "==> Removing InferenceModel CRDs..."
-kubectl delete -f "${LLM_D_DIR}/inferencemodels.yaml" --ignore-not-found
-
 echo "==> Removing Magpie TTS..."
 kubectl delete -f "${SCRIPT_DIR}/../magpie-tts/" --ignore-not-found
 

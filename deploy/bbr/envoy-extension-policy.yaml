@@ -1,0 +1,28 @@
+# EnvoyExtensionPolicy — Attach the BBR ext_proc filter to Envoy Gateway
+#
+# The upstream BBR helm chart deploys the BBR Deployment + Service but does
+# not include an Envoy Gateway provider template. This policy wires the BBR
+# gRPC service as an ext_proc filter on the Gateway.
+#
+# Processing order: BBR runs first (reads body, sets header), then the
+# per-pool EPP ext_proc handles endpoint picking within the InferencePool.
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: bbr-ext-proc
+  namespace: token-labs
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+  extProc:
+  - backendRefs:
+    - name: body-based-router
+      namespace: token-labs
+      port: 9004
+    processingMode:
+      request:
+        body: Streamed
+      response: {}

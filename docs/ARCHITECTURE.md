@@ -47,35 +47,41 @@ All configuration is declarative Kubernetes CRDs — no FastAPI, no custom gatew
 Client (API key in header)
   │
   ▼
-┌─────────────────────────────────┐
-│  Envoy Gateway (Gateway)        │  gatewayClassName: eg
-│  ├─ Kuadrant WasmPlugin         │  (injected automatically)
-│  │  ├─ AuthPolicy → Authorino   │  ① Validate API key, extract tenant tier
-│  │  └─ RateLimitPolicy → Limitador │  ② Check request-count limits
-│  │                               │
-│  ├─ ext_proc → llm-d EPP        │  ③ Inference-aware scheduling
-│  │  (KV-cache hit, queue depth,  │     (picks optimal vLLM pod)
-│  │   LoRA adapter awareness)     │
-│  │                               │
-│  └─ Route to selected vLLM pod  │  ④ Forward to backend
-└─────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  Envoy Gateway (Gateway)             │  gatewayClassName: eg
+│  ├─ Kuadrant WasmPlugin              │  (injected automatically)
+│  │  ├─ AuthPolicy → Authorino        │  ① Validate API key, extract tenant tier
+│  │  └─ RateLimitPolicy → Limitador   │  ② Check request-count limits
+│  │                                    │
+│  ├─ ext_proc → BBR                   │  ③ Read "model" from body, look up
+│  │  (Body Based Router)               │     ConfigMap, set header:
+│  │                                    │     X-Gateway-Base-Model-Name
+│  │                                    │
+│  ├─ HTTPRoute matches header          │  ④ Route to correct InferencePool
+│  │                                    │
+│  ├─ ext_proc → llm-d EPP             │  ⑤ Inference-aware scheduling
+│  │  (KV-cache hit, queue depth,       │     (picks optimal vLLM pod)
+│  │   LoRA adapter awareness)          │
+│  │                                    │
+│  └─ Route to selected vLLM pod       │  ⑥ Forward to backend
+└──────────────────────────────────────┘
   │
   ▼
-┌─────────────────────────────────┐
-│  vLLM Worker (DGX Spark)        │  inference execution
-│  └─ Response with usage:        │
-│     { "total_tokens": 150,      │
-│       "prompt_tokens": 100,     │
-│       "completion_tokens": 50 } │
-└─────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  vLLM Worker (DGX Spark)             │  inference execution
+│  └─ Response with usage:             │
+│     { "total_tokens": 150,           │
+│       "prompt_tokens": 100,          │
+│       "completion_tokens": 50 }      │
+└──────────────────────────────────────┘
   │
   ▼
-┌─────────────────────────────────┐
-│  Kuadrant TokenRateLimitPolicy  │  ⑤ Extract usage.total_tokens
-│  └─ Limitador                   │     Count against tenant quota
-│     (50k tokens/day free,       │     (enforced on NEXT request)
-│      200k tokens/day pro)       │
-└─────────────────────────────────┘
+┌──────────────────────────────────────┐
+│  Kuadrant TokenRateLimitPolicy       │  ⑦ Extract usage.total_tokens
+│  └─ Limitador                        │     Count against tenant quota
+│     (50k tokens/day free,            │     (enforced on NEXT request)
+│      200k tokens/day pro)            │
+└──────────────────────────────────────┘
   │
   ▼
 Client receives response
@@ -87,11 +93,15 @@ Client receives response
 
 2. **Request Rate Limiting** — Kuadrant's `RateLimitPolicy` enforces per-tenant request-count limits (e.g., 100 req/min for free tier) via Limitador.
 
-3. **Inference Scheduling** — llm-d's EPP (Endpoint Picker) receives the request via Envoy's `ext_proc` filter. It inspects KV-cache hit rates, queue depths, and LoRA adapter availability across vLLM pods, then selects the optimal backend.
+3. **Model Routing (BBR)** — The Body Based Router ext_proc reads the `"model"` field from the JSON request body, looks it up against ConfigMaps labeled `inference.networking.k8s.io/bbr-managed: "true"`, and sets the `X-Gateway-Base-Model-Name` header on the request.
 
-4. **Inference Execution** — The request is forwarded to the selected vLLM pod, which generates the completion and returns `usage.total_tokens` in the response.
+4. **HTTPRoute Matching** — Envoy's HTTPRoute rules match on the `X-Gateway-Base-Model-Name` header to route the request to the correct InferencePool (e.g., Llama → `token-labs-pool`, Nemotron → `nemotron-vl-pool`).
 
-5. **Token Quota Tracking** — Kuadrant's `TokenRateLimitPolicy` extracts `usage.total_tokens` from the response body and sends it to Limitador as `hits_addend`. The tenant's cumulative token usage is tracked per time window.
+5. **Inference Scheduling** — llm-d's EPP (Endpoint Picker) receives the request via Envoy's `ext_proc` filter. It inspects KV-cache hit rates, queue depths, and LoRA adapter availability across vLLM pods, then selects the optimal backend.
+
+6. **Inference Execution** — The request is forwarded to the selected vLLM pod, which generates the completion and returns `usage.total_tokens` in the response.
+
+7. **Token Quota Tracking** — Kuadrant's `TokenRateLimitPolicy` extracts `usage.total_tokens` from the response body and sends it to Limitador as `hits_addend`. The tenant's cumulative token usage is tracked per time window.
 
 ---
 
@@ -119,7 +129,6 @@ Client receives response
 | CRD | Purpose |
 |---|---|
 | `InferencePool` | Defines the pool of vLLM backends + EPP |
-| `InferenceModel` | Maps client model names to served models/adapters |
 
 ### llm-d CRDs
 
@@ -184,7 +193,8 @@ type: Opaque
 | llm-d-modelservice (Nemotron VL) | v0.4.5 | vLLM Nemotron VL 12B FP8 on spark-02 |
 | vLLM image | v0.5.0 | `ghcr.io/llm-d/llm-d-cuda:v0.5.0` |
 | Magpie TTS | 357M | Custom container on spark-01 (GPU) |
-| Gateway API Inference Extension | v0.4.0 | CRD manifests |
+| Gateway API Inference Extension | v1.3.0 | CRD manifests |
+| Body Based Router (BBR) | v1.3.0 | Multi-model routing ext_proc |
 
 ### Models Served
 
@@ -193,7 +203,6 @@ type: Opaque
 | `meta-llama/Llama-3.1-8B-Instruct` | Text LLM | spark-01 | `token-labs-pool` | ~16 GB |
 | `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` | Vision-Language | spark-02 | `nemotron-vl-pool` | ~13 GB |
 | `nvidia/magpie_tts_multilingual_357m` | Text-to-Speech | spark-01 | N/A (K8s Service) | ~700 MB |
-| Gateway API Inference Extension | v0.4.0 | CRD manifests |
 
 ---
 
@@ -204,7 +213,7 @@ type: Opaque
 2. Envoy Gateway (+ Redis for rate limiting)
 3. Kuadrant Operator (deploys Authorino + Limitador)
 4. llm-d helmfile (infra + 2× modelservice + 2× inferencepool)
-5. InferenceModel CRDs (model-name → pool mapping)
+5. Body Based Router (BBR) — multi-model routing via request body parsing
 6. Gateway + HTTPRoutes (LLM routes + TTS route)
 7. Magpie TTS deployment (GPU, spark-01)
 8. Kuadrant policies (AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy)
@@ -216,46 +225,58 @@ type: Opaque
 ## Architecture Diagram
 
 ```
-                          ┌──────────────────────────────────┐
-                          │         Kubernetes Cluster        │
-                          │                                    │
-  ┌──────────┐           │  ┌──────────────────────────────┐ │
-  │  Client   │──────────┼─►│  Gateway (Envoy Gateway)      │ │
-  │ (API key) │           │  │  gatewayClassName: eg         │ │
-  └──────────┘           │  │                                │ │
-                          │  │  ┌────────────┐ ┌───────────┐ │ │
-                          │  │  │ AuthPolicy │ │RateLimit  │ │ │
-                          │  │  │ (Authorino)│ │Policy     │ │ │
-                          │  │  └─────┬──────┘ └─────┬─────┘ │ │
-                          │  │        │              │        │ │
-                          │  │  ┌─────▼──────────────▼─────┐ │ │
-                          │  │  │  TokenRateLimitPolicy     │ │ │
-                          │  │  │  (Limitador)              │ │ │
-                          │  │  └──────────────────────────┘ │ │
-                          │  │                                │ │
-                          │  │  ┌──────────────────────────┐ │ │
-                          │  │  │  ext_proc (llm-d EPP)    │ │ │
-                          │  │  │  Inference Scheduling     │ │ │
-                          │  │  └────────────┬─────────────┘ │ │
-                          │  └───────────────┼───────────────┘ │
-                          │                  │                  │
-                          │    ┌──────────────┐ ┌──────────────┐   │
-                          │    │ token-labs-   │ │ nemotron-vl- │   │
-                          │    │ pool (Llama)  │ │ pool (VL)    │   │
-                          │    │ ┌──────────┐  │ │ ┌──────────┐ │   │
-                          │    │ │ vLLM     │  │ │ │ vLLM     │ │   │
-                          │    │ │ spark-01 │  │ │ │ spark-02 │ │   │
-                          │    │ │ Llama 8B │  │ │ │Nemotron  │ │   │
-                          │    │ └──────────┘  │ │ │VL 12B FP8│ │   │
-                          │    └──────────────┘ │ └──────────┘ │   │
-                          │                     └──────────────┘   │
-                          │                                        │
-                          │    ┌──────────────────────────────┐    │
-                          │    │  Magpie TTS (spark-01/GPU)    │    │
-                          │    │  /v1/audio/speech             │    │
-                          │    │  357M params, NeMo            │    │
-                          │    └──────────────────────────────┘    │
-                          └────────────────────────────────────────┘
+                          ┌─────────────────────────────────────────┐
+                          │           Kubernetes Cluster             │
+                          │                                         │
+  ┌──────────┐           │  ┌─────────────────────────────────────┐│
+  │  Client   │──────────┼─►│  Gateway (Envoy Gateway)            ││
+  │ (API key) │           │  │  gatewayClassName: eg               ││
+  └──────────┘           │  │                                     ││
+                          │  │  ┌────────────┐  ┌───────────────┐ ││
+                          │  │  │ AuthPolicy │  │ RateLimitPolicy│ ││
+                          │  │  │ (Authorino)│  │ (Limitador)    │ ││
+                          │  │  └─────┬──────┘  └──────┬────────┘ ││
+                          │  │        │                │          ││
+                          │  │  ┌─────▼────────────────▼────────┐ ││
+                          │  │  │  ext_proc (BBR)               │ ││
+                          │  │  │  Body Based Router             │ ││
+                          │  │  │  Reads "model" → sets header   │ ││
+                          │  │  │  X-Gateway-Base-Model-Name     │ ││
+                          │  │  └──────────────┬────────────────┘ ││
+                          │  │                 │                  ││
+                          │  │  ┌──────────────▼────────────────┐ ││
+                          │  │  │  HTTPRoute (header matching)  │ ││
+                          │  │  │  routes to correct pool       │ ││
+                          │  │  └──────────────┬────────────────┘ ││
+                          │  │                 │                  ││
+                          │  │  ┌──────────────▼────────────────┐ ││
+                          │  │  │  ext_proc (llm-d EPP)         │ ││
+                          │  │  │  Inference Scheduling          │ ││
+                          │  │  └──────────────┬────────────────┘ ││
+                          │  │                 │                  ││
+                          │  │  ┌──────────────▼────────────────┐ ││
+                          │  │  │  TokenRateLimitPolicy          │ ││
+                          │  │  │  (Limitador — token quotas)    │ ││
+                          │  │  └───────────────────────────────┘ ││
+                          │  └─────────────────────────────────────┘│
+                          │                                         │
+                          │    ┌──────────────┐  ┌──────────────┐   │
+                          │    │ token-labs-   │  │ nemotron-vl- │   │
+                          │    │ pool (Llama)  │  │ pool (VL)    │   │
+                          │    │ ┌──────────┐  │  │ ┌──────────┐ │   │
+                          │    │ │ vLLM     │  │  │ │ vLLM     │ │   │
+                          │    │ │ spark-01 │  │  │ │ spark-02 │ │   │
+                          │    │ │ Llama 8B │  │  │ │Nemotron  │ │   │
+                          │    │ └──────────┘  │  │ │VL 12B FP8│ │   │
+                          │    └──────────────┘  │ └──────────┘ │   │
+                          │                      └──────────────┘   │
+                          │                                         │
+                          │    ┌──────────────────────────────┐     │
+                          │    │  Magpie TTS (spark-01/GPU)    │     │
+                          │    │  /v1/audio/speech             │     │
+                          │    │  357M params, NeMo            │     │
+                          │    └──────────────────────────────┘     │
+                          └─────────────────────────────────────────┘
 ```
 
 ---
@@ -275,7 +296,7 @@ type: Opaque
    - Kuadrant = auth + rate limiting (tenant controls)
    - llm-d = inference-aware scheduling
 
-6. **Multi-model routing via InferenceModel CRDs** — Each LLM model gets its own InferencePool + EPP. `InferenceModel` CRDs map the client's `"model"` field to the correct pool. The EPP inspects the request body and routes accordingly.
+6. **Multi-model routing via Body Based Router (BBR)** — Each LLM model gets its own InferencePool + EPP. The BBR ext_proc extension reads the `"model"` field from the request body, maps it to a base model via ConfigMaps, and sets the `X-Gateway-Base-Model-Name` header. HTTPRoute rules match on this header to route to the correct pool.
 
 7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. It runs on GPU on spark-01 (shared with Llama) for faster inference. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
 

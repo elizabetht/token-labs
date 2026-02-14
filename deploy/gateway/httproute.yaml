@@ -1,4 +1,8 @@
-# HTTPRoute — Routes OpenAI-compatible API paths to the llm-d InferencePool
+# HTTPRoute — Routes OpenAI-compatible API paths to InferencePools via BBR header matching
+#
+# The Body Based Router (BBR) ext_proc reads the "model" field from the request
+# body and sets X-Gateway-Base-Model-Name header. These rules match on that
+# header to route to the correct InferencePool.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -11,43 +15,67 @@ spec:
   hostnames:
   - "inference.token-labs.local"
   rules:
-  # Chat completions endpoint
+  # Llama 3.1 8B — chat completions + completions
   - matches:
     - path:
         type: PathPrefix
         value: /v1/chat/completions
-      method: POST
+      headers:
+      - type: Exact
+        name: X-Gateway-Base-Model-Name
+        value: meta-llama/Llama-3.1-8B-Instruct
+    - path:
+        type: PathPrefix
+        value: /v1/completions
+      headers:
+      - type: Exact
+        name: X-Gateway-Base-Model-Name
+        value: meta-llama/Llama-3.1-8B-Instruct
     backendRefs:
-    - group: inference.networking.x-k8s.io
+    - group: inference.networking.k8s.io
       kind: InferencePool
       name: token-labs-pool
-  # Models listing endpoint
+    timeouts:
+      request: 300s
+  # Nemotron VL 12B FP8 — chat completions + completions
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/chat/completions
+      headers:
+      - type: Exact
+        name: X-Gateway-Base-Model-Name
+        value: nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8
+    - path:
+        type: PathPrefix
+        value: /v1/completions
+      headers:
+      - type: Exact
+        name: X-Gateway-Base-Model-Name
+        value: nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: nemotron-vl-pool
+    timeouts:
+      request: 300s
+  # Models listing endpoint (no header needed — returns all models)
   - matches:
     - path:
         type: Exact
         value: /v1/models
       method: GET
     backendRefs:
-    - group: inference.networking.x-k8s.io
+    - group: inference.networking.k8s.io
       kind: InferencePool
       name: token-labs-pool
-  # Completions endpoint
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /v1/completions
-      method: POST
-    backendRefs:
-    - group: inference.networking.x-k8s.io
-      kind: InferencePool
-      name: token-labs-pool
-  # Health check (no auth needed — handled by separate route if desired)
+  # Health check
   - matches:
     - path:
         type: Exact
         value: /health
       method: GET
     backendRefs:
-    - group: inference.networking.x-k8s.io
+    - group: inference.networking.k8s.io
       kind: InferencePool
       name: token-labs-pool

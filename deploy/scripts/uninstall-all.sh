@@ -9,7 +9,8 @@ echo "  TokenLabs Full Stack Uninstall"
 echo "=========================================="
 echo ""
 echo "This will remove ALL TokenLabs components:"
-echo "  • llm-d (vLLM workers, EPPs, InferenceModels, Magpie TTS)"
+echo "  • llm-d (vLLM workers, EPPs, Magpie TTS)"
+echo "  • BBR (Body Based Router for multi-model routing)"
 echo "  • Kuadrant (Authorino, Limitador, policies, tenant secrets)"
 echo "  • Envoy Gateway + Redis"
 echo "  • Gateway API CRDs"
@@ -21,23 +22,27 @@ if [[ "$confirm" != [yY] ]]; then
 fi
 
 echo ""
-echo "==> Step 1/5: Removing llm-d..."
+echo "==> Step 1/6: Removing llm-d..."
 "${SCRIPT_DIR}/uninstall-04-llm-d.sh"
 
 echo ""
-echo "==> Step 2/5: Removing Kuadrant..."
+echo "==> Step 2/6: Removing BBR..."
+"${SCRIPT_DIR}/uninstall-05-bbr.sh"
+
+echo ""
+echo "==> Step 3/6: Removing Kuadrant..."
 "${SCRIPT_DIR}/uninstall-03-kuadrant.sh"
 
 echo ""
-echo "==> Step 3/5: Removing Envoy Gateway + Redis..."
+echo "==> Step 4/6: Removing Envoy Gateway + Redis..."
 "${SCRIPT_DIR}/uninstall-02-envoy-gateway.sh"
 
 echo ""
-echo "==> Step 4/5: Removing CRDs..."
+echo "==> Step 5/6: Removing CRDs..."
 "${SCRIPT_DIR}/uninstall-01-crds.sh"
 
 echo ""
-echo "==> Step 5/5: Cleaning up token-labs namespace..."
+echo "==> Step 6/6: Cleaning up token-labs namespace..."
 kubectl delete namespace token-labs --ignore-not-found
 
 echo ""

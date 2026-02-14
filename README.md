@@ -195,20 +195,20 @@ helm version
 
 ### Step 1: Install Gateway API CRDs
 
-This installs the [Gateway API](https://gateway-api.sigs.k8s.io/) base CRDs (Gateway, HTTPRoute, GatewayClass) and the [Gateway API Inference Extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension) CRDs (InferencePool, InferenceModel). These are the Kubernetes resource definitions that all three projects build upon.
+This installs the [Gateway API](https://gateway-api.sigs.k8s.io/) base CRDs (Gateway, HTTPRoute, GatewayClass) and the [Gateway API Inference Extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension) CRDs (InferencePool). These are the Kubernetes resource definitions that all three projects build upon.
 
 ```bash
 ./deploy/scripts/01-install-crds.sh
 ```
 
 What it does:
-- Applies Gateway API v1.2.1 standard CRDs
-- Applies Inference Extension v0.4.0 CRDs
+- Applies Gateway API v1.4.1 standard CRDs
+- Applies Inference Extension v1.3.0 CRDs (graduated InferencePool at `inference.networking.k8s.io/v1`)
 
 Verify:
 ```bash
 kubectl get crd gateways.gateway.networking.k8s.io
-kubectl get crd inferencepools.inference.networking.x-k8s.io
+kubectl get crd inferencepools.inference.networking.k8s.io
 ```
 
 ### Step 2: Install Envoy Gateway + Redis
@@ -282,21 +282,23 @@ kubectl get pods -n token-labs           # 2 vLLM pods + 2 EPP pods running
 kubectl get inferencepool -n token-labs  # both pools should show Ready
 ```
 
-### Step 5: Apply InferenceModel CRDs
+### Step 5: Deploy Body Based Router (BBR)
 
-InferenceModel CRDs tell the Gateway API Inference Extension how to route requests to the correct InferencePool based on the `model` field in the request body:
+In v1.3.0 of the Gateway API Inference Extension, the `InferenceModel` CRD was removed. Multi-model routing is now handled by the [Body Based Router (BBR)](https://gateway-api-inference-extension.sigs.k8s.io/guides/serving-multiple-inference-pools-latest/) — an ext_proc extension that extracts the `"model"` field from the request body, maps it to a base model via ConfigMaps, and sets the `X-Gateway-Base-Model-Name` header for HTTPRoute matching.
 
 ```bash
-kubectl apply -f deploy/llm-d/inferencemodels.yaml
+./deploy/scripts/05-deploy-bbr.sh
 ```
 
-This creates two InferenceModel resources:
-- `llama-3-1-8b` — routes requests for `meta-llama/Llama-3.1-8B-Instruct` to `token-labs-pool`
-- `nemotron-vl-12b` — routes requests for `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` to `nemotron-vl-pool`
+What it does:
+1. Installs the BBR Helm chart (`oci://registry.k8s.io/gateway-api-inference-extension/charts/body-based-routing` v1.3.0)
+2. Applies ConfigMaps that map each model name to its base model (one per pool)
+3. Applies an `EnvoyExtensionPolicy` to wire the BBR gRPC service as an ext_proc filter on the Gateway
 
 Verify:
 ```bash
-kubectl get inferencemodel -n token-labs  # both models listed
+kubectl get pods -n token-labs -l app=body-based-router  # BBR pod running
+kubectl get envoyextensionpolicy -n token-labs            # bbr-ext-proc listed
 ```
 
 ### Step 6: Deploy Magpie TTS
@@ -333,7 +335,7 @@ kubectl apply -f deploy/policies/
 **Gateway resources** (`deploy/gateway/`):
 - `namespace.yaml` — creates the `token-labs` namespace (idempotent)
 - `gateway.yaml` — creates a `Gateway` resource with `gatewayClassName: eg`, listening on HTTP port 80 with hostname `inference.token-labs.local`. Envoy Gateway sees this and provisions an Envoy proxy pod to handle traffic.
-- `httproute.yaml` — creates an `HTTPRoute` that maps API paths (`/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/health`) to the `InferencePool` backend. The InferencePool is the bridge to llm-d's EPP — when Envoy receives a matching request, it invokes the EPP via ext_proc to pick the optimal vLLM pod.
+- `httproute.yaml` — creates an `HTTPRoute` with per-model header matching. The BBR ext_proc sets the `X-Gateway-Base-Model-Name` header based on the `"model"` field in the request body. Each rule matches on this header and routes to the correct `InferencePool` backend. The InferencePool is the bridge to llm-d's EPP — when Envoy receives a matching request, it invokes the EPP via ext_proc to pick the optimal vLLM pod.
 
 **Kuadrant policies** (`deploy/policies/`):
 - `kuadrant.yaml` — the `Kuadrant` CR (idempotent, already created in step 3)
@@ -461,12 +463,15 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   │   ├── 01-install-crds.sh
 │   │   ├── 02-install-envoy-gateway.sh
 │   │   ├── 03-install-kuadrant.sh
-│   │   └── 04-deploy-llm-d.sh
+│   │   ├── 04-deploy-llm-d.sh
+│   │   └── 05-deploy-bbr.sh
 │   ├── gateway/              # Gateway + HTTPRoute resources
 │   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
 │   │   ├── helmfile.yaml.gotmpl
-│   │   ├── inferencemodels.yaml  # InferenceModel CRDs for model routing
 │   │   └── values/
+│   ├── bbr/                  # Body Based Router for multi-model routing
+│   │   ├── configmaps.yaml   # Model-to-base-model mapping ConfigMaps
+│   │   └── envoy-extension-policy.yaml  # Wires BBR ext_proc to Envoy Gateway
 │   ├── magpie-tts/           # Magpie TTS deployment + HTTPRoute
 │   ├── policies/             # Kuadrant AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy
 │   ├── tenants/              # Tenant API key Secrets (template + demos)

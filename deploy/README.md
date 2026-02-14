@@ -22,8 +22,8 @@
 # 4. Deploy llm-d (infra + model services + inference pools)
 ./deploy/scripts/04-deploy-llm-d.sh
 
-# 5. Apply InferenceModel CRDs (model-based routing)
-kubectl apply -f deploy/llm-d/inferencemodels.yaml
+# 5. Deploy Body Based Router (BBR) for multi-model routing
+./deploy/scripts/05-deploy-bbr.sh
 
 # 6. Deploy Magpie TTS (text-to-speech service)
 kubectl apply -f deploy/magpie-tts/
@@ -44,20 +44,23 @@ deploy/
 │   ├── 01-install-crds.sh
 │   ├── 02-install-envoy-gateway.sh
 │   ├── 03-install-kuadrant.sh
-│   └── 04-deploy-llm-d.sh
+│   ├── 04-deploy-llm-d.sh
+│   └── 05-deploy-bbr.sh
 ├── gateway/             # Gateway + HTTPRoute resources
 │   ├── namespace.yaml
 │   ├── gateway.yaml
 │   └── httproute.yaml
 ├── llm-d/               # llm-d helmfile + values (5 releases)
 │   ├── helmfile.yaml.gotmpl
-│   ├── inferencemodels.yaml
 │   └── values/
 │       ├── infra.yaml
 │       ├── inferencepool.yaml
 │       ├── inferencepool-nemotron-vl.yaml
 │       ├── modelservice.yaml
 │       └── modelservice-nemotron-vl.yaml
+├── bbr/                 # Body Based Router for multi-model routing
+│   ├── configmaps.yaml
+│   └── envoy-extension-policy.yaml
 ├── magpie-tts/          # Magpie TTS deployment
 │   ├── deployment.yaml
 │   └── httproute.yaml
@@ -81,9 +84,9 @@ kubectl get pods -n envoy-gateway-system
 kubectl get pods -n kuadrant-system
 kubectl get pods -n token-labs
 
-# Check inference models and pools
+# Check inference pools and BBR
 kubectl get inferencepool -n token-labs
-kubectl get inferencemodel -n token-labs
+kubectl get pods -n token-labs -l app=body-based-router
 
 # Check policies are accepted
 kubectl get authpolicy -n token-labs

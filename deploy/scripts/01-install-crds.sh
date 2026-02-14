@@ -11,7 +11,6 @@ kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extens
 echo "==> Verifying CRDs..."
 kubectl get crd gateways.gateway.networking.k8s.io
 kubectl get crd httproutes.gateway.networking.k8s.io
-kubectl get crd inferencepools.inference.networking.x-k8s.io
-kubectl get crd inferencemodels.inference.networking.x-k8s.io
+kubectl get crd inferencepools.inference.networking.k8s.io
 
 echo "==> CRDs installed successfully"

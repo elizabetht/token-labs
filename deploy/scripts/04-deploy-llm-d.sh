@@ -22,4 +22,3 @@ kubectl wait --timeout=5m -n token-labs deployment/llm-d-epp --for=condition=Ava
 echo "==> llm-d deployment status:"
 kubectl get pods -n token-labs
 kubectl get inferencepool -n token-labs
-kubectl get inferencemodel -n token-labs
