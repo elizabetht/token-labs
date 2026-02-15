@@ -1,16 +1,19 @@
 #!/bin/bash
-# uninstall-01-crds.sh — Remove Gateway API and Inference Extension CRDs
+# uninstall-01-crds.sh — Remove Gateway API, Inference Extension, and AI Gateway CRDs
 # WARNING: This removes CRDs and ALL instances of these resources cluster-wide.
 #          Only run this if no other components depend on these CRDs.
 set -euo pipefail
 
-echo "⚠️  WARNING: This will delete all Gateway, HTTPRoute, and InferencePool"
+echo "⚠️  WARNING: This will delete all Gateway, AIGatewayRoute, and InferencePool"
 echo "   resources across ALL namespaces. Press Ctrl+C to abort."
 read -r -p "   Continue? [y/N] " confirm
 if [[ "$confirm" != [yY] ]]; then
   echo "Aborted."
   exit 0
 fi
+
+echo "==> Removing AI Gateway CRDs..."
+helm uninstall aieg-crd -n envoy-ai-gateway-system --ignore-not-found || true
 
 echo "==> Removing Inference Extension CRDs..."
 kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.3.0/manifests.yaml --ignore-not-found

@@ -1,9 +1,16 @@
 #!/bin/bash
-# uninstall-02-envoy-gateway.sh — Remove Envoy Gateway + Redis
+# uninstall-02-envoy-gateway.sh — Remove Envoy Gateway + AI Gateway controller + Redis
 set -euo pipefail
 
-echo "==> Removing Gateway and HTTPRoute resources..."
-kubectl delete -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../gateway/" --ignore-not-found 2>/dev/null || true
+echo "==> Removing Gateway resources..."
+kubectl delete -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../gateway/gateway.yaml" --ignore-not-found 2>/dev/null || true
+kubectl delete -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../gateway/namespace.yaml" --ignore-not-found 2>/dev/null || true
+
+echo "==> Uninstalling AI Gateway controller..."
+helm uninstall aieg -n envoy-ai-gateway-system --ignore-not-found || true
+
+echo "==> Deleting envoy-ai-gateway-system namespace..."
+kubectl delete namespace envoy-ai-gateway-system --ignore-not-found
 
 echo "==> Uninstalling Envoy Gateway Helm release..."
 helm uninstall eg -n envoy-gateway-system --ignore-not-found || true
@@ -14,4 +21,4 @@ kubectl delete namespace envoy-gateway-system --ignore-not-found
 echo "==> Removing Redis..."
 kubectl delete namespace redis-system --ignore-not-found
 
-echo "==> Envoy Gateway and Redis removed successfully"
+echo "==> Envoy Gateway, AI Gateway controller, and Redis removed successfully"

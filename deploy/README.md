@@ -22,14 +22,15 @@
 # 4. Deploy llm-d (infra + model services + inference pools)
 ./deploy/scripts/04-deploy-llm-d.sh
 
-# 5. Deploy Body Based Router (BBR) for multi-model routing
-./deploy/scripts/05-deploy-bbr.sh
+# 5. Deploy AI Gateway Route (model-based routing to InferencePool)
+./deploy/scripts/05-deploy-ai-gateway-route.sh
 
 # 6. Deploy Magpie TTS (text-to-speech service)
 kubectl apply -f deploy/magpie-tts/
 
-# 7. Apply Gateway, HTTPRoute, and Kuadrant policies
-kubectl apply -f deploy/gateway/
+# 7. Apply Gateway and Kuadrant policies
+kubectl apply -f deploy/gateway/gateway.yaml
+kubectl apply -f deploy/gateway/namespace.yaml
 kubectl apply -f deploy/policies/
 
 # 8. Create tenant API keys
@@ -45,11 +46,11 @@ deploy/
 │   ├── 02-install-envoy-gateway.sh
 │   ├── 03-install-kuadrant.sh
 │   ├── 04-deploy-llm-d.sh
-│   └── 05-deploy-bbr.sh
-├── gateway/             # Gateway + HTTPRoute resources
+│   └── 05-deploy-ai-gateway-route.sh
+├── gateway/             # Gateway + AIGatewayRoute resources
 │   ├── namespace.yaml
 │   ├── gateway.yaml
-│   └── httproute.yaml
+│   └── aigatewayroute.yaml
 ├── llm-d/               # llm-d helmfile + values (5 releases)
 │   ├── helmfile.yaml.gotmpl
 │   └── values/
@@ -58,9 +59,6 @@ deploy/
 │       ├── inferencepool-nemotron-vl.yaml
 │       ├── modelservice.yaml
 │       └── modelservice-nemotron-vl.yaml
-├── bbr/                 # Body Based Router for multi-model routing
-│   ├── configmaps.yaml
-│   └── envoy-extension-policy.yaml
 ├── magpie-tts/          # Magpie TTS deployment
 │   ├── deployment.yaml
 │   └── httproute.yaml
@@ -84,9 +82,9 @@ kubectl get pods -n envoy-gateway-system
 kubectl get pods -n kuadrant-system
 kubectl get pods -n token-labs
 
-# Check inference pools and BBR
+# Check inference pools and AI Gateway route
 kubectl get inferencepool -n token-labs
-kubectl get pods -n token-labs -l app=body-based-router
+kubectl get aigatewayroute -n token-labs
 
 # Check policies are accepted
 kubectl get authpolicy -n token-labs

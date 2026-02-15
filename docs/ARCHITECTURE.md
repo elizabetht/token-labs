@@ -9,6 +9,7 @@ with DGX Spark GPU workers. The architecture composes three open-source projects
 | Layer | Project | Responsibility |
 |---|---|---|
 | **Gateway** | [Envoy Gateway](https://gateway.envoyproxy.io/) | Kubernetes Gateway API implementation (data-plane proxy) |
+| **AI Gateway** | [Envoy AI Gateway](https://aigateway.envoyproxy.io/) | AI-native routing — model extraction, token tracking, InferencePool integration |
 | **Tenant Controls** | [Kuadrant](https://docs.kuadrant.io/) | API-key auth, per-tenant token-based rate limiting, request quotas |
 | **Inference Routing** | [llm-d](https://llm-d.ai/) | KV-cache & LoRA-aware request scheduling via ext_proc |
 
@@ -53,11 +54,11 @@ Client (API key in header)
 │  │  ├─ AuthPolicy → Authorino        │  ① Validate API key, extract tenant tier
 │  │  └─ RateLimitPolicy → Limitador   │  ② Check request-count limits
 │  │                                    │
-│  ├─ ext_proc → BBR                   │  ③ Read "model" from body, look up
-│  │  (Body Based Router)               │     ConfigMap, set header:
-│  │                                    │     X-Gateway-Base-Model-Name
+│  ├─ ext_proc → AI Gateway            │  ③ Read "model" from body, set header:
+│  │  (Envoy AI Gateway controller)     │     x-ai-eg-model
 │  │                                    │
-│  ├─ HTTPRoute matches header          │  ④ Route to correct InferencePool
+│  ├─ AIGatewayRoute matches header     │  ④ Route to correct InferencePool
+│  │  (x-ai-eg-model → pool backend)    │
 │  │                                    │
 │  ├─ ext_proc → llm-d EPP             │  ⑤ Inference-aware scheduling
 │  │  (KV-cache hit, queue depth,       │     (picks optimal vLLM pod)
@@ -77,9 +78,10 @@ Client (API key in header)
   │
   ▼
 ┌──────────────────────────────────────┐
-│  Kuadrant TokenRateLimitPolicy       │  ⑦ Extract usage.total_tokens
-│  └─ Limitador                        │     Count against tenant quota
-│     (50k tokens/day free,            │     (enforced on NEXT request)
+│  AI Gateway (llmRequestCosts)        │  ⑦ Extract token usage from response
+│  + Kuadrant TokenRateLimitPolicy     │     Count against tenant quota
+│  └─ Limitador                        │     (enforced on NEXT request)
+│     (50k tokens/day free,            │
 │      200k tokens/day pro)            │
 └──────────────────────────────────────┘
   │
@@ -93,9 +95,9 @@ Client receives response
 
 2. **Request Rate Limiting** — Kuadrant's `RateLimitPolicy` enforces per-tenant request-count limits (e.g., 100 req/min for free tier) via Limitador.
 
-3. **Model Routing (BBR)** — The Body Based Router ext_proc reads the `"model"` field from the JSON request body, looks it up against ConfigMaps labeled `inference.networking.k8s.io/bbr-managed: "true"`, and sets the `X-Gateway-Base-Model-Name` header on the request.
+3. **Model Routing (AI Gateway)** — The Envoy AI Gateway controller runs as an ext_proc extension. It reads the `"model"` field from the JSON request body and sets the `x-ai-eg-model` header on the request.
 
-4. **HTTPRoute Matching** — Envoy's HTTPRoute rules match on the `X-Gateway-Base-Model-Name` header to route the request to the correct InferencePool (e.g., Llama → `token-labs-pool`, Nemotron → `nemotron-vl-pool`).
+4. **AIGatewayRoute Matching** — The AIGatewayRoute rules match on the `x-ai-eg-model` header to route the request to the correct InferencePool backend (e.g., Llama → `token-labs-pool`, Nemotron → `nemotron-vl-pool`).
 
 5. **Inference Scheduling** — llm-d's EPP (Endpoint Picker) receives the request via Envoy's `ext_proc` filter. It inspects KV-cache hit rates, queue depths, and LoRA adapter availability across vLLM pods, then selects the optimal backend.
 
@@ -113,7 +115,12 @@ Client receives response
 |---|---|
 | `GatewayClass` | Defines `eg` as the gateway implementation |
 | `Gateway` | Listener configuration (HTTP on port 80) |
-| `HTTPRoute` | Routes `/v1/*` to InferencePool backend |
+
+### Envoy AI Gateway CRDs
+
+| CRD | Purpose |
+|---|---|
+| `AIGatewayRoute` | Model-based routing to InferencePool backends with token tracking |
 
 ### Kuadrant CRDs
 
@@ -183,7 +190,8 @@ type: Opaque
 
 | Component | Version | Chart |
 |---|---|---|
-| Envoy Gateway | latest | `oci://docker.io/envoyproxy/gateway-helm` |
+| Envoy Gateway | v1.6.4 | `oci://docker.io/envoyproxy/gateway-helm` |
+| Envoy AI Gateway | v0.5.0 | `oci://docker.io/envoyproxy/ai-gateway-helm` |
 | Kuadrant Operator | latest | `kuadrant-operator` (Helm or OLM) |
 | llm-d | v0.5.0 | 5-release helmfile |
 | llm-d-infra | v1.3.6 | InferencePool CRDs + Gateway |
@@ -194,7 +202,6 @@ type: Opaque
 | vLLM image | v0.5.0 | `ghcr.io/llm-d/llm-d-cuda:v0.5.0` |
 | Magpie TTS | 357M | Custom container on spark-01 (GPU) |
 | Gateway API Inference Extension | v1.3.0 | CRD manifests |
-| Body Based Router (BBR) | v1.3.0 | Multi-model routing ext_proc |
 
 ### Models Served
 
@@ -209,12 +216,12 @@ type: Opaque
 ## Deployment Order
 
 ```
-1. Gateway API CRDs + Inference Extension CRDs
-2. Envoy Gateway (+ Redis for rate limiting)
+1. Gateway API CRDs + Inference Extension CRDs + AI Gateway CRDs
+2. Envoy Gateway + AI Gateway controller (+ Redis for rate limiting)
 3. Kuadrant Operator (deploys Authorino + Limitador)
 4. llm-d helmfile (infra + 2× modelservice + 2× inferencepool)
-5. Body Based Router (BBR) — multi-model routing via request body parsing
-6. Gateway + HTTPRoutes (LLM routes + TTS route)
+5. AIGatewayRoute (model-based routing to InferencePool backends)
+6. Gateway (LLM + TTS listeners)
 7. Magpie TTS deployment (GPU, spark-01)
 8. Kuadrant policies (AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy)
 9. Tenant secrets
@@ -238,15 +245,15 @@ type: Opaque
                           │  │  └─────┬──────┘  └──────┬────────┘ ││
                           │  │        │                │          ││
                           │  │  ┌─────▼────────────────▼────────┐ ││
-                          │  │  │  ext_proc (BBR)               │ ││
-                          │  │  │  Body Based Router             │ ││
+                          │  │  │  ext_proc (AI Gateway)        │ ││
+                          │  │  │  Envoy AI Gateway controller   │ ││
                           │  │  │  Reads "model" → sets header   │ ││
-                          │  │  │  X-Gateway-Base-Model-Name     │ ││
+                          │  │  │  x-ai-eg-model                │ ││
                           │  │  └──────────────┬────────────────┘ ││
                           │  │                 │                  ││
                           │  │  ┌──────────────▼────────────────┐ ││
-                          │  │  │  HTTPRoute (header matching)  │ ││
-                          │  │  │  routes to correct pool       │ ││
+                          │  │  │  AIGatewayRoute               │ ││
+                          │  │  │  header → InferencePool       │ ││
                           │  │  └──────────────┬────────────────┘ ││
                           │  │                 │                  ││
                           │  │  ┌──────────────▼────────────────┐ ││
@@ -296,7 +303,7 @@ type: Opaque
    - Kuadrant = auth + rate limiting (tenant controls)
    - llm-d = inference-aware scheduling
 
-6. **Multi-model routing via Body Based Router (BBR)** — Each LLM model gets its own InferencePool + EPP. The BBR ext_proc extension reads the `"model"` field from the request body, maps it to a base model via ConfigMaps, and sets the `X-Gateway-Base-Model-Name` header. HTTPRoute rules match on this header to route to the correct pool.
+6. **Multi-model routing via Envoy AI Gateway** — Each LLM model gets its own InferencePool + EPP. The AI Gateway controller runs as an ext_proc extension, reads the `"model"` field from the request body, and sets the `x-ai-eg-model` header. The `AIGatewayRoute` CRD matches on this header to route to the correct InferencePool backend. Token usage is tracked via `llmRequestCosts` (InputToken, OutputToken, TotalToken) for per-request cost accounting.
 
 7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. It runs on GPU on spark-01 (shared with Llama) for faster inference. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
 
