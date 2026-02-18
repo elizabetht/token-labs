@@ -1,0 +1,67 @@
+# Riva STT — NVIDIA NIM backend + security policy
+#
+# Architecture:
+#   Client → Envoy Gateway → HTTPRoute → Backend (FQDN: integrate.api.nvidia.com)
+#                                              ↑
+#                                    BackendSecurityPolicy injects
+#                                    "Authorization: Bearer <nvidia-api-key>"
+#                                    replacing the client's token-labs key
+#
+# The client authenticates with their token-labs API key (Kuadrant validates it).
+# BackendSecurityPolicy then swaps the auth header for NVIDIA's API key before
+# forwarding to the NIM endpoint. The client never sees the NVIDIA key.
+#
+# Endpoint: https://integrate.api.nvidia.com/v1/audio/transcriptions
+# Docs:     https://docs.api.nvidia.com/nim/reference/riva-asr
+#
+# Prerequisites:
+#   1. Create the NVIDIA API key Secret (see secret-template.yaml)
+#   2. Apply this file: kubectl apply -f deploy/riva-stt/
+---
+# Backend — EG FQDN backend for the NVIDIA NIM API
+# Requires enableBackend: true in envoy-gateway-values.yaml (already set).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: riva-stt-nvidia-nim
+  namespace: token-labs
+spec:
+  endpoints:
+  - fqdn:
+      hostname: integrate.api.nvidia.com
+      port: 443
+---
+# BackendTLSPolicy — terminate TLS toward integrate.api.nvidia.com
+# Uses the system CA bundle to verify NVIDIA's certificate.
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: riva-stt-tls
+  namespace: token-labs
+spec:
+  targetRefs:
+  - group: gateway.envoyproxy.io
+    kind: Backend
+    name: riva-stt-nvidia-nim
+  validation:
+    wellKnownCACertificates: System
+    hostname: integrate.api.nvidia.com
+---
+# BackendSecurityPolicy — injects NVIDIA API key as Authorization: Bearer header
+# This is an Envoy AI Gateway CRD (requires EAG to be installed).
+# It replaces the inbound client auth header before the request hits NVIDIA.
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: BackendSecurityPolicy
+metadata:
+  name: nvidia-nim-api-key
+  namespace: token-labs
+spec:
+  targetRefs:
+  - group: gateway.envoyproxy.io
+    kind: Backend
+    name: riva-stt-nvidia-nim
+  type: APIKey
+  apiKey:
+    secretRef:
+      name: nvidia-nim-api-key
+      namespace: token-labs

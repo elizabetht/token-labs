@@ -1,27 +1,26 @@
 # llm-d-modelservice values — Nemotron VL 12B FP8 on spark-02
-model:
+#
+# NOTE: spark-02 has ONE GB10 GPU (72GB HBM3e). The spellingbee namespace may
+# also be using this GPU (vllm-nemotron-nano-vl-8b). Scale it down first:
+#   kubectl scale deployment vllm-nemotron-nano-vl-8b -n spellingbee --replicas=0
+
+modelArtifacts:
   name: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8"
+  # Labels used by the InferencePool matchLabels selector
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: nemotron-vl-12b
 
-image:
-  repository: ghcr.io/llm-d/llm-d-cuda
-  tag: v0.5.0
-
-# Single decode worker on spark-02
 decode:
   replicas: 1
-  tensor_parallelism: 1
+  parallelism:
+    tensor: 1
 
-  resources:
-    requests:
-      cpu: "4"
-      memory: 32Gi
-      nvidia.com/gpu: "1"
-    limits:
-      cpu: "8"
-      memory: 64Gi
-      nvidia.com/gpu: "1"
+  runtimeClassName: nvidia
 
+  # Pin to spark-02. spark-01 is reserved for Nemotron-Llama.
   nodeSelector:
+    kubernetes.io/hostname: spark-02
     nvidia.com/gpu.product: "NVIDIA-GB10"
 
   tolerations:
@@ -29,17 +28,32 @@ decode:
     operator: Exists
     effect: NoSchedule
 
-  # vLLM engine arguments for vision-language model
-  extraArgs:
-  - "--trust-remote-code"
-  - "--quantization=modelopt"
-  - "--max-model-len=4096"
-  - "--dtype=auto"
-  - "--enforce-eager"
-  - "--gpu-memory-utilization=0.90"
+  containers:
+  - name: vllm
+    image: "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0"
+    modelCommand: vllmServe
+    resources:
+      requests:
+        cpu: "4"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    # vLLM arguments for Nemotron VL 12B FP8
+    # --quantization=modelopt: uses NVIDIA ModelOpt FP8 calibration data
+    # --trust-remote-code: required for Nemotron VL custom model code
+    args:
+    - "--trust-remote-code"
+    - "--quantization=modelopt"
+    - "--max-model-len=auto"
+    - "--dtype=auto"
+    - "--enforce-eager"
+    - "--gpu-memory-utilization=0.90"
 
-# HuggingFace token (if needed for gated model)
-# huggingFaceSecret: hf-token-secret
+# modelArtifacts:
+#   authSecretName: hf-token-secret
 
 prefill:
   replicas: 0

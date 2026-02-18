@@ -1,0 +1,46 @@
+# HTTPRoute — Riva STT proxy to NVIDIA NIM
+#
+# Routes /v1/audio/transcriptions to integrate.api.nvidia.com.
+# Uses a plain HTTPRoute (not AIGatewayRoute) because audio requests
+# use multipart/form-data, not JSON — EAG's body parser doesn't apply.
+#
+# Kuadrant AuthPolicy (Gateway-scoped) still validates the client's
+# token-labs API key before this route is reached.
+# BackendSecurityPolicy then injects the NVIDIA API key for the upstream.
+#
+# Client request:
+#   POST /v1/audio/transcriptions
+#   Authorization: Bearer <token-labs-api-key>
+#   Content-Type: multipart/form-data
+#   [audio file]
+#
+# Upstream (NVIDIA NIM) receives:
+#   POST /v1/audio/transcriptions
+#   Authorization: Bearer <nvidia-api-key>   ← swapped by BackendSecurityPolicy
+#   Content-Type: multipart/form-data
+#   [audio file]
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: riva-stt
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+  hostnames:
+  - "inference.token-labs.local"
+  rules:
+  # Speech-to-text transcription
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/audio/transcriptions
+      method: POST
+    backendRefs:
+    - group: gateway.envoyproxy.io
+      kind: Backend
+      name: riva-stt-nvidia-nim
+      port: 443
+    timeouts:
+      request: 120s

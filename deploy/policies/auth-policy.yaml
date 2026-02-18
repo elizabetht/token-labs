@@ -1,9 +1,13 @@
 # AuthPolicy — API key authentication for all tenants
 #
 # Validates API keys stored as Kubernetes Secrets with label app=token-labs.
-# Extracts tenant tier (groups) and user ID from Secret annotations.
-# These are made available to RateLimitPolicy and TokenRateLimitPolicy
-# via auth.identity.groups and auth.identity.userid.
+# Clients authenticate with: Authorization: Bearer <api_key>
+# Kuadrant's AuthPolicy discovers secrets via label selector in kuadrant-system ns.
+#
+# After validation, enriches the request context with:
+#   auth.identity.groups  → tier (free | pro | enterprise) from Secret annotation
+#   auth.identity.userid  → unique tenant ID from Secret annotation
+# These are consumed by RateLimitPolicy and TokenRateLimitPolicy.
 apiVersion: kuadrant.io/v1
 kind: AuthPolicy
 metadata:
@@ -16,7 +20,6 @@ spec:
     name: token-labs-gateway
 
   rules:
-    # Authentication: validate API key from Authorization header
     authentication:
       api-key-tenants:
         apiKey:
@@ -25,23 +28,19 @@ spec:
               app: token-labs
         credentials:
           authorizationHeader:
-            prefix: "Bearer"  # Accept: Authorization: Bearer <api_key>
+            prefix: "Bearer"
 
-    # Response: enrich the request context with tenant metadata
     response:
       success:
         filters:
           identity:
             json:
               properties:
-                # Extract tier/group from Secret annotation
                 groups:
                   selector: auth.identity.metadata.annotations.kuadrant\.io/groups
-                # Extract tenant ID from Secret annotation
                 userid:
                   selector: auth.identity.metadata.annotations.secret\.kuadrant\.io/user-id
 
-    # Authorization: allow only recognized tiers
     authorization:
       allow-tiers:
         opa:

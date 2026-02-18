@@ -1,0 +1,66 @@
+# Envoy Gateway helm values for Envoy AI Gateway (EAG) integration.
+#
+# This single file replaces the old minimal EG install.
+# It wires EG to the EAG controller (extension manager hooks) and enables:
+#   - Backend API: required for FQDN backends (Riva STT → NVIDIA NIM)
+#   - InferencePool as a valid backendRef (llm-d EPP routing)
+#   - Redis rate-limit backend (Kuadrant Limitador uses this)
+#
+# Install order (see 02-install-envoy-ai-gateway.sh):
+#   1. EAG helm charts (creates cert Secret + starts AI controller)
+#   2. EG helm chart (reads cert, connects to EAG controller via xDS hooks)
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    provider:
+      type: Kubernetes
+    logging:
+      level:
+        default: info
+
+    extensionApis:
+      # Required: enables Backend API for FQDN/external service backends
+      enableBackend: true
+      # Enables EnvoyPatchPolicy CRD (useful for debugging/custom filters)
+      enableEnvoyPatchPolicy: true
+
+    extensionManager:
+      # EAG controller injects the AI filter chain (body parsing → x-ai-eg-model header)
+      # and handles AIGatewayRoute / AIServiceBackend xDS translation.
+      hooks:
+        xdsTranslator:
+          # pre/post are sibling fields of translation, NOT nested inside it.
+          # Valid XDSTranslatorHook values: VirtualHost, Route, HTTPListener, Translation, Cluster
+          pre: []
+          post:
+          - Translation
+          - Cluster
+          - Route
+          translation:
+            listener:
+              includeAll: true
+            route:
+              includeAll: true
+            cluster:
+              includeAll: true
+            secret:
+              includeAll: true
+      # Allow InferencePool as a backend type in HTTPRoute / AIGatewayRoute.
+      # Without this, EG rejects backendRefs pointing to InferencePool.
+      backendResources:
+      - group: inference.networking.k8s.io
+        kind: InferencePool
+        version: v1
+      service:
+        fqdn:
+          hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+          port: 1063
+
+    # Redis backend for EG's native rate-limit filter.
+    # Also shared by Kuadrant's Limitador for global rate-limit counters.
+    rateLimit:
+      backend:
+        type: Redis
+        redis:
+          url: "redis.redis-system.svc.cluster.local:6379"

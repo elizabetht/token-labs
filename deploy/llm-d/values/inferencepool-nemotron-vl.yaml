@@ -1,20 +1,33 @@
 # InferencePool + EPP values — Nemotron VL 12B FP8
-pool:
-  name: nemotron-vl-pool
-  modelName: "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8"
+#
+# matchLabels must match the pods created by the llm-d-modelservice-nemotron-vl release.
 
-  # EPP (Endpoint Picker) — inference-aware ext_proc routing
-  epp:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 512Mi
-      limits:
-        cpu: "2"
-        memory: 1Gi
+inferencePool:
+  modelServers:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+      llm-d.ai/model: nemotron-vl-12b
+  modelServerType: vllm
 
-  # Scheduling configuration
-  scheduling:
-    kvCacheAware: true
-    queueDepthAware: true
+inferenceExtension:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  # EPP image is amd64-only; pin to controller node (DGX Spark nodes are arm64)
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+
+provider:
+  name: none

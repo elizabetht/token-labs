@@ -1,5 +1,15 @@
-# Magpie TTS — NeMo-based text-to-speech service
-# Runs on spark-01 (GPU, shared with Llama 3.1 8B)
+# Magpie TTS — NeMo-based text-to-speech service (CPU mode)
+#
+# GPU CONFLICT NOTE:
+# spark-01 has one GB10 GPU with sharing-strategy=none. That GPU is fully
+# allocated to the Nemotron-Llama vLLM pod. Magpie TTS runs on CPU here.
+# CPU inference for the 357M TTS model is acceptable for moderate traffic
+# (typical TTS latency: ~500ms–2s on CPU for short utterances).
+#
+# To run Magpie TTS on GPU: enable MPS time-slicing on spark-01:
+#   kubectl patch clusterpolicy gpu-cluster-policy -n gpu-operator --type=merge \
+#     -p '{"spec":{"devicePlugin":{"config":{"name":"time-slicing-config"}}}}'
+# Then add nvidia.com/gpu: "1" back to resources and uncomment tolerations.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -19,7 +29,6 @@ spec:
       labels:
         app: magpie-tts
     spec:
-      # Schedule on spark-01 (shares GPU with Llama 3.1 8B)
       nodeSelector:
         kubernetes.io/hostname: spark-01
       containers:
@@ -33,11 +42,9 @@ spec:
           requests:
             cpu: "2"
             memory: 4Gi
-            nvidia.com/gpu: "1"
           limits:
             cpu: "4"
             memory: 8Gi
-            nvidia.com/gpu: "1"
         readinessProbe:
           httpGet:
             path: /health

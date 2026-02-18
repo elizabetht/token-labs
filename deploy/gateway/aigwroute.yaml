@@ -1,0 +1,51 @@
+# AIGatewayRoute — multi-model inference routing via Envoy AI Gateway
+#
+# How it works:
+#   1. Client sends POST /v1/chat/completions with JSON body {"model": "...", ...}
+#   2. EAG's AI filter reads the "model" field and sets x-ai-eg-model header
+#   3. AIGatewayRoute rules match on x-ai-eg-model → route to the correct InferencePool
+#   4. The InferencePool's llm-d EPP picks the optimal vLLM pod (KV-cache aware)
+#
+# This replaces the old HTTPRoute + BBR (Body Based Router) pattern.
+# No ConfigMaps, no ext_proc sidecar — EAG handles body parsing natively.
+#
+# InferencePool backendRefs:
+#   token-labs-pool   → spark-01  (Nemotron-Llama 8B)
+#   nemotron-vl-pool  → spark-02  (Nemotron VL 12B FP8)
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: llm-inference
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  # ── Nemotron-Llama 8B ─────────────────────────────────────────────────────
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: nvidia/Llama-3.1-Nemotron-Nano-8B-v1
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: token-labs-pool
+    timeouts:
+      request: 300s
+
+  # ── Nemotron VL 12B FP8 ───────────────────────────────────────────────────
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: nemotron-vl-pool
+    timeouts:
+      request: 300s

@@ -1,28 +1,30 @@
-# llm-d-modelservice values — vLLM workers on DGX Spark GPU nodes
-model:
-  name: "meta-llama/Llama-3.1-8B-Instruct"
+# llm-d-modelservice values — Nemotron-Llama 8B on spark-01
+#
+# NOTE: spark-01 has ONE GB10 GPU (nvidia.com/gpu.count=1, sharing-strategy=none).
+# The spellingbee namespace may also be using this GPU. Scale down spellingbee
+# vLLM pods before deploying, or enable MPS time-slicing on spark-01:
+#   kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=mps
 
-image:
-  repository: ghcr.io/llm-d/llm-d-cuda
-  tag: v0.5.0
+# Chart v0.4.x renamed: model.name -> modelArtifacts.name, image -> decode.containers[].image
+# tensor_parallelism -> decode.parallelism.tensor, extraArgs -> decode.containers[].args
 
-# Decode workers — one on spark-01 (spark-02 runs Nemotron VL)
+modelArtifacts:
+  name: "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
+  # Labels used by the InferencePool matchLabels selector
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: llama-3-1-8b
+
 decode:
   replicas: 1
-  tensor_parallelism: 1
+  parallelism:
+    tensor: 1
 
-  resources:
-    requests:
-      cpu: "4"
-      memory: 32Gi
-      nvidia.com/gpu: "1"
-    limits:
-      cpu: "8"
-      memory: 64Gi
-      nvidia.com/gpu: "1"
+  runtimeClassName: nvidia
 
-  # Node affinity — schedule on DGX Spark GPU workers
+  # Pin to spark-01 (spark-02 is reserved for Nemotron VL).
   nodeSelector:
+    kubernetes.io/hostname: spark-01
     nvidia.com/gpu.product: "NVIDIA-GB10"
 
   tolerations:
@@ -30,16 +32,30 @@ decode:
     operator: Exists
     effect: NoSchedule
 
-  # vLLM engine arguments
-  extraArgs:
-  - "--max-model-len=8192"
-  - "--dtype=auto"
-  - "--enforce-eager"
-  - "--gpu-memory-utilization=0.80"
+  containers:
+  - name: vllm
+    image: "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0"
+    modelCommand: vllmServe
+    resources:
+      requests:
+        cpu: "4"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    # vLLM engine arguments for Nemotron-Llama 8B (BF16, fits in 72GB GB10 GPU)
+    args:
+    - "--max-model-len=auto"
+    - "--dtype=bfloat16"
+    - "--gpu-memory-utilization=0.80"
 
-# HuggingFace token for gated models (if needed)
-# huggingFaceSecret: hf-token-secret
+# HuggingFace token — required if the model is gated on HuggingFace.
+# Create secret: kubectl create secret generic hf-token-secret \
+#   --from-literal=hf-token=hf_xxx -n token-labs
+# modelArtifacts:
+#   authSecretName: hf-token-secret
 
-# Prefill workers (disabled for single-tier setup)
 prefill:
   replicas: 0

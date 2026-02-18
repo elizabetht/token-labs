@@ -2,805 +2,763 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>TokenLabs – Inference API Console</title>
+  <title>TokenLabs – Inference Endpoints</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --bg: #f8fafc;
-      --card-bg: #ffffff;
-      --accent: #6366f1;
-      --accent-light: #818cf8;
-      --accent-soft: rgba(99, 102, 241, 0.1);
-      --text-main: #1e293b;
-      --text-muted: #64748b;
-      --border-subtle: #e2e8f0;
-      --danger: #ef4444;
-      --success: #10b981;
-      --radius-xl: 16px;
-      --code-bg: #1e293b;
+      --bg:            #0a0f1e;
+      --bg-nav:        #0d1426;
+      --bg-sidebar:    #0d1426;
+      --bg-card:       #111827;
+      --bg-card2:      #161f34;
+      --bg-input:      #1a2340;
+      --bg-code:       #090e1c;
+      --accent:        #76b900;
+      --accent-dim:    rgba(118,185,0,0.15);
+      --accent-border: rgba(118,185,0,0.35);
+      --blue:          #3b82f6;
+      --blue-dim:      rgba(59,130,246,0.15);
+      --purple:        #8b5cf6;
+      --text:          #e2e8f0;
+      --text-muted:    #64748b;
+      --text-dim:      #94a3b8;
+      --border:        #1e2d4a;
+      --border-bright: #2d3f60;
+      --danger:        #ef4444;
+      --success:       #10b981;
+      --radius:        10px;
+      --radius-lg:     14px;
     }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-    * {
-      box-sizing: border-box;
-    }
+    /* NAV */
+    .nav { background: var(--bg-nav); border-bottom: 1px solid var(--border); height: 56px; display: flex; align-items: center; padding: 0 24px; position: sticky; top: 0; z-index: 100; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; flex-shrink: 0; }
+    .nav-logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #000; }
+    .nav-links { display: flex; gap: 4px; flex: 1; }
+    .nav-link { padding: 6px 14px; border-radius: 7px; font-size: 13px; color: var(--text-muted); text-decoration: none; transition: background 0.15s, color 0.15s; }
+    .nav-link:hover { background: var(--bg-card); color: var(--text); }
+    .nav-link.active { background: var(--accent-dim); color: var(--accent); }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--success); letter-spacing: 0.04em; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.4;} }
 
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      padding: 24px;
-    }
+    /* LAYOUT */
+    .app-layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 56px); }
 
-    .shell {
-      width: 100%;
-      max-width: 1200px;
-      display: grid;
-      grid-template-columns: minmax(0, 3fr) minmax(0, 2.4fr);
-      gap: 24px;
-    }
+    /* SIDEBAR */
+    .sidebar { width: 300px; min-width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+    .sidebar-header { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
+    .sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+    .search-box { position: relative; }
+    .search-box input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px 8px 32px; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text-muted); }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; pointer-events: none; }
+    .filter-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .filter-chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-size: 11px; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+    .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-chip.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
+    .model-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .model-card { padding: 12px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; }
+    .model-card:hover { background: var(--bg-card); border-color: var(--border); }
+    .model-card.selected { background: var(--accent-dim); border-color: var(--accent-border); }
+    .model-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .model-avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .model-card-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
+    .model-card-org { font-size: 11px; color: var(--text-muted); }
+    .model-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+    .tag-green  { background: rgba(118,185,0,0.12); color: #76b900; }
+    .tag-blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
+    .tag-purple { background: rgba(139,92,246,0.12); color: #a78bfa; }
+    .tag-orange { background: rgba(245,158,11,0.12); color: #fbbf24; }
+    .tag-teal   { background: rgba(20,184,166,0.12); color: #2dd4bf; }
 
-    @media (max-width: 900px) {
-      .shell {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
+    /* MAIN */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .model-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 16px 24px; }
+    .model-header-top { display: flex; align-items: flex-start; gap: 14px; }
+    .model-header-avatar { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; flex-shrink: 0; }
+    .model-header-info { flex: 1; }
+    .model-header-name { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .model-header-org { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .model-header-desc { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
+    .model-stats-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .stat-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
+    .stat-pill strong { color: var(--text); font-weight: 600; }
+    .model-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: #8fd400; }
+    .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-input); color: var(--text); }
+    .btn-sm { padding: 5px 11px; font-size: 12px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .card {
-      background: var(--card-bg);
-      border-radius: var(--radius-xl);
-      border: 1px solid var(--border-subtle);
-      padding: 24px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
-    }
+    /* TABS */
+    .tab-bar { display: flex; gap: 2px; padding: 0 24px; background: var(--bg-card); border-bottom: 1px solid var(--border); }
+    .tab { padding: 12px 18px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-panel { display: none; flex: 1; overflow: hidden; }
+    .tab-panel.active { display: flex; flex-direction: column; }
 
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
+    /* OVERVIEW */
+    .overview-scroll { flex: 1; overflow-y: auto; padding: 24px; display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 20px; align-items: start; }
+    @media(max-width:1000px){.overview-scroll{grid-template-columns:1fr;}}
+    .info-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+    .info-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 14px; }
+    .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .spec-item { display: flex; flex-direction: column; gap: 2px; }
+    .spec-label { font-size: 11px; color: var(--text-muted); }
+    .spec-value { font-size: 14px; font-weight: 600; color: var(--text); }
+    .pricing-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .pricing-row:last-child { border-bottom: none; }
+    .pricing-row-label { font-size: 13px; color: var(--text-dim); }
+    .pricing-row-unit  { font-size: 11px; color: var(--text-muted); }
+    .pricing-row-price { font-size: 15px; font-weight: 700; color: var(--accent); font-family: ui-monospace,Menlo,monospace; }
+    .model-links { display: flex; flex-direction: column; gap: 8px; }
+    .model-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-input); text-decoration: none; color: var(--text-dim); font-size: 13px; transition: all 0.15s; }
+    .model-link:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
+    .model-link-arrow { margin-left: auto; }
 
-    .badge-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 6px var(--success);
-    }
+    /* PLAYGROUND */
+    .playground-layout { display: flex; flex: 1; overflow: hidden; }
+    .playground-settings { width: 260px; min-width: 220px; background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0; }
+    .settings-section { margin-bottom: 20px; }
+    .settings-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+    .setting-row { margin-bottom: 14px; }
+    .setting-row-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+    .setting-row-label .val { font-weight: 600; color: var(--text); font-family: ui-monospace,Menlo,monospace; font-size: 11px; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); height: 4px; }
+    select { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 12px; color: var(--text); outline: none; cursor: pointer; transition: border-color 0.15s; }
+    select:focus { border-color: var(--accent); }
+    textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--text); outline: none; resize: vertical; min-height: 60px; transition: border-color 0.15s; font-family: inherit; }
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--text-muted); }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .toggle-label { font-size: 12px; color: var(--text-dim); }
+    .toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; border: none; flex-shrink: 0; }
+    .toggle.on { background: var(--accent); }
+    .toggle::after { content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: left 0.2s; }
+    .toggle.on::after { left: 19px; }
 
-    h1 {
-      margin: 14px 0 8px;
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
+    /* CHAT */
+    .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-columns { flex: 1; display: flex; overflow: hidden; }
+    .chat-column { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+    .chat-column:last-child { border-right: none; }
+    .chat-col-header { padding: 10px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .chat-col-model-name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-msg { display: flex; gap: 10px; max-width: 85%; animation: fadeSlide 0.2s ease; }
+    @keyframes fadeSlide { from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);} }
+    .chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-msg.assistant { align-self: flex-start; }
+    .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .msg-avatar.user { background: var(--blue-dim); color: var(--blue); }
+    .msg-avatar.assistant { background: var(--accent-dim); color: var(--accent); }
+    .msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+    .chat-msg.user .msg-bubble { background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.25); color: var(--text); border-radius: 12px 4px 12px 12px; }
+    .chat-msg.assistant .msg-bubble { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); border-radius: 4px 12px 12px 12px; }
+    .typing-indicator { display: inline-flex; gap: 4px; align-items: center; padding: 4px 0; }
+    .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: typingPulse 1.2s infinite; }
+    .typing-dot:nth-child(2){animation-delay:.2s;}.typing-dot:nth-child(3){animation-delay:.4s;}
+    @keyframes typingPulse{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1);}}
+    .chat-input-area { padding: 12px 16px; background: var(--bg-card); border-top: 1px solid var(--border); }
+    .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+    .chat-input-wrap { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; transition: border-color 0.15s; }
+    .chat-input-wrap:focus-within { border-color: var(--accent); }
+    .chat-input-wrap textarea { background: transparent; border: none; padding: 0; font-size: 13px; resize: none; min-height: 22px; max-height: 120px; color: var(--text); }
+    .chat-input-wrap textarea:focus { outline: none; }
+    .chat-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .chat-actions-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .status-text { font-size: 12px; color: var(--text-muted); }
+    .status-text.err { color: var(--danger); }
+    .compare-bar { padding: 8px 16px; background: var(--bg-card2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .compare-bar-label { font-size: 12px; color: var(--text-muted); }
 
-    .subtitle {
-      margin: 0 0 16px;
-      font-size: 15px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .pill {
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border-subtle);
-      background: var(--bg);
-      font-size: 12px;
-      color: var(--text-muted);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .pill strong {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
-    .section-title {
-      font-size: 12px;
-      font-weight: 600;
-      margin: 18px 0 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-    }
-
-    code.inline {
-      background: var(--accent-soft);
-      color: var(--accent);
-      border-radius: 6px;
-      padding: 3px 8px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    pre {
-      margin: 8px 0 12px;
-      padding: 14px 16px;
-      background: var(--code-bg);
-      color: #e2e8f0;
-      border-radius: 10px;
-      font-size: 13px;
-      overflow-x: auto;
-      line-height: 1.5;
-    }
-
-    pre code {
-      color: #e2e8f0;
-    }
-
-    .pricing-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      margin-top: 8px;
-    }
-
-    .pricing-table th,
-    .pricing-table td {
-      padding: 10px 8px;
-      text-align: left;
-    }
-
-    .pricing-table th {
-      font-weight: 500;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .pricing-table tbody tr {
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .pricing-table tbody tr:last-child {
-      border-bottom: none;
-    }
-
-    .pricing-tag {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-
-    .pricing-note {
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .model-meta {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 8px;
-      line-height: 1.5;
-    }
-
-    .model-meta strong {
-      color: var(--text-main);
-      font-weight: 600;
-    }
-
-    /* Chat UI */
-    .chat-wrapper {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      min-height: 360px;
-    }
-
-    .chat-log {
-      flex: 1;
-      background: var(--bg);
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      padding: 12px;
-      overflow-y: auto;
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    .msg {
-      margin-bottom: 10px;
-      display: flex;
-      gap: 10px;
-    }
-
-    .msg span.role {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      flex-shrink: 0;
-      width: 60px;
-    }
-
-    .msg span.role.user {
-      color: var(--accent);
-    }
-
-    .msg span.role.assistant {
-      color: var(--success);
-    }
-
-    .msg span.role.system {
-      color: #f59e0b;
-    }
-
-    .msg .content {
-      white-space: pre-wrap;
-      color: var(--text-main);
-      line-height: 1.5;
-    }
-
-    .chat-input-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .inline-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .inline-label code {
-      font-size: 11px;
-      background: var(--bg);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    textarea, input[type="text"] {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      background: var(--bg);
-      color: var(--text-main);
-      font-size: 14px;
-      padding: 10px 12px;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-
-    textarea:focus, input[type="text"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-soft);
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 70px;
-      max-height: 180px;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    button {
-      border: none;
-      border-radius: 8px;
-      padding: 10px 18px;
-      font-size: 14px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      background: var(--accent);
-      color: #ffffff;
-      font-weight: 600;
-      transition: background 0.15s, transform 0.1s;
-    }
-
-    button:hover {
-      background: var(--accent-light);
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--text-muted);
-      border: 1px solid var(--border-subtle);
-    }
-
-    .btn-secondary:hover {
-      background: var(--bg);
-      color: var(--text-main);
-    }
-
-    .status {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .status.error {
-      color: var(--danger);
-    }
-
-    .small {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+    /* API */
+    .api-scroll { flex: 1; overflow-y: auto; padding: 24px; }
+    .api-section { margin-bottom: 28px; }
+    .api-section-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+    .endpoint-box { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .method-badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: ui-monospace,Menlo,monospace; flex-shrink: 0; }
+    .method-post { background: rgba(118,185,0,0.15); color: var(--accent); }
+    .endpoint-url { font-family: ui-monospace,Menlo,monospace; font-size: 13px; color: var(--text); flex: 1; }
+    .copy-btn { padding: 5px 12px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .code-tabs-bar { display: flex; gap: 2px; background: var(--bg-code); border: 1px solid var(--border); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 8px 8px 0; }
+    .code-tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.15s; border-bottom: 2px solid transparent; }
+    .code-tab:hover { color: var(--text); }
+    .code-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg-card); }
+    .code-block-wrap { background: var(--bg-code); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg); position: relative; }
+    .code-panel { display: none; }
+    .code-panel.active { display: block; }
+    pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color: #e2e8f0; }
+    .copy-overlay { position: absolute; top: 10px; right: 12px; }
+    .empty-chat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); padding: 40px; text-align: center; }
+    .empty-icon { font-size: 40px; }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-dim); }
+    .empty-sub { font-size: 13px; color: var(--text-muted); max-width: 320px; line-height: 1.5; }
+    .prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+    .prompt-chip { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+    .prompt-chip:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
+    *::-webkit-scrollbar{width:5px;height:5px;}*::-webkit-scrollbar-track{background:transparent;}*::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;}
+    .ml-auto{margin-left:auto;}.hidden{display:none!important;}
+    @media(max-width:900px){.sidebar{width:220px;}.playground-settings{width:200px;}}
   </style>
 </head>
 <body>
-  <div class="shell">
-    <!-- Left: marketing + pricing + API -->
-    <div>
-      <div class="card">
-        <div class="badge">
-          <div class="badge-dot"></div>
-          TokenLabs · Inference API
-        </div>
-        <h1>Model Console</h1>
-        <p class="subtitle">
-          OpenAI-compatible chat completions on dedicated GPU instances.
-          Pick a model, view its pricing, and call it with your own API key.
-        </p>
 
-        <div class="section-title">Model & instance</div>
-        <div class="pill-row">
-          <div class="pill">
-            <strong>Model</strong>
-            <select id="model-select" style="background: transparent; border: none; color: inherit; font-size: 11px;">
-              <!-- options populated by JS -->
-            </select>
-          </div>
-          <div class="pill" id="pill-context">Context&nbsp;≈&nbsp;8K tokens</div>
-          <div class="pill" id="pill-gpu">GPU&nbsp;RTX A4500 · 20GB</div>
-          <div class="pill" id="pill-endpoint">Instance&nbsp;Primary</div>
-        </div>
-
-        <p class="model-meta" id="model-details">
-          <!-- filled by JS -->
-        </p>
-
-        <div class="section-title">API endpoint</div>
-        <p style="font-size: 13px; margin: 4px 0 6px;">
-          OpenAI-compatible <code class="inline">/v1/chat/completions</code>:
-        </p>
-        <pre><code id="curl-example">curl https://api.tokenlabs.run/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
-    "messages": [
-      {"role": "user", "content": "Say hello from TokenLabs."}
-    ]
-  }'</code></pre>
-      </div>
-
-      <div class="card">
-        <div class="section-title">Pricing · per model</div>
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th>Token type</th>
-              <th>Unit</th>
-              <th>Price (USD)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Input tokens (prompt)</td>
-              <td>per 1M</td>
-              <td class="pricing-tag" id="price-input">$0.0000</td>
-            </tr>
-            <tr>
-              <td>Cached input tokens</td>
-              <td>per 1M</td>
-              <td class="pricing-tag" id="price-cached-input">$0.0000</td>
-            </tr>
-            <tr>
-              <td>Output tokens (completion)</td>
-              <td>per 1M</td>
-              <td class="pricing-tag" id="price-output">$0.0000</td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="pricing-note">
-          Prices shown here are per 1M tokens and are updated from CI
-          benchmarks (e.g., vLLM throughput on DGX Spark at $0.26/hr).
-        </p>
-        <p class="pricing-note" style="margin-top: 8px;">
-          <a href="benchmark-results.html" style="color: var(--accent); text-decoration: none; font-weight: 500;">
-            📊 View detailed performance benchmarks →
-          </a>
-        </p>
-        <p class="pricing-note" style="margin-top: 8px;">
-          <a href="accuracy-results.html" style="color: var(--accent); text-decoration: none; font-weight: 500;">
-            🎯 View accuracy evaluation results →
-          </a>
-        </p>
-        <p class="pricing-note" style="margin-top: 8px;">
-          <a href="comparison-results.html" style="color: var(--accent); text-decoration: none; font-weight: 500;">
-            🔍 View baseline comparison results →
-          </a>
-        </p>
-      </div>
-    </div>
-
-    <!-- Right: chat UI -->
-    <div class="card">
-      <div class="chat-wrapper">
-        <div class="section-title">Chat with the selected model</div>
-        <div class="inline-label" style="margin-bottom: 4px;">
-          <span class="small">Model:</span>
-          <span class="small"><code id="chat-model-label">llama-8b-nvfp4</code></span>
-        </div>
-
-        <div class="chat-log" id="chat-log"></div>
-
-        <div class="chat-input-row">
-          <div class="inline-label">
-            <span>Message</span>
-            <span class="small">Press Enter to send · Shift+Enter for newline</span>
-          </div>
-          <textarea id="user-input" placeholder="Ask something..."></textarea>
-
-          <div class="btn-row">
-            <button id="send-btn">
-              <span>Send</span>
-              <span style="font-size: 14px;">➤</span>
-            </button>
-            <button class="btn-secondary" id="reset-btn" type="button">
-              Clear chat
-            </button>
-            <span id="status" class="status"></span>
-          </div>
-        </div>
-      </div>
-    </div>
+<nav class="nav">
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-icon">T</div>
+    TokenLabs
+  </a>
+  <div class="nav-links">
+    <a class="nav-link active" href="#">Inference Endpoints</a>
+    <a class="nav-link" href="benchmark-results.html">Benchmarks</a>
+    <a class="nav-link" href="accuracy-results.html">Accuracy</a>
+    <a class="nav-link" href="comparison-results.html">Comparisons</a>
   </div>
+  <div class="nav-right">
+    <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">&#9733; GitHub</a>
+  </div>
+</nav>
 
-  <script>
-    // ============================
-    // CONFIG: Models & endpoints
-    // ============================
+<div class="app-layout">
 
-    // If you have a single shared vLLM endpoint, set this and omit baseUrl per model:
-    const DEFAULT_API_BASE_URL = "https://api.tokenlabs.run";
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Model Catalog</div>
+      <div class="search-box">
+        <span class="search-icon">&#128269;</span>
+        <input type="text" id="model-search" placeholder="Search models&hellip;" />
+      </div>
+      <div class="filter-row">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="quantized">Quantized</button>
+        <button class="filter-chip" data-filter="base">Base</button>
+      </div>
+    </div>
+    <div class="model-list" id="model-list"></div>
+  </aside>
 
-    // Models & instances.
-    // backendName must match what your vLLM server expects in the `model` field
-    // Prices are updated automatically by CI benchmarks via update_pricing.py
-    const MODELS = {
-      "llama-8b-instruct": {
-        fullModelName: "meta-llama/Llama-3.1-8B-Instruct",
-        context: "128K tokens",
-        gpu: "DGX Spark · 40GB",
-        instanceLabel: "Primary",
-        baseUrl: DEFAULT_API_BASE_URL,
-        inputPricePerM: 0.00,
-        cachedInputPricePerM: 0.0000,
-        outputPricePerM: 0.00,
-        description: "Meta's official Llama 3.1 8B instruction-tuned model."
-      },
-      "llama-8b-nvfp4": {
-        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
-        context: "128K tokens",
-        gpu: "DGX Spark · 40GB",
-        instanceLabel: "Primary",
-        baseUrl: DEFAULT_API_BASE_URL,
-        inputPricePerM: 0.00,
-        cachedInputPricePerM: 0.0000,
-        outputPricePerM: 0.00,
-        description: "NVFP4 quantized model for maximum throughput with minimal quality loss."
-      },
-      "llama-8b-fp8": {
-        fullModelName: "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8-QAT",
-        context: "128K tokens",
-        gpu: "DGX Spark · 40GB",
-        instanceLabel: "Primary",
-        baseUrl: DEFAULT_API_BASE_URL,
-        inputPricePerM: 0.00,
-        cachedInputPricePerM: 0.0000,
-        outputPricePerM: 0.00,
-        description: "FP8 quantized model balancing speed and quality."
+  <main class="main">
+
+    <div class="model-header">
+      <div class="model-header-top">
+        <div class="model-header-avatar" id="hdr-avatar"></div>
+        <div class="model-header-info">
+          <div class="model-header-name" id="hdr-name"></div>
+          <div class="model-header-org" id="hdr-org"></div>
+          <div class="model-header-desc" id="hdr-desc"></div>
+        </div>
+        <div class="model-actions">
+          <button class="btn btn-ghost btn-sm" id="compare-toggle-btn">&#9889; Compare Models</button>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('tab-playground')">&#9654; Try in Playground</button>
+        </div>
+      </div>
+      <div class="model-stats-row" id="hdr-stats"></div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" data-tab="tab-overview"   onclick="switchTab('tab-overview')">Overview</div>
+      <div class="tab"        data-tab="tab-playground" onclick="switchTab('tab-playground')">Playground</div>
+      <div class="tab"        data-tab="tab-api"        onclick="switchTab('tab-api')">API Reference</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="overview-scroll">
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="info-card">
+            <div class="info-card-title">Model Specifications</div>
+            <div class="spec-grid" id="spec-grid"></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">Pricing &middot; per token</div>
+            <div class="pricing-row"><div><div class="pricing-row-label">Input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-in">$0.00</div></div>
+            <div class="pricing-row"><div><div class="pricing-row-label">Cached input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-cached">$0.0000</div></div>
+            <div class="pricing-row"><div><div class="pricing-row-label">Output tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-out">$0.00</div></div>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Prices derived from CI benchmarks (vLLM on DGX Spark @$0.26/hr). Free tier available.</p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <div class="info-card">
+            <div class="info-card-title">Quick links</div>
+            <div class="model-links">
+              <a href="benchmark-results.html" class="model-link"><span>&#128202;</span><span style="flex:1">Performance Benchmarks</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="accuracy-results.html"  class="model-link"><span>&#127919;</span><span style="flex:1">Accuracy Evaluation (IFEval)</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="comparison-results.html" class="model-link"><span>&#128269;</span><span style="flex:1">Baseline Comparison</span><span class="model-link-arrow">&rarr;</span></a>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">API base URL</div>
+            <code style="display:block;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--accent);font-family:ui-monospace,Menlo,monospace;" id="ov-base-url"></code>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Compatible with <strong style="color:var(--text-dim)">openai</strong>, <strong style="color:var(--text-dim)">litellm</strong>, <strong style="color:var(--text-dim)">langchain</strong>.</p>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">All Available Models</div>
+            <div id="all-models-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYGROUND -->
+    <div class="tab-panel" id="tab-playground">
+      <div class="playground-layout">
+        <div class="playground-settings">
+          <div class="settings-section">
+            <div class="settings-label">Model</div>
+            <div style="margin-bottom:10px;">
+              <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Primary</div>
+              <select id="primary-model-select"></select>
+            </div>
+            <div id="compare-second-model" class="hidden">
+              <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Compare with</div>
+              <select id="secondary-model-select"></select>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">System Prompt</div>
+            <textarea id="system-prompt-input" placeholder="System prompt (optional)" rows="3">You are a helpful AI assistant.</textarea>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">Parameters</div>
+            <div class="setting-row">
+              <div class="setting-row-label"><span>Temperature</span><span class="val" id="temp-val">0.70</span></div>
+              <input type="range" id="temp-slider" min="0" max="2" step="0.05" value="0.7" oninput="document.getElementById('temp-val').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+            <div class="setting-row">
+              <div class="setting-row-label"><span>Max Tokens</span><span class="val" id="maxtok-val">512</span></div>
+              <input type="range" id="maxtok-slider" min="64" max="4096" step="64" value="512" oninput="document.getElementById('maxtok-val').textContent=this.value">
+            </div>
+            <div class="setting-row">
+              <div class="setting-row-label"><span>Top P</span><span class="val" id="topp-val">1.00</span></div>
+              <input type="range" id="topp-slider" min="0.1" max="1" step="0.05" value="1.0" oninput="document.getElementById('topp-val').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">Options</div>
+            <div class="toggle-row"><span class="toggle-label">Streaming</span><button class="toggle on" id="stream-toggle" onclick="this.classList.toggle('on')"></button></div>
+          </div>
+          <div class="settings-section">
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;" onclick="clearAllChats()">&#128465; Clear Chats</button>
+          </div>
+        </div>
+
+        <div class="chat-area">
+          <div class="compare-bar">
+            <span class="compare-bar-label">Mode:</span>
+            <button class="filter-chip active" onclick="setCompareMode(false,this)">Single</button>
+            <button class="filter-chip" onclick="setCompareMode(true,this)">Side-by-Side</button>
+            <span class="ml-auto" style="font-size:12px;color:var(--text-muted);" id="compare-hint">Select a model to compare</span>
+          </div>
+
+          <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-card2);">
+            <div class="chat-col-header" style="flex:1;border-right:1px solid var(--border);">
+              <div style="width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;" id="col-a-avatar"></div>
+              <div><div class="chat-col-model-name" id="col-a-name"></div><div style="font-size:10px;color:var(--text-muted);" id="col-a-tag"></div></div>
+            </div>
+            <div class="chat-col-header hidden" style="flex:1;" id="col-b-header">
+              <div style="width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;" id="col-b-avatar"></div>
+              <div><div class="chat-col-model-name" id="col-b-name">No model selected</div><div style="font-size:10px;color:var(--text-muted);" id="col-b-tag"></div></div>
+            </div>
+          </div>
+
+          <div class="chat-columns">
+            <div class="chat-column" id="chat-col-a">
+              <div class="chat-log" id="chat-log-a">
+                <div class="empty-chat">
+                  <div class="empty-icon">&#128172;</div>
+                  <div class="empty-title">Start a conversation</div>
+                  <div class="empty-sub">Send a message to chat with the selected model.</div>
+                  <div class="prompt-chips">
+                    <div class="prompt-chip" onclick="fillPrompt('Summarize the key benefits of quantized AI models.')">Quantization benefits</div>
+                    <div class="prompt-chip" onclick="fillPrompt('Write a haiku about running LLMs on edge hardware.')">LLM haiku</div>
+                    <div class="prompt-chip" onclick="fillPrompt('Compare FP8 vs NVFP4 quantization for inference.')">FP8 vs NVFP4</div>
+                    <div class="prompt-chip" onclick="fillPrompt('What is the NVIDIA DGX Spark and who is it for?')">About DGX Spark</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-column hidden" id="chat-col-b">
+              <div class="chat-log" id="chat-log-b">
+                <div class="empty-chat">
+                  <div class="empty-icon">&#9889;</div>
+                  <div class="empty-title">Comparison model</div>
+                  <div class="empty-sub">Responses from the second model appear here.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-area">
+            <div class="chat-input-row">
+              <div class="chat-input-wrap">
+                <textarea id="chat-input" placeholder="Ask anything&hellip; (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
+                <div class="chat-hint">Powered by vLLM &middot; OpenAI-compatible API</div>
+              </div>
+              <button class="btn btn-primary" id="send-btn" onclick="sendChat()">Send &#10148;</button>
+            </div>
+            <div class="chat-actions-row">
+              <span class="status-text" id="chat-status"></span>
+              <button class="btn btn-ghost btn-sm ml-auto" onclick="clearAllChats()">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API -->
+    <div class="tab-panel" id="tab-api">
+      <div class="api-scroll">
+        <div class="api-section">
+          <div class="api-section-title">Endpoint</div>
+          <div class="endpoint-box">
+            <span class="method-badge method-post">POST</span>
+            <span class="endpoint-url" id="api-endpoint-url"></span>
+            <button class="copy-btn" onclick="copyText(document.getElementById('api-endpoint-url').textContent,this)">Copy</button>
+          </div>
+          <p style="font-size:13px;color:var(--text-dim);line-height:1.6;">OpenAI-compatible chat completions. Streaming via <code style="color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:4px;font-size:11px;">stream: true</code>.</p>
+        </div>
+        <div class="api-section">
+          <div class="api-section-title">Model identifier</div>
+          <div class="endpoint-box">
+            <span class="endpoint-url" id="api-model-name" style="font-size:13px;"></span>
+            <button class="copy-btn" onclick="copyText(document.getElementById('api-model-name').textContent,this)">Copy</button>
+          </div>
+        </div>
+        <div class="api-section">
+          <div class="api-section-title">Code Examples</div>
+          <div class="code-tabs-bar">
+            <div class="code-tab active" onclick="switchCodeTab('curl',this)">cURL</div>
+            <div class="code-tab" onclick="switchCodeTab('python',this)">Python</div>
+            <div class="code-tab" onclick="switchCodeTab('node',this)">Node.js</div>
+            <div class="code-tab" onclick="switchCodeTab('litellm',this)">LiteLLM</div>
+          </div>
+          <div class="code-block-wrap">
+            <div class="copy-overlay"><button class="copy-btn" onclick="copyActiveCode(this)">Copy</button></div>
+            <div class="code-panel active" id="code-curl"><pre id="code-curl-pre"></pre></div>
+            <div class="code-panel" id="code-python"><pre id="code-python-pre"></pre></div>
+            <div class="code-panel" id="code-node"><pre id="code-node-pre"></pre></div>
+            <div class="code-panel" id="code-litellm"><pre id="code-litellm-pre"></pre></div>
+          </div>
+        </div>
+        <div class="api-section">
+          <div class="api-section-title">Request Parameters</div>
+          <div class="info-card">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead><tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:150px;">Parameter</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:100px;">Type</th>
+                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Description</th>
+              </tr></thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">model</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">string</td><td style="padding:10px;color:var(--text-dim);">Full model identifier</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">messages</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">array</td><td style="padding:10px;color:var(--text-dim);">Array of {role, content} objects</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">max_tokens</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">integer</td><td style="padding:10px;color:var(--text-dim);">Max tokens to generate (default 512)</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">temperature</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-dim);">Sampling temperature 0&ndash;2 (default 0.7)</td></tr>
+                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">top_p</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-dim);">Nucleus sampling (default 1.0)</td></tr>
+                <tr><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">stream</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">boolean</td><td style="padding:10px;color:var(--text-dim);">Stream via SSE (default false)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const DEFAULT_API_BASE = "https://api.tokenlabs.run";
+
+const MODELS = {
+  "llama-8b-instruct": {
+    displayName:"Llama 3.1 8B Instruct", fullModelName:"meta-llama/Llama-3.1-8B-Instruct",
+    org:"Meta", avatar:"\uD83E\uDD99", avatarBg:"rgba(245,158,11,0.15)", avatarColor:"#fbbf24",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
+    precision:"BF16", quantization:"None (full precision)", license:"Llama 3.1 Community", params:"8B",
+    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
+    description:"Meta\'s official Llama 3.1 8B instruction-tuned model in full BF16 precision.",
+    tags:["base","instruction","8B"], tagColors:["tag-orange","tag-blue","tag-teal"], filter:"base",
+  },
+  "llama-8b-nvfp4": {
+    displayName:"Llama 3.1 8B NVFP4", fullModelName:"tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
+    org:"TokenLabs", avatar:"\u26A1", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
+    precision:"NVFP4", quantization:"NVFP4 QAT (ModelOpt)", license:"Llama 3.1 Community", params:"8B",
+    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
+    description:"NVFP4 QAT-quantized via NVIDIA ModelOpt. Maximum throughput with minimal quality loss.",
+    tags:["quantized","NVFP4","8B"], tagColors:["tag-green","tag-purple","tag-teal"], filter:"quantized",
+  },
+  "llama-8b-fp8": {
+    displayName:"Llama 3.1 8B FP8", fullModelName:"tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8-QAT",
+    org:"TokenLabs", avatar:"\uD83D\uDD2C", avatarBg:"rgba(139,92,246,0.15)", avatarColor:"#a78bfa",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
+    precision:"FP8", quantization:"FP8 QAT (ModelOpt)", license:"Llama 3.1 Community", params:"8B",
+    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
+    description:"FP8 QAT-quantized model balancing inference speed and output quality.",
+    tags:["quantized","FP8","8B"], tagColors:["tag-purple","tag-blue","tag-teal"], filter:"quantized",
+  },
+};
+
+let selectedModelKey = "llama-8b-nvfp4";
+let compareMode = false, compareModelKey = null;
+let messagesA = [], messagesB = [];
+let activeFilter = "all";
+
+function renderSidebar(q="", filter="all") {
+  const list = document.getElementById("model-list");
+  list.innerHTML = "";
+  const entries = Object.entries(MODELS).filter(([k,m]) => {
+    return (filter==="all"||m.filter===filter) && (!q||m.displayName.toLowerCase().includes(q.toLowerCase())||m.fullModelName.toLowerCase().includes(q.toLowerCase()));
+  });
+  if (!entries.length) { list.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No models found</div>'; return; }
+  entries.forEach(([key,m]) => {
+    const card = document.createElement("div");
+    card.className = "model-card"+(key===selectedModelKey?" selected":"");
+    card.innerHTML = `<div class="model-card-header"><div class="model-avatar" style="background:${m.avatarBg};color:${m.avatarColor};">${m.avatar}</div><div><div class="model-card-name">${m.displayName}</div><div class="model-card-org">${m.org}</div></div></div><div class="model-card-tags">${m.tags.map((t,i)=>`<span class="tag ${m.tagColors[i]}">${t}</span>`).join("")}</div>`;
+    card.onclick = () => selectModel(key);
+    list.appendChild(card);
+  });
+}
+
+document.getElementById("model-search").addEventListener("input", function(){ renderSidebar(this.value, activeFilter); });
+document.querySelectorAll(".filter-chip").forEach(chip => chip.addEventListener("click", function(){
+  document.querySelectorAll(".filter-chip").forEach(c=>c.classList.remove("active"));
+  this.classList.add("active");
+  activeFilter = this.dataset.filter||"all";
+  renderSidebar(document.getElementById("model-search").value, activeFilter);
+}));
+
+function selectModel(key) {
+  selectedModelKey = key;
+  renderSidebar(document.getElementById("model-search").value, activeFilter);
+  refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders();
+}
+
+function refreshHeader() {
+  const m = MODELS[selectedModelKey]; if (!m) return;
+  const av = document.getElementById("hdr-avatar");
+  av.textContent=m.avatar; av.style.background=m.avatarBg; av.style.color=m.avatarColor;
+  document.getElementById("hdr-name").textContent = m.displayName;
+  document.getElementById("hdr-org").innerHTML = `by ${m.org} &middot; <span style="color:var(--accent)">OpenAI-compatible API</span>`;
+  document.getElementById("hdr-desc").textContent = m.description;
+  document.getElementById("hdr-stats").innerHTML = [
+    `<div class="stat-pill">&#129504; <strong>${m.params}</strong> parameters</div>`,
+    `<div class="stat-pill">&#128220; Context <strong>${m.context}</strong></div>`,
+    `<div class="stat-pill">&#9881; Precision <strong>${m.precision}</strong></div>`,
+    `<div class="stat-pill">&#128444; <strong>${m.gpuType}</strong> ${m.gpuVram}</div>`,
+    `<div class="stat-pill">&#128196; ${m.license}</div>`,
+  ].join("");
+}
+
+function refreshOverview() {
+  const m = MODELS[selectedModelKey]; if (!m) return;
+  document.getElementById("spec-grid").innerHTML = [
+    ["Parameters",m.params],["Precision",m.precision],["Context window",m.context],
+    ["Quantization",m.quantization],["GPU",m.gpuType],["VRAM",m.gpuVram],["License",m.license],["Provider",m.org],
+  ].map(([l,v])=>`<div class="spec-item"><div class="spec-label">${l}</div><div class="spec-value">${v}</div></div>`).join("");
+  document.getElementById("ov-price-in").textContent     = `$${m.inputPricePerM.toFixed(2)}`;
+  document.getElementById("ov-price-cached").textContent = `$${m.cachedInputPricePerM.toFixed(4)}`;
+  document.getElementById("ov-price-out").textContent    = `$${m.outputPricePerM.toFixed(2)}`;
+  document.getElementById("ov-base-url").textContent     = m.baseUrl;
+  const allList = document.getElementById("all-models-list");
+  allList.innerHTML = "";
+  Object.entries(MODELS).forEach(([key,mm]) => {
+    const row = document.createElement("div");
+    const sel = key===selectedModelKey;
+    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid ${sel?"var(--accent-border)":"var(--border)"};background:${sel?"var(--accent-dim)":"var(--bg-input)"};cursor:pointer;transition:all 0.15s;`;
+    row.innerHTML = `<div style="width:26px;height:26px;border-radius:6px;background:${mm.avatarBg};color:${mm.avatarColor};display:flex;align-items:center;justify-content:center;font-size:12px;">${mm.avatar}</div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">${mm.displayName}</div><div style="font-size:11px;color:var(--text-muted);">${mm.precision} &middot; ${mm.params}</div></div><div style="display:flex;gap:4px;">${mm.tags.map((t,i)=>`<span class="tag ${mm.tagColors[i]}">${t}</span>`).join("")}</div>`;
+    row.onclick = () => selectModel(key);
+    allList.appendChild(row);
+  });
+}
+
+function switchTab(id) {
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===id));
+  document.getElementById(id).classList.add("active");
+}
+
+function refreshApiPanel() {
+  const m = MODELS[selectedModelKey]; if (!m) return;
+  document.getElementById("api-endpoint-url").textContent = `${m.baseUrl}/v1/chat/completions`;
+  document.getElementById("api-model-name").textContent   = m.fullModelName;
+  const b = m.baseUrl, n = m.fullModelName;
+  document.getElementById("code-curl-pre").textContent =
+    `curl ${b}/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "${n}",\n    "messages": [\n      {"role": "system", "content": "You are a helpful assistant."},\n      {"role": "user",   "content": "Hello from TokenLabs!"}\n    ],\n    "max_tokens": 512,\n    "temperature": 0.7,\n    "stream": true\n  }'`;
+  document.getElementById("code-python-pre").textContent =
+    `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${b}/v1",\n    api_key="EMPTY",\n)\n\nstream = client.chat.completions.create(\n    model="${n}",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in stream:\n    delta = chunk.choices[0].delta\n    if delta.content:\n        print(delta.content, end="", flush=True)`;
+  document.getElementById("code-node-pre").textContent =
+    `import OpenAI from "openai";\n\nconst client = new OpenAI({\n  baseURL: "${b}/v1",\n  apiKey: "EMPTY",\n});\n\nconst stream = await client.chat.completions.create({\n  model: "${n}",\n  messages: [\n    { role: "system", content: "You are a helpful assistant." },\n    { role: "user",   content: "Hello from TokenLabs!" },\n  ],\n  max_tokens: 512,\n  temperature: 0.7,\n  stream: true,\n});\n\nfor await (const chunk of stream) {\n  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");\n}`;
+  document.getElementById("code-litellm-pre").textContent =
+    `import litellm\n\nresponse = litellm.completion(\n    model="openai/${n}",\n    api_base="${b}/v1",\n    api_key="EMPTY",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in response:\n    print(chunk["choices"][0]["delta"].get("content",""), end="")`;
+}
+
+function switchCodeTab(lang, el) {
+  document.querySelectorAll(".code-tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".code-panel").forEach(p=>p.classList.remove("active"));
+  el.classList.add("active"); document.getElementById("code-"+lang).classList.add("active");
+}
+
+function copyActiveCode(btn) { copyText(document.querySelector(".code-panel.active pre").textContent, btn); }
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(()=>{
+    const o=btn.textContent; btn.textContent="Copied!"; btn.style.color="var(--accent)";
+    setTimeout(()=>{btn.textContent=o;btn.style.color="";},1800);
+  });
+}
+
+function refreshPlaygroundSelects() {
+  ["primary-model-select","secondary-model-select"].forEach((id,idx)=>{
+    const sel=document.getElementById(id); sel.innerHTML="";
+    Object.entries(MODELS).forEach(([k,m])=>{const o=document.createElement("option");o.value=k;o.textContent=m.displayName;sel.appendChild(o);});
+    if(idx===0) sel.value=selectedModelKey;
+    else if(compareModelKey&&MODELS[compareModelKey]) sel.value=compareModelKey;
+  });
+  document.getElementById("primary-model-select").onchange=function(){
+    selectedModelKey=this.value; messagesA=[];
+    document.getElementById("chat-log-a").innerHTML="";
+    refreshHeader();refreshOverview();refreshApiPanel();
+    renderSidebar(document.getElementById("model-search").value,activeFilter);refreshColHeaders();
+  };
+  document.getElementById("secondary-model-select").onchange=function(){
+    compareModelKey=this.value; messagesB=[];
+    document.getElementById("chat-log-b").innerHTML="";
+    refreshColHeaders();
+  };
+}
+
+document.getElementById("compare-toggle-btn").onclick=()=>{setCompareMode(!compareMode,null);switchTab("tab-playground");};
+
+function setCompareMode(on,chip){
+  compareMode=on;
+  document.getElementById("chat-col-b").classList.toggle("hidden",!on);
+  document.getElementById("col-b-header").classList.toggle("hidden",!on);
+  document.getElementById("compare-second-model").classList.toggle("hidden",!on);
+  document.getElementById("compare-hint").textContent=on?"Sending to both models simultaneously":"Select a model to compare";
+  document.getElementById("compare-toggle-btn").textContent=on?"✕ Single Mode":"⚡ Compare Models";
+  if(on&&(!compareModelKey||compareModelKey===selectedModelKey)){
+    const keys=Object.keys(MODELS);
+    compareModelKey=keys.find(k=>k!==selectedModelKey)||keys[0];
+    document.getElementById("secondary-model-select").value=compareModelKey;
+  }
+  if(chip){document.querySelectorAll(".compare-bar .filter-chip").forEach(c=>c.classList.remove("active"));chip.classList.add("active");}
+  refreshColHeaders();
+}
+
+function refreshColHeaders(){
+  const mA=MODELS[selectedModelKey], mB=compareModelKey?MODELS[compareModelKey]:null;
+  const avA=document.getElementById("col-a-avatar");
+  avA.textContent=mA?mA.avatar:"";avA.style.background=mA?mA.avatarBg:"";avA.style.color=mA?mA.avatarColor:"";
+  document.getElementById("col-a-name").textContent=mA?mA.displayName:"";
+  document.getElementById("col-a-tag").textContent=mA?mA.precision:"";
+  const avB=document.getElementById("col-b-avatar");
+  avB.textContent=mB?mB.avatar:"";avB.style.background=mB?mB.avatarBg:"";avB.style.color=mB?mB.avatarColor:"";
+  document.getElementById("col-b-name").textContent=mB?mB.displayName:"No model selected";
+  document.getElementById("col-b-tag").textContent=mB?mB.precision:"";
+}
+
+function fillPrompt(text){const i=document.getElementById("chat-input");i.value=text;i.focus();switchTab("tab-playground");}
+
+function clearAllChats(){
+  messagesA=[];messagesB=[];
+  document.getElementById("chat-log-a").innerHTML='<div class="empty-chat"><div class="empty-icon">&#128172;</div><div class="empty-title">Start a conversation</div><div class="empty-sub">Send a message below.</div></div>';
+  document.getElementById("chat-log-b").innerHTML='<div class="empty-chat"><div class="empty-icon">&#9889;</div><div class="empty-title">Comparison model</div><div class="empty-sub">Responses appear here.</div></div>';
+  document.getElementById("chat-status").textContent="";
+}
+
+function setStatus(t,err=false){const el=document.getElementById("chat-status");el.textContent=t;el.className="status-text"+(err?" err":"");}
+
+function appendMsg(log,role,content){
+  const empty=log.querySelector(".empty-chat");if(empty)empty.remove();
+  const d=document.createElement("div");d.className=`chat-msg ${role}`;
+  const av=document.createElement("div");av.className=`msg-avatar ${role}`;av.textContent=role==="user"?"U":"A";
+  const b=document.createElement("div");b.className="msg-bubble";b.textContent=content;
+  d.appendChild(av);d.appendChild(b);log.appendChild(d);log.scrollTop=log.scrollHeight;
+  return b;
+}
+
+function appendTyping(log){
+  const empty=log.querySelector(".empty-chat");if(empty)empty.remove();
+  const d=document.createElement("div");d.className="chat-msg assistant";
+  const av=document.createElement("div");av.className="msg-avatar assistant";av.textContent="A";
+  const b=document.createElement("div");b.className="msg-bubble";
+  b.innerHTML='<span class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>';
+  d.appendChild(av);d.appendChild(b);log.appendChild(d);log.scrollTop=log.scrollHeight;
+  return{div:d,bubble:b};
+}
+
+async function callModel(cfg,messages,bubbleEl,logEl){
+  const streamOn=document.getElementById("stream-toggle").classList.contains("on");
+  const sys=document.getElementById("system-prompt-input").value.trim();
+  const temp=parseFloat(document.getElementById("temp-slider").value);
+  const maxTok=parseInt(document.getElementById("maxtok-slider").value);
+  const topP=parseFloat(document.getElementById("topp-slider").value);
+  const msgs=[];
+  if(sys)msgs.push({role:"system",content:sys});
+  msgs.push(...messages);
+  const resp=await fetch(`${cfg.baseUrl}/v1/chat/completions`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:cfg.fullModelName,messages:msgs,max_tokens:maxTok,temperature:temp,top_p:topP,stream:streamOn}),
+  });
+  if(!resp.ok){const t=await resp.text();throw new Error(`${resp.status} - ${t.slice(0,200)}`);}
+  let full="";
+  if(streamOn){
+    bubbleEl.textContent="";
+    const reader=resp.body.getReader(),decoder=new TextDecoder();
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      for(const line of decoder.decode(value,{stream:true}).split("\n")){
+        if(!line.startsWith("data: "))continue;
+        const data=line.slice(6);if(data==="[DONE]")continue;
+        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){full+=delta;bubbleEl.textContent=full;logEl.scrollTop=logEl.scrollHeight;}}catch(_){}
       }
-    };
-
-    let currentModelKey = "llama-8b-nvfp4"; // default
-
-    // ============================
-    // DOM references
-    // ============================
-
-    const curlExample = document.getElementById("curl-example");
-    const modelSelect = document.getElementById("model-select");
-    const pillContext = document.getElementById("pill-context");
-    const pillGpu = document.getElementById("pill-gpu");
-    const pillEndpoint = document.getElementById("pill-endpoint");
-    const modelDetails = document.getElementById("model-details");
-    const priceInputEl = document.getElementById("price-input");
-    const priceCachedInputEl = document.getElementById("price-cached-input");
-    const priceOutputEl = document.getElementById("price-output");
-    const chatModelLabel = document.getElementById("chat-model-label");
-    const chatLogEl = document.getElementById("chat-log");
-    const userInputEl = document.getElementById("user-input");
-    const sendBtn = document.getElementById("send-btn");
-    const resetBtn = document.getElementById("reset-btn");
-    const statusEl = document.getElementById("status");
-
-    const messages = []; // full conversation for the selected model
-
-    // ============================
-    // Helpers
-    // ============================
-
-    function getCurrentModelConfig() {
-      return MODELS[currentModelKey];
     }
+  }else{
+    const json=await resp.json();full=json.choices?.[0]?.message?.content??"";bubbleEl.textContent=full;
+  }
+  return full;
+}
 
-    function getApiBaseUrl() {
-      const cfg = getCurrentModelConfig();
-      return (cfg && cfg.baseUrl) || DEFAULT_API_BASE_URL;
-    }
+async function sendChat(){
+  const input=document.getElementById("chat-input");
+  const text=input.value.trim();if(!text)return;
+  const btn=document.getElementById("send-btn");btn.disabled=true;input.value="";setStatus("");
+  const cfgA=MODELS[selectedModelKey];
+  const cfgB=compareMode&&compareModelKey?MODELS[compareModelKey]:null;
+  const logA=document.getElementById("chat-log-a"),logB=document.getElementById("chat-log-b");
+  appendMsg(logA,"user",text);messagesA.push({role:"user",content:text});
+  if(cfgB){appendMsg(logB,"user",text);messagesB.push({role:"user",content:text});}
+  const{div:dA,bubble:bA}=appendTyping(logA);
+  const tB=cfgB?appendTyping(logB):null;
+  try{
+    const proms=[callModel(cfgA,messagesA,bA,logA)];
+    if(cfgB&&tB)proms.push(callModel(cfgB,messagesB,tB.bubble,logB));
+    const[rA,rB]=await Promise.all(proms);
+    if(rA)messagesA.push({role:"assistant",content:rA});else{try{logA.removeChild(dA);}catch(_){}setStatus("No response.",true);}
+    if(cfgB&&tB){if(rB)messagesB.push({role:"assistant",content:rB});else{try{logB.removeChild(tB.div);}catch(_){}}}
+  }catch(err){
+    console.error(err);setStatus("Error: "+err.message,true);
+    try{logA.removeChild(dA);}catch(_){}if(cfgB&&tB){try{logB.removeChild(tB.div);}catch(_){}}
+  }finally{btn.disabled=false;input.focus();}
+}
 
-    function getDisplayName(fullModelName) {
-      // Extract display name from full model name (e.g., "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4" -> "Llama-3.1-8B ModelOpt NVFP4")
-      if (!fullModelName) return "Unknown";
-      const name = fullModelName.split("/").pop() || fullModelName;
-      return name.replace(/-/g, " ").replace(/\s+/g, " ");
-    }
+document.getElementById("chat-input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}});
+document.getElementById("chat-input").addEventListener("input",function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px";});
 
-    function setStatus(text, isError = false) {
-      statusEl.textContent = text || "";
-      statusEl.className = "status" + (isError ? " error" : "");
-    }
-
-    function appendMessage(role, content) {
-      const msg = document.createElement("div");
-      msg.className = "msg";
-
-      const roleSpan = document.createElement("span");
-      roleSpan.className = "role " + role;
-      roleSpan.textContent =
-        role === "user"
-          ? "You"
-          : role === "assistant"
-          ? "Model"
-          : "System";
-
-      const contentSpan = document.createElement("span");
-      contentSpan.className = "content";
-      contentSpan.textContent = content;
-
-      msg.appendChild(roleSpan);
-      msg.appendChild(contentSpan);
-      chatLogEl.appendChild(msg);
-      chatLogEl.scrollTop = chatLogEl.scrollHeight;
-    }
-
-    function refreshModelUI() {
-      const cfg = getCurrentModelConfig();
-      if (!cfg) return;
-
-      const baseUrl = getApiBaseUrl();
-
-      if (pillContext) pillContext.textContent = `Context ≈ ${cfg.context}`;
-      if (pillGpu) pillGpu.textContent = `GPU ${cfg.gpu}`;
-      if (pillEndpoint) pillEndpoint.textContent = `Instance ${cfg.instanceLabel || "N/A"}`;
-
-      if (modelDetails) {
-        modelDetails.innerHTML =
-          `<strong>${getDisplayName(cfg.fullModelName)}</strong> · ` +
-          `${cfg.description || ""}`;
-      }
-
-      if (priceInputEl) {
-        priceInputEl.textContent = `$${cfg.inputPricePerM.toFixed(2)}`;
-      }
-      if (priceCachedInputEl) {
-        priceCachedInputEl.textContent = `$${cfg.cachedInputPricePerM.toFixed(4)}`;
-      }
-      if (priceOutputEl) {
-        priceOutputEl.textContent = `$${cfg.outputPricePerM.toFixed(2)}`;
-      }
-      if (chatModelLabel) {
-        chatModelLabel.textContent = cfg.fullModelName;
-      }
-
-      if (curlExample && baseUrl) {
-        curlExample.textContent =
-`curl ${baseUrl}/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
-    "messages": [
-      {"role": "user", "content": "Say hello from TokenLabs."}
-    ]
-  }'`;
-      }
-    }
-
-    // ============================
-    // Model selection init
-    // ============================
-
-    if (modelSelect) {
-      Object.entries(MODELS).forEach(([key, cfg]) => {
-        const opt = document.createElement("option");
-        opt.value = key;
-        opt.textContent = getDisplayName(cfg.fullModelName);
-        if (key === currentModelKey) opt.selected = true;
-        modelSelect.appendChild(opt);
-      });
-
-      modelSelect.addEventListener("change", () => {
-        currentModelKey = modelSelect.value;
-        messages.length = 0;
-        chatLogEl.innerHTML = "";
-        setStatus("");
-        refreshModelUI();
-      });
-    }
-
-    // Initial UI sync
-    refreshModelUI();
-
-    // ============================
-    // Chat send logic
-    // ============================
-
-    async function sendMessage() {
-      const userText = userInputEl.value.trim();
-      const cfg = getCurrentModelConfig();
-      const baseUrl = getApiBaseUrl();
-
-      if (!cfg || !baseUrl) {
-        setStatus("Model or API base URL not configured.", true);
-        return;
-      }
-
-      if (!userText) {
-        setStatus("Type a message first.", true);
-        return;
-      }
-
-      setStatus("");
-      sendBtn.disabled = true;
-
-      appendMessage("user", userText);
-      messages.push({ role: "user", content: userText });
-      userInputEl.value = "";
-
-      // Create assistant message element for streaming
-      const assistantMsg = document.createElement("div");
-      assistantMsg.className = "msg";
-      const roleSpan = document.createElement("span");
-      roleSpan.className = "role assistant";
-      roleSpan.textContent = "Model";
-      const contentSpan = document.createElement("span");
-      contentSpan.className = "content";
-      assistantMsg.appendChild(roleSpan);
-      assistantMsg.appendChild(contentSpan);
-      chatLogEl.appendChild(assistantMsg);
-
-      let fullReply = "";
-
-      try {
-        const resp = await fetch(baseUrl + "/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: cfg.fullModelName,
-            messages: messages,
-            max_tokens: 512,
-            stream: true,
-          }),
-        });
-
-        if (!resp.ok) {
-          const text = await resp.text();
-          console.error("Error response:", resp.status, text);
-          setStatus("Error: " + resp.status + " – see console", true);
-          chatLogEl.removeChild(assistantMsg);
-          return;
-        }
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                const delta = parsed.choices?.[0]?.delta?.content;
-                if (delta) {
-                  fullReply += delta;
-                  contentSpan.textContent = fullReply;
-                  chatLogEl.scrollTop = chatLogEl.scrollHeight;
-                }
-              } catch (e) {
-                // Skip malformed JSON chunks
-              }
-            }
-          }
-        }
-
-        if (!fullReply) {
-          setStatus("No response from model.", true);
-          chatLogEl.removeChild(assistantMsg);
-          return;
-        }
-
-        messages.push({ role: "assistant", content: fullReply });
-        setStatus("");
-      } catch (err) {
-        console.error("Network error:", err);
-        setStatus("Network error – see console", true);
-        if (assistantMsg.parentNode) {
-          chatLogEl.removeChild(assistantMsg);
-        }
-      } finally {
-        sendBtn.disabled = false;
-      }
-    }
-
-    sendBtn.addEventListener("click", sendMessage);
-    userInputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-
-    resetBtn.addEventListener("click", () => {
-      messages.length = 0;
-      chatLogEl.innerHTML = "";
-      setStatus("");
-    });
-  </script>
+renderSidebar();refreshHeader();refreshOverview();refreshApiPanel();refreshPlaygroundSelects();refreshColHeaders();
+</script>
 </body>
 </html>

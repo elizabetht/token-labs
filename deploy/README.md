@@ -1,11 +1,44 @@
 # TokenLabs Deployment Guide
 
+## Stack
+
+| Layer | Component | Version | Role |
+|---|---|---|---|
+| **Gateway** | [Envoy AI Gateway](https://aigateway.envoyproxy.io/) | v0.5.0 | AI-aware proxy: body parsing, model routing, FQDN backends |
+| **Gateway engine** | [Envoy Gateway](https://gateway.envoyproxy.io/) | v1.5.0 | Kubernetes Gateway API implementation (EAG builds on top of EG) |
+| **Tenant controls** | [Kuadrant](https://docs.kuadrant.io/) | latest | API-key auth, per-tenant request + token-based rate limiting |
+| **Inference routing** | [llm-d](https://llm-d.ai/) | v0.5.0 | KV-cache & queue-depth aware pod selection via ext_proc (EPP) |
+
+## How Multi-Model Routing Works (no BBR needed)
+
+```
+Client  POST /v1/chat/completions  {"model": "nvidia/...", "messages": [...]}
+  │
+  ▼ Kuadrant AuthPolicy (Authorino validates Bearer token → extracts tier/userid)
+  │
+  ▼ Kuadrant RateLimitPolicy (Limitador: req count per tier per window)
+  │
+  ▼ EAG AI filter (reads "model" from JSON body → sets x-ai-eg-model header)
+  │     No ConfigMaps, no separate ext_proc sidecar — EAG does this natively.
+  │
+  ▼ AIGatewayRoute (matches x-ai-eg-model header → selects InferencePool)
+  │     nvidia/Llama-3.1-Nemotron-Nano-8B-v1   → token-labs-pool (spark-01)
+  │     nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8 → nemotron-vl-pool (spark-02)
+  │
+  ▼ llm-d EPP (KV-cache + queue aware pod picker within the InferencePool)
+  │
+  ▼ vLLM worker (generates completion, returns usage.total_tokens)
+  │
+  ▼ Kuadrant TokenRateLimitPolicy (extracts total_tokens → per-tenant quota)
+```
+
 ## Prerequisites
 
-- MicroK8s cluster with GPU workers (spark-01, spark-02)
-- `kubectl` configured for the cluster
-- `helm` v3.x installed
-- `helmfile` installed (for llm-d)
+- MicroK8s cluster: `controller` (AMD64), `spark-01` (ARM64, GB10 GPU), `spark-02` (ARM64, GB10 GPU)
+- `kubectl` configured
+- `helm` v3.x + `helmfile`
+- NVIDIA GPU Operator running (already installed in `gpu-operator` namespace)
+
 
 ## Deployment Order
 
@@ -13,15 +46,16 @@
 # 1. Install Gateway API CRDs + Inference Extension CRDs
 ./deploy/scripts/01-install-crds.sh
 
-# 2. Install Envoy Gateway
-./deploy/scripts/02-install-envoy-gateway.sh
+# 2. Install Envoy AI Gateway (EAG v0.5.0 + EG v1.5.0 + Redis)
+./deploy/scripts/02-install-envoy-ai-gateway.sh
 
-# 3. Install Kuadrant Operator
+# 3. Install Kuadrant (Authorino + Limitador)
 ./deploy/scripts/03-install-kuadrant.sh
 
-# 4. Deploy llm-d (infra + model services + inference pools)
+# 4. Deploy llm-d (infra + 2x InferencePools + 2x ModelServices)
 ./deploy/scripts/04-deploy-llm-d.sh
 
+<<<<<<< HEAD
 # 5. Deploy AI Gateway Route (model-based routing to InferencePool)
 ./deploy/scripts/05-deploy-ai-gateway-route.sh
 
@@ -31,7 +65,22 @@ kubectl apply -f deploy/magpie-tts/
 # 7. Apply Gateway and Kuadrant policies
 kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/namespace.yaml
+=======
+# 5. Deploy the Gateway, AIGatewayRoute, and namespace
+kubectl apply -f deploy/gateway/namespace.yaml
+kubectl apply -f deploy/gateway/gateway.yaml
+kubectl apply -f deploy/gateway/aigwroute.yaml    # replaces old httproute + BBR
+
+# 6. Apply Kuadrant policies (auth + rate limits + token quotas)
+>>>>>>> 99db350 (Use llm-d)
 kubectl apply -f deploy/policies/
+
+# 7. Deploy Magpie TTS + Riva STT proxy
+#    (first create NVIDIA API key Secret for Riva STT)
+kubectl create secret generic nvidia-nim-api-key \
+  --from-literal=apiKey=nvapi-CHANGEME \
+  -n token-labs
+./deploy/scripts/05-deploy-services.sh
 
 # 8. Create tenant API keys
 kubectl apply -f deploy/tenants/
@@ -41,6 +90,7 @@ kubectl apply -f deploy/tenants/
 
 ```
 deploy/
+<<<<<<< HEAD
 ├── scripts/             # Installation scripts
 │   ├── 01-install-crds.sh
 │   ├── 02-install-envoy-gateway.sh
@@ -72,55 +122,124 @@ deploy/
 │   └── tenant-pro-demo.yaml
 └── monitoring/          # Observability (optional)
     └── service-monitors.yaml
+=======
+├── scripts/
+│   ├── 01-install-crds.sh               # Gateway API + Inference Extension CRDs
+│   ├── 02-install-envoy-ai-gateway.sh   # EAG v0.5.0 + EG v1.5.0 + Redis
+│   ├── 03-install-kuadrant.sh           # Kuadrant (Authorino + Limitador)
+│   ├── 04-deploy-llm-d.sh               # llm-d helmfile (5 releases)
+│   └── 05-deploy-services.sh            # Magpie TTS + Riva STT
+├── gateway/
+│   ├── namespace.yaml                   # token-labs namespace
+│   ├── gateway.yaml                     # Gateway (gatewayClassName: eg)
+│   ├── aigwroute.yaml                   # AIGatewayRoute: model → InferencePool routing
+│   └── envoy-gateway-values.yaml        # EG helm values: EAG extension manager + InferencePool
+├── llm-d/
+│   ├── helmfile.yaml.gotmpl             # 5-release helmfile
+│   └── values/
+│       ├── infra.yaml                   # llm-d-infra: gateway class config
+│       ├── inferencepool.yaml           # EPP for Nemotron-Llama (token-labs-pool)
+│       ├── inferencepool-nemotron-vl.yaml  # EPP for Nemotron VL (nemotron-vl-pool)
+│       ├── modelservice.yaml            # vLLM Nemotron-Llama 8B on spark-01
+│       └── modelservice-nemotron-vl.yaml   # vLLM Nemotron VL 12B FP8 on spark-02
+├── magpie-tts/
+│   ├── deployment.yaml                  # Magpie TTS on spark-01 (CPU mode)
+│   └── httproute.yaml                   # Routes /v1/audio/speech, /v1/audio/models, /v1/audio/health → magpie-tts Service
+├── riva-stt/
+│   ├── backend.yaml                     # EG Backend + BackendTLSPolicy + BackendSecurityPolicy
+│   ├── httproute.yaml                   # Route /v1/audio/transcriptions → NVIDIA NIM
+│   └── secret-template.yaml            # NVIDIA API key Secret template
+├── policies/
+│   ├── kuadrant.yaml                    # Kuadrant instance (bootstraps Authorino + Limitador)
+│   ├── auth-policy.yaml                 # API key auth (Authorization: Bearer <key>)
+│   ├── rate-limit-policy.yaml           # Per-tenant request-count limits
+│   └── token-rate-limit-policy.yaml     # Per-tenant token quota limits
+├── tenants/
+│   ├── tenant-free-demo.yaml            # Demo free-tier API key
+│   ├── tenant-pro-demo.yaml             # Demo pro-tier API key
+│   └── tenant-template.yaml            # Template for new tenants
+└── monitoring/
+    └── service-monitors.yaml            # Prometheus ServiceMonitors
+>>>>>>> 99db350 (Use llm-d)
 ```
 
 ## Verification
 
 ```bash
-# Check all components are running
+# Check EAG + EG
+kubectl get pods -n envoy-ai-gateway-system
 kubectl get pods -n envoy-gateway-system
+kubectl get gatewayclass
+
+# Check Kuadrant
 kubectl get pods -n kuadrant-system
+
+# Check llm-d
+kubectl get inferencepool -n token-labs
 kubectl get pods -n token-labs
 
+<<<<<<< HEAD
 # Check inference pools and AI Gateway route
 kubectl get inferencepool -n token-labs
 kubectl get aigatewayroute -n token-labs
+=======
+# Check AIGatewayRoute
+kubectl get aigatewayroutes -n token-labs
+kubectl describe aigatewayroute llm-inference -n token-labs
+>>>>>>> 99db350 (Use llm-d)
 
-# Check policies are accepted
-kubectl get authpolicy -n token-labs
-kubectl get ratelimitpolicy -n token-labs
-kubectl get tokenratelimitpolicy -n token-labs
-
-# Test Llama 3.1 8B (chat)
-curl -H "Host: inference.token-labs.local" \
-     -H "Authorization: APIKEY tlabs_free_demo_key" \
-     -H "Content-Type: application/json" \
-     -X POST http://<GATEWAY_IP>/v1/chat/completions \
-     -d '{
-       "model": "meta-llama/Llama-3.1-8B-Instruct",
-       "messages": [{"role": "user", "content": "Hello"}],
-       "max_tokens": 100
-     }'
-
-# Test Nemotron VL 12B (vision-language)
-curl -H "Host: inference.token-labs.local" \
-     -H "Authorization: APIKEY tlabs_free_demo_key" \
-     -H "Content-Type: application/json" \
-     -X POST http://<GATEWAY_IP>/v1/chat/completions \
-     -d '{
-       "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
-       "messages": [{"role": "user", "content": "Describe this image."}],
-       "max_tokens": 100
-     }'
-
-# Test Magpie TTS (text-to-speech)
-curl -H "Host: inference.token-labs.local" \
-     -H "Authorization: APIKEY tlabs_free_demo_key" \
-     -H "Content-Type: application/json" \
-     -X POST http://<GATEWAY_IP>/v1/audio/speech \
-     -d '{
-       "input": "Welcome to Token Labs.",
-       "voice": "aria",
-       "language": "en"
-     }' --output speech.wav
+# Get Gateway IP
+kubectl get gateway token-labs-gateway -n token-labs \
+  -o jsonpath='{.status.addresses[0].value}'
 ```
+
+## Testing
+
+```bash
+GATEWAY_IP=$(kubectl get gateway token-labs-gateway -n token-labs \
+  -o jsonpath='{.status.addresses[0].value}')
+
+# Nemotron-Llama 8B (spark-01)
+curl -H "Host: inference.token-labs.local" \
+     -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
+     -H "Content-Type: application/json" \
+     -X POST http://${GATEWAY_IP}/v1/chat/completions \
+     -d '{"model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+          "messages": [{"role": "user", "content": "Hello!"}],
+          "max_tokens": 100}'
+
+# Nemotron VL 12B FP8 (spark-02)
+curl -H "Host: inference.token-labs.local" \
+     -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
+     -H "Content-Type: application/json" \
+     -X POST http://${GATEWAY_IP}/v1/chat/completions \
+     -d '{"model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
+          "messages": [{"role": "user", "content": "Describe this image."}],
+          "max_tokens": 100}'
+
+# Magpie TTS
+curl -H "Host: inference.token-labs.local" \
+     -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
+     -H "Content-Type: application/json" \
+     -X POST http://${GATEWAY_IP}/v1/audio/speech \
+     -d '{"input": "Welcome to Token Labs.", "voice": "aria"}' \
+     --output speech.wav
+
+# Riva STT (requires NVIDIA NIM API key)
+curl -H "Host: inference.token-labs.local" \
+     -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
+     -X POST http://${GATEWAY_IP}/v1/audio/transcriptions \
+     -F "file=@audio.wav" \
+     -F "model=nvidia/parakeet-ctc-1.1b"
+```
+
+## GPU Layout
+
+| Node | GPU | vLLM Model | Other |
+|---|---|---|---|
+| spark-01 | GB10 (72GB) | Nemotron-Llama 8B (80% util) | Magpie TTS (CPU) |
+| spark-02 | GB10 (72GB) | Nemotron VL 12B FP8 (90% util) | — |
+
+**GPU sharing**: `nvidia.com/gpu.sharing-strategy=none` on both nodes.
+Each node can only run one GPU-requesting pod. Magpie TTS runs CPU-only.
+To enable GPU sharing for TTS: configure MPS time-slicing via GPU Operator.

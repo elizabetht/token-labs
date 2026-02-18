@@ -1,22 +1,34 @@
-# InferencePool + EPP values
-pool:
-  name: token-labs-pool
-  modelName: "meta-llama/Llama-3.1-8B-Instruct"
+# InferencePool + EPP values — Nemotron-Llama 8B (token-labs-pool)
+#
+# The EPP (Endpoint Picker) is the inference-aware ext_proc sidecar from upstream GAIE.
+# matchLabels must match the pods created by the llm-d-modelservice release.
 
-  # EPP (Endpoint Picker) — inference-aware ext_proc routing
-  epp:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 500m
-        memory: 512Mi
-      limits:
-        cpu: "2"
-        memory: 1Gi
+inferencePool:
+  modelServers:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+      llm-d.ai/model: llama-3-1-8b
+  modelServerType: vllm
 
-  # Scheduling configuration
-  scheduling:
-    # KV-cache aware load balancing
-    kvCacheAware: true
-    # Queue-depth aware routing
-    queueDepthAware: true
+inferenceExtension:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  # EPP image is amd64-only; pin to controller node (DGX Spark nodes are arm64)
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+
+provider:
+  name: none
