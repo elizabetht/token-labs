@@ -58,17 +58,43 @@ Client  POST /v1/chat/completions  {"model": "nvidia/...", "messages": [...]}
 # 5. Deploy AI Gateway Route (model-based routing to InferencePool)
 ./deploy/scripts/05-deploy-ai-gateway-route.sh
 
-# 6. On controller: enable Buildx plugin + multiarch builder
-sudo apt-get update && sudo apt-get install -y docker-buildx
-docker buildx create --use --name multiarch || docker buildx use multiarch
-docker buildx inspect --bootstrap
+# 6. Build and push Magpie TTS image
+#
+# IMPORTANT: Must be built natively on spark-01 (ARM64).
+# Do NOT use --platform linux/arm64 via QEMU on controller (AMD64) —
+# it segfaults during apt libc-bin postinstall under emulation.
+#
+# The model (nvidia/magpie_tts_multilingual_357m) is NOT baked into the image;
+# it downloads from NGC on first pod startup (~1-2 min).
+#
+# Option A — build directly on spark-01 (ssh in first):
+#   ssh nvidia@spark-01
+#   cd ~/src/github.com/elizabetht/token-labs
+#   docker login ghcr.io -u elizabetht   # GitHub PAT with write:packages scope
+#   docker build -t ghcr.io/elizabetht/token-labs/magpie-tts:latest services/magpie-tts
+#   docker push ghcr.io/elizabetht/token-labs/magpie-tts:latest
+#
+# Option B — use spark-01 as a remote buildx node (run from controller):
+#   docker buildx create \
+#     --name arm64-builder \
+#     --driver docker-container \
+#     --platform linux/arm64 \
+#     ssh://nvidia@spark-01 \
+#     --use
+#   docker buildx inspect --bootstrap
+#   docker buildx build \
+#     --platform linux/arm64 \
+#     --builder arm64-builder \
+#     -t ghcr.io/elizabetht/token-labs/magpie-tts:latest \
+#     --push \
+#     services/magpie-tts
 
-# 7. Build and push Magpie TTS image (spark-01 is ARM64)
-docker buildx build \
-  --platform linux/arm64 \
-  -t ghcr.io/elizabetht/token-labs/magpie-tts:latest \
-  --push \
-  services/magpie-tts
+# 7. Create GHCR pull secret (needed if the package is private)
+kubectl create secret docker-registry ghcr-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=elizabetht \
+  --docker-password=<GITHUB_PAT_read:packages> \
+  -n token-labs
 
 # 8. Deploy Magpie TTS (text-to-speech service)
 kubectl apply -f deploy/magpie-tts/
@@ -78,8 +104,7 @@ kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/namespace.yaml
 kubectl apply -f deploy/policies/
 
-# 10. Deploy Magpie TTS + Riva STT proxy
-#    (first create NVIDIA API key Secret for Riva STT)
+# 10. Create NVIDIA API key Secret and deploy Riva STT proxy
 kubectl create secret generic nvidia-nim-api-key \
   --from-literal=apiKey=nvapi-CHANGEME \
   -n token-labs

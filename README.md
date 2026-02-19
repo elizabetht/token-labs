@@ -14,27 +14,6 @@ TokenLabs composes four open-source projects, each handling a distinct concern:
 Client (Authorization: Bearer <api-key>)
   │
   ▼
-<<<<<<< HEAD
-┌──────────────────────────────────────────────────────────────┐
-│  Envoy Gateway  (gatewayClassName: eg)                       │
-│  ├─ Kuadrant AuthPolicy → Authorino        ① API key auth   │
-│  ├─ Kuadrant RateLimitPolicy → Limitador   ② Rate limits    │
-│  │                                                           │
-│  ├─ AI Gateway ext_proc                   ③ Model routing  │
-│  │   reads "model" → sets x-ai-eg-model header              │
-│  ├─ AIGatewayRoute → InferencePool                           │
-│  │   ├─ model=Llama-3.1-8B     → token-labs-pool (spark-01) │
-│  │   └─ model=Nemotron-VL-12B  → nemotron-vl-pool (spark-02)│
-│  ├─ llm-d EPP ext_proc                    ④ Inference sched │
-│  │                                                           │
-│  └─ /v1/audio/speech ──► Magpie TTS        ⑤ Text-to-speech │
-├──────────────────────────────────────────────────────────────┤
-│  vLLM / TTS Workers                                          │
-│  └─ Response with usage.total_tokens (LLMs)                  │
-├──────────────────────────────────────────────────────────────┤
-│  Kuadrant TokenRateLimitPolicy → Limitador  ⑥ Token quota   │
-└──────────────────────────────────────────────────────────────┘
-=======
 ┌──────────────────────────────────────────────────────────────────┐
 │  Envoy AI Gateway (EAG v0.5.0) + Envoy Gateway (EG v1.5.0)      │
 │  ├─ Kuadrant AuthPolicy → Authorino          ① API key auth      │
@@ -53,7 +32,6 @@ Client (Authorization: Bearer <api-key>)
 ├──────────────────────────────────────────────────────────────────┤
 │  Kuadrant TokenRateLimitPolicy → Limitador    ⑤ Token quota      │
 └──────────────────────────────────────────────────────────────────┘
->>>>>>> 99db350 (Use llm-d)
   │
   ▼
 Client receives response
@@ -61,15 +39,9 @@ Client receives response
 
 ### Components
 
-<<<<<<< HEAD
-**[Envoy Gateway](https://gateway.envoyproxy.io/)** — Kubernetes-native L7 proxy that implements the Gateway API. It serves as the single entry point for all client traffic. Envoy Gateway handles TLS termination, HTTP routing, and hosts ext_proc filters for the AI Gateway controller and llm-d EPP. It was chosen over Istio because the Gateway API Inference Extension explicitly supports it, and it's lighter weight than a full service mesh.
-
-**[Envoy AI Gateway](https://aigateway.envoyproxy.io/)** — AI-native routing layer that runs on top of Envoy Gateway. Its controller runs as an ext_proc extension that automatically extracts the `"model"` field from the request body, sets the `x-ai-eg-model` header, and routes to the correct InferencePool backend via `AIGatewayRoute` rules. It also tracks per-request token usage via `llmRequestCosts` (InputToken, OutputToken, TotalToken). This replaces the need for a separate Body Based Router or custom HTTPRoute header matching.
-=======
 **[Envoy AI Gateway](https://aigateway.envoyproxy.io/) (EAG v0.5.0)** — AI-aware proxy layer that extends Envoy Gateway. EAG adds the `AIGatewayRoute` CRD which natively parses the `"model"` field from JSON request bodies, sets the `x-ai-eg-model` header, and routes to the matching `InferencePool`. It also introduces `BackendSecurityPolicy` for upstream credential injection (used by Riva STT to swap the client's token-labs key for the NVIDIA API key). EAG replaces the old Body Based Router (BBR) ext_proc pattern — no ConfigMaps, no extra sidecar.
 
 **[Envoy Gateway](https://gateway.envoyproxy.io/) (EG v1.5.0)** — Kubernetes-native L7 proxy that implements the Gateway API. EG is the data plane; EAG extends it via an xDS extension manager hook. EG provisions Envoy proxy pods, handles TLS termination, and hosts ext_proc filters for llm-d's EPP. Chosen over Istio because the Gateway API Inference Extension explicitly supports it and it's lighter weight than a full service mesh.
->>>>>>> 99db350 (Use llm-d)
 
 **[Kuadrant](https://docs.kuadrant.io/)** — CNCF policy layer that deploys two backing services:
 - **Authorino** — external authorization service. When the `AuthPolicy` CRD is applied, Authorino intercepts every request and validates the API key (stored as a Kubernetes Secret). It extracts tenant metadata (tier, user-id) from the Secret's annotations and enriches the request context so downstream policies can use it.
@@ -249,32 +221,15 @@ kubectl get crd inferencepools.inference.networking.k8s.io
 kubectl get crd aigatewayroutes.aigateway.envoyproxy.io
 ```
 
-<<<<<<< HEAD
-### Step 2: Install Envoy Gateway + AI Gateway + Redis
-
-[Envoy Gateway](https://gateway.envoyproxy.io/) is the data-plane proxy. [Envoy AI Gateway](https://aigateway.envoyproxy.io/) adds AI-native routing on top — its controller extracts the model from the request body and routes to the correct InferencePool. Redis is required as the backend for Kuadrant's distributed rate limiting (Limitador stores counters in Redis).
-=======
 ### Step 2: Install Envoy AI Gateway + Envoy Gateway + Redis
 
 [Envoy AI Gateway (EAG)](https://aigateway.envoyproxy.io/) extends Envoy Gateway with AI-specific routing. Install order matters: EAG CRDs first, then the EAG controller (which creates a TLS cert Secret), then EG configured to connect to EAG via its extension manager. Redis is required for Kuadrant's distributed rate limiting (Limitador stores counters in Redis).
->>>>>>> 99db350 (Use llm-d)
 
 ```bash
 ./deploy/scripts/02-install-envoy-ai-gateway.sh
 ```
 
 What it does:
-<<<<<<< HEAD
-1. Deploys a standalone Redis instance into `redis-system`
-2. Installs Envoy Gateway v1.6.4 Helm chart with AI Gateway values files (extension manager, rate limiting addon, InferencePool addon)
-3. Installs the AI Gateway controller v0.5.0 into `envoy-ai-gateway-system`
-
-Verify:
-```bash
-kubectl get pods -n envoy-gateway-system       # envoy-gateway controller running
-kubectl get pods -n envoy-ai-gateway-system    # ai-gateway controller running
-kubectl get pods -n redis-system               # redis pod running
-=======
 1. Installs EAG CRDs (`ai-gateway-crds-helm` v0.5.0) — registers `AIGatewayRoute`, `AIServiceBackend`, `BackendSecurityPolicy`
 2. Installs the EAG controller (`ai-gateway-helm` v0.5.0) into `envoy-ai-gateway-system` and waits for it to be ready (it creates the TLS cert Secret needed by EG)
 3. Installs Envoy Gateway (`gateway-helm` v1.5.0) into `envoy-gateway-system` with EAG extension manager config and `InferencePool` as a valid backendRef type
@@ -286,7 +241,6 @@ kubectl get pods -n envoy-ai-gateway-system   # ai-gateway-controller running
 kubectl get pods -n envoy-gateway-system       # envoy-gateway controller running
 kubectl get pods -n redis-system               # redis pod running
 kubectl get gatewayclass                       # "eg" class listed
->>>>>>> 99db350 (Use llm-d)
 ```
 
 ### Step 3: Install Kuadrant
@@ -340,47 +294,7 @@ kubectl get pods -n token-labs           # 2 vLLM pods + 2 EPP pods running
 kubectl get inferencepool -n token-labs  # both pools should show Ready
 ```
 
-<<<<<<< HEAD
-### Step 5: Deploy AI Gateway Route
-
-The [Envoy AI Gateway](https://aigateway.envoyproxy.io/) uses the `AIGatewayRoute` CRD for model-based routing. The AI Gateway controller automatically extracts the `"model"` field from the request body, sets the `x-ai-eg-model` header, and the `AIGatewayRoute` matches on this header to route to the correct InferencePool backend. Token usage is tracked via `llmRequestCosts`.
-
-```bash
-./deploy/scripts/05-deploy-ai-gateway-route.sh
-```
-
-What it does:
-1. Applies the `AIGatewayRoute` resource which defines model-to-InferencePool routing rules
-2. Configures `llmRequestCosts` for per-request token tracking (InputToken, OutputToken, TotalToken)
-
-Verify:
-```bash
-kubectl get aigatewayroute -n token-labs    # AIGatewayRoute listed
-```
-
-### Step 6: Deploy Magpie TTS
-
-Magpie TTS is deployed as a standalone service (not through llm-d) because it uses the NeMo framework, not vLLM:
-
-```bash
-kubectl apply -f deploy/magpie-tts/
-```
-
-What it deploys:
-- A Deployment running the FastAPI TTS wrapper on spark-01 (GPU-accelerated, shared with Llama)
-- A Service exposing port 8000
-- An HTTPRoute mapping `/v1/audio/speech` through the same Gateway
-
-Verify:
-```bash
-kubectl get pods -n token-labs -l app=magpie-tts  # 1 pod running
-kubectl get httproute -n token-labs               # magpie-tts-route listed
-```
-
-### Step 7: Apply Gateway, routes, and policies
-=======
 ### Step 5: Deploy Gateway, routes, and policies
->>>>>>> 99db350 (Use llm-d)
 
 This step creates the actual networking and policy resources that wire everything together:
 
@@ -397,26 +311,12 @@ kubectl apply -f deploy/policies/
 **Gateway resources** (`deploy/gateway/`):
 - `namespace.yaml` — creates the `token-labs` namespace (idempotent)
 - `gateway.yaml` — creates a `Gateway` resource with `gatewayClassName: eg`, listening on HTTP port 80 with hostname `inference.token-labs.local`. Envoy Gateway sees this and provisions an Envoy proxy pod to handle traffic.
-<<<<<<< HEAD
-- `aigatewayroute.yaml` — creates an `AIGatewayRoute` with per-model header matching (deployed in step 5). The AI Gateway controller extracts the `"model"` field from the request body and sets the `x-ai-eg-model` header. Each rule matches on this header and routes to the correct `InferencePool` backend. The InferencePool is the bridge to llm-d's EPP — when Envoy receives a matching request, it invokes the EPP via ext_proc to pick the optimal vLLM pod.
-=======
 - `aigwroute.yaml` — creates an `AIGatewayRoute` for `/v1/chat/completions`. EAG's AI filter reads the `"model"` field from the JSON request body and sets the `x-ai-eg-model` header. Each rule matches on this header and routes to the correct `InferencePool` backend. The `InferencePool` is the bridge to llm-d's EPP — Envoy invokes the EPP via ext_proc to pick the optimal vLLM pod for each request.
->>>>>>> 99db350 (Use llm-d)
 
 **Kuadrant policies** (`deploy/policies/`):
 - `kuadrant.yaml` — the `Kuadrant` CR (idempotent, already created in step 3)
 - `auth-policy.yaml` — `AuthPolicy` targeting the Gateway. Configures API key authentication: Authorino validates the `Authorization: Bearer <key>` header by looking up Secrets labeled `app: token-labs`. On match, it extracts `kuadrant.io/groups` (tier) and `secret.kuadrant.io/user-id` (tenant ID) from annotations and passes them in the request context. An OPA policy validates the tier is one of `free`, `pro`, or `enterprise`.
 - `rate-limit-policy.yaml` — `RateLimitPolicy` targeting the Gateway. Defines per-tier request count limits (e.g., free = 10/min and 100/day). Uses `when` predicates with CEL expressions to match `auth.identity.groups` and `counters` keyed by `auth.identity.userid` for tenant isolation.
-<<<<<<< HEAD
-- `token-rate-limit-policy.yaml` — `TokenRateLimitPolicy` targeting the Gateway for `/v1/chat/completions`. This is the key CRD for LLM billing. After vLLM returns a response, Kuadrant's wasm-shim parses `usage.total_tokens` from the JSON body and sends it to Limitador as `hits_addend`. Each tenant's cumulative token usage is tracked per time window.
-
-Verify:
-```bash
-kubectl get gateway -n token-labs            # Programmed: True
-kubectl get aigatewayroute -n token-labs     # Listed
-kubectl get authpolicy -n token-labs         # Accepted: True
-kubectl get ratelimitpolicy -n token-labs    # Accepted: True
-=======
 - `token-rate-limit-policy.yaml` — `TokenRateLimitPolicy` targeting the `AIGatewayRoute` for `/v1/chat/completions`. After vLLM returns a response, Kuadrant's wasm-shim parses `usage.total_tokens` from the JSON body and sends it to Limitador as `hits_addend`. Each tenant's cumulative token usage is tracked per time window.
 
 Verify:
@@ -425,7 +325,6 @@ kubectl get gateway -n token-labs               # Programmed: True
 kubectl get aigatewayroute -n token-labs        # llm-inference listed
 kubectl get authpolicy -n token-labs            # Accepted: True
 kubectl get ratelimitpolicy -n token-labs       # Accepted: True
->>>>>>> 99db350 (Use llm-d)
 kubectl get tokenratelimitpolicy -n token-labs  # Accepted: True
 ```
 
@@ -564,14 +463,6 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 ```
 ├── deploy/
 │   ├── scripts/              # Installation scripts (run in order)
-<<<<<<< HEAD
-│   │   ├── 01-install-crds.sh
-│   │   ├── 02-install-envoy-gateway.sh
-│   │   ├── 03-install-kuadrant.sh
-│   │   ├── 04-deploy-llm-d.sh
-│   │   └── 05-deploy-ai-gateway-route.sh
-│   ├── gateway/              # Gateway + AIGatewayRoute resources
-=======
 │   │   ├── 01-install-crds.sh               # Gateway API + Inference Extension CRDs
 │   │   ├── 02-install-envoy-ai-gateway.sh   # EAG v0.5.0 + EG v1.5.0 + Redis
 │   │   ├── 03-install-kuadrant.sh           # Kuadrant (Authorino + Limitador)
@@ -582,7 +473,6 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   │   ├── gateway.yaml                     # Gateway (gatewayClassName: eg)
 │   │   ├── aigwroute.yaml                   # AIGatewayRoute: model → InferencePool
 │   │   └── envoy-gateway-values.yaml        # EG helm values: EAG extension manager
->>>>>>> 99db350 (Use llm-d)
 │   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
 │   │   ├── helmfile.yaml.gotmpl
 │   │   └── values/
