@@ -16,7 +16,10 @@ decode:
   parallelism:
     tensor: 1
 
-  runtimeClassName: nvidia
+  # runtimeClassName must go through extraConfig — the chart template has no
+  # direct runtimeClassName block; only nodeSelector/tolerations are explicit.
+  extraConfig:
+    runtimeClassName: nvidia
 
   # Pin to spark-02. spark-01 is reserved for Nemotron-Llama.
   nodeSelector:
@@ -44,10 +47,12 @@ decode:
     # vLLM arguments for Nemotron VL 12B FP8
     # --quantization=modelopt: uses NVIDIA ModelOpt FP8 calibration data
     # --trust-remote-code: required for Nemotron VL custom model code
+    env:
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
     args:
     - "--trust-remote-code"
     - "--quantization=modelopt"
-    - "--max-model-len=auto"
     - "--dtype=auto"
     - "--enforce-eager"
     - "--gpu-memory-utilization=0.90"
