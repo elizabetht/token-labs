@@ -18,9 +18,6 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 COPY server.py .
 
-# Pre-download the model at build time
-RUN python -c "from nemo.collections.tts.models import MagpieTTSModel; MagpieTTSModel.from_pretrained('nvidia/magpie_tts_multilingual_357m')"
-
 EXPOSE 8000
 
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
