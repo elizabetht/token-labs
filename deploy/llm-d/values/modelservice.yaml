@@ -49,6 +49,30 @@ decode:
     env:
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    # vLLM exposes GET /health on port 8000 (200 = ready, 503 = loading)
+    # startupProbe: up to 10 min for model weights to load before liveness kicks in
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 60   # 30s + 60x10s = up to 10 min
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 3
+      timeoutSeconds: 10
     # vLLM engine arguments for Nemotron-Llama 8B (BF16, fits in 72GB GB10 GPU)
     args:
     - "--dtype=bfloat16"

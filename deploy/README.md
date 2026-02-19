@@ -55,34 +55,37 @@ Client  POST /v1/chat/completions  {"model": "nvidia/...", "messages": [...]}
 # 4. Deploy llm-d (infra + 2x InferencePools + 2x ModelServices)
 ./deploy/scripts/04-deploy-llm-d.sh
 
-<<<<<<< HEAD
 # 5. Deploy AI Gateway Route (model-based routing to InferencePool)
 ./deploy/scripts/05-deploy-ai-gateway-route.sh
 
-# 6. Deploy Magpie TTS (text-to-speech service)
+# 6. On controller: enable Buildx plugin + multiarch builder
+sudo apt-get update && sudo apt-get install -y docker-buildx
+docker buildx create --use --name multiarch || docker buildx use multiarch
+docker buildx inspect --bootstrap
+
+# 7. Build and push Magpie TTS image (spark-01 is ARM64)
+docker buildx build \
+  --platform linux/arm64 \
+  -t ghcr.io/elizabetht/token-labs/magpie-tts:latest \
+  --push \
+  services/magpie-tts
+
+# 8. Deploy Magpie TTS (text-to-speech service)
 kubectl apply -f deploy/magpie-tts/
 
-# 7. Apply Gateway and Kuadrant policies
+# 9. Apply Gateway and Kuadrant policies
 kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/namespace.yaml
-=======
-# 5. Deploy the Gateway, AIGatewayRoute, and namespace
-kubectl apply -f deploy/gateway/namespace.yaml
-kubectl apply -f deploy/gateway/gateway.yaml
-kubectl apply -f deploy/gateway/aigwroute.yaml    # replaces old httproute + BBR
-
-# 6. Apply Kuadrant policies (auth + rate limits + token quotas)
->>>>>>> 99db350 (Use llm-d)
 kubectl apply -f deploy/policies/
 
-# 7. Deploy Magpie TTS + Riva STT proxy
+# 10. Deploy Magpie TTS + Riva STT proxy
 #    (first create NVIDIA API key Secret for Riva STT)
 kubectl create secret generic nvidia-nim-api-key \
   --from-literal=apiKey=nvapi-CHANGEME \
   -n token-labs
 ./deploy/scripts/05-deploy-services.sh
 
-# 8. Create tenant API keys
+# 11. Create tenant API keys
 kubectl apply -f deploy/tenants/
 ```
 
@@ -90,7 +93,6 @@ kubectl apply -f deploy/tenants/
 
 ```
 deploy/
-<<<<<<< HEAD
 ├── scripts/             # Installation scripts
 │   ├── 01-install-crds.sh
 │   ├── 02-install-envoy-gateway.sh
@@ -122,45 +124,6 @@ deploy/
 │   └── tenant-pro-demo.yaml
 └── monitoring/          # Observability (optional)
     └── service-monitors.yaml
-=======
-├── scripts/
-│   ├── 01-install-crds.sh               # Gateway API + Inference Extension CRDs
-│   ├── 02-install-envoy-ai-gateway.sh   # EAG v0.5.0 + EG v1.5.0 + Redis
-│   ├── 03-install-kuadrant.sh           # Kuadrant (Authorino + Limitador)
-│   ├── 04-deploy-llm-d.sh               # llm-d helmfile (5 releases)
-│   └── 05-deploy-services.sh            # Magpie TTS + Riva STT
-├── gateway/
-│   ├── namespace.yaml                   # token-labs namespace
-│   ├── gateway.yaml                     # Gateway (gatewayClassName: eg)
-│   ├── aigwroute.yaml                   # AIGatewayRoute: model → InferencePool routing
-│   └── envoy-gateway-values.yaml        # EG helm values: EAG extension manager + InferencePool
-├── llm-d/
-│   ├── helmfile.yaml.gotmpl             # 5-release helmfile
-│   └── values/
-│       ├── infra.yaml                   # llm-d-infra: gateway class config
-│       ├── inferencepool.yaml           # EPP for Nemotron-Llama (token-labs-pool)
-│       ├── inferencepool-nemotron-vl.yaml  # EPP for Nemotron VL (nemotron-vl-pool)
-│       ├── modelservice.yaml            # vLLM Nemotron-Llama 8B on spark-01
-│       └── modelservice-nemotron-vl.yaml   # vLLM Nemotron VL 12B FP8 on spark-02
-├── magpie-tts/
-│   ├── deployment.yaml                  # Magpie TTS on spark-01 (CPU mode)
-│   └── httproute.yaml                   # Routes /v1/audio/speech, /v1/audio/models, /v1/audio/health → magpie-tts Service
-├── riva-stt/
-│   ├── backend.yaml                     # EG Backend + BackendTLSPolicy + BackendSecurityPolicy
-│   ├── httproute.yaml                   # Route /v1/audio/transcriptions → NVIDIA NIM
-│   └── secret-template.yaml            # NVIDIA API key Secret template
-├── policies/
-│   ├── kuadrant.yaml                    # Kuadrant instance (bootstraps Authorino + Limitador)
-│   ├── auth-policy.yaml                 # API key auth (Authorization: Bearer <key>)
-│   ├── rate-limit-policy.yaml           # Per-tenant request-count limits
-│   └── token-rate-limit-policy.yaml     # Per-tenant token quota limits
-├── tenants/
-│   ├── tenant-free-demo.yaml            # Demo free-tier API key
-│   ├── tenant-pro-demo.yaml             # Demo pro-tier API key
-│   └── tenant-template.yaml            # Template for new tenants
-└── monitoring/
-    └── service-monitors.yaml            # Prometheus ServiceMonitors
->>>>>>> 99db350 (Use llm-d)
 ```
 
 ## Verification
@@ -178,15 +141,9 @@ kubectl get pods -n kuadrant-system
 kubectl get inferencepool -n token-labs
 kubectl get pods -n token-labs
 
-<<<<<<< HEAD
 # Check inference pools and AI Gateway route
 kubectl get inferencepool -n token-labs
 kubectl get aigatewayroute -n token-labs
-=======
-# Check AIGatewayRoute
-kubectl get aigatewayroutes -n token-labs
-kubectl describe aigatewayroute llm-inference -n token-labs
->>>>>>> 99db350 (Use llm-d)
 
 # Get Gateway IP
 kubectl get gateway token-labs-gateway -n token-labs \

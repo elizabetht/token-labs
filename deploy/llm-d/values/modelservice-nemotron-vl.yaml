@@ -50,6 +50,30 @@ decode:
     env:
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    # vLLM exposes GET /health on port 8000 (200 = ready, 503 = loading)
+    # startupProbe: up to 15 min for FP8 model + trust-remote-code compilation
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 90   # 30s + 90x10s = up to 15 min
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 3
+      timeoutSeconds: 10
     args:
     - "--trust-remote-code"
     - "--quantization=modelopt"

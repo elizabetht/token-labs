@@ -45,6 +45,14 @@ spec:
           limits:
             cpu: "4"
             memory: 8Gi
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 30
+          timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /health
