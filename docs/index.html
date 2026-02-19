@@ -228,6 +228,10 @@
   </div>
   <div class="nav-right">
     <span class="live-badge"><span class="live-dot"></span>LIVE</span>
+    <input type="password" id="api-key-input" placeholder="API Key" title="Your Token Labs API key"
+      style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--text);outline:none;width:180px;transition:border-color 0.15s;"
+      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+      oninput="saveApiKey(this.value)" />
     <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">&#9733; GitHub</a>
   </div>
 </nav>
@@ -483,36 +487,30 @@
 const DEFAULT_API_BASE = "https://api.tokenlabs.run";
 
 const MODELS = {
-  "llama-8b-instruct": {
-    displayName:"Llama 3.1 8B Instruct", fullModelName:"meta-llama/Llama-3.1-8B-Instruct",
-    org:"Meta", avatar:"\uD83E\uDD99", avatarBg:"rgba(245,158,11,0.15)", avatarColor:"#fbbf24",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
+  "nemotron-llama-8b": {
+    displayName:"Nemotron-Llama 8B", fullModelName:"nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+    org:"NVIDIA", avatar:"\uD83E\uDD16", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
     precision:"BF16", quantization:"None (full precision)", license:"Llama 3.1 Community", params:"8B",
-    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
-    description:"Meta\'s official Llama 3.1 8B instruction-tuned model in full BF16 precision.",
-    tags:["base","instruction","8B"], tagColors:["tag-orange","tag-blue","tag-teal"], filter:"base",
+    baseUrl:DEFAULT_API_BASE, inputPricePerM:0.006, cachedInputPricePerM:0.0, outputPricePerM:0.037,
+    description:"NVIDIA\'s Nemotron-Nano 8B — an instruction-tuned Llama 3.1 8B variant optimised for reasoning and STEM tasks. Runs in full BF16 on spark-01.",
+    tags:["base","instruction","8B"], tagColors:["tag-green","tag-blue","tag-teal"], filter:"base",
   },
-  "llama-8b-nvfp4": {
-    displayName:"Llama 3.1 8B NVFP4", fullModelName:"tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
-    org:"TokenLabs", avatar:"\u26A1", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
-    precision:"NVFP4", quantization:"NVFP4 QAT (ModelOpt)", license:"Llama 3.1 Community", params:"8B",
-    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
-    description:"NVFP4 QAT-quantized via NVIDIA ModelOpt. Maximum throughput with minimal quality loss.",
-    tags:["quantized","NVFP4","8B"], tagColors:["tag-green","tag-purple","tag-teal"], filter:"quantized",
-  },
-  "llama-8b-fp8": {
-    displayName:"Llama 3.1 8B FP8", fullModelName:"tokenlabsdotrun/Llama-3.1-8B-ModelOpt-FP8-QAT",
-    org:"TokenLabs", avatar:"\uD83D\uDD2C", avatarBg:"rgba(139,92,246,0.15)", avatarColor:"#a78bfa",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark", gpuVram:"40 GB",
-    precision:"FP8", quantization:"FP8 QAT (ModelOpt)", license:"Llama 3.1 Community", params:"8B",
-    baseUrl:DEFAULT_API_BASE, inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
-    description:"FP8 QAT-quantized model balancing inference speed and output quality.",
-    tags:["quantized","FP8","8B"], tagColors:["tag-purple","tag-blue","tag-teal"], filter:"quantized",
+  "nemotron-vl-12b-fp8": {
+    displayName:"Nemotron VL 12B FP8", fullModelName:"nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
+    org:"NVIDIA", avatar:"\uD83D\uDDBC\uFE0F", avatarBg:"rgba(139,92,246,0.15)", avatarColor:"#a78bfa",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
+    precision:"FP8", quantization:"FP8 (ModelOpt)", license:"NVIDIA Open Model", params:"12B",
+    baseUrl:DEFAULT_API_BASE, inputPricePerM:0.012, cachedInputPricePerM:0.0, outputPricePerM:0.06,
+    description:"NVIDIA\'s Nemotron-Nano 12B vision-language model with FP8 quantization. Accepts image + text inputs. Runs on spark-02.",
+    tags:["quantized","vision","FP8","12B"], tagColors:["tag-purple","tag-orange","tag-blue","tag-teal"], filter:"quantized",
   },
 };
 
-let selectedModelKey = "llama-8b-nvfp4";
+let selectedModelKey = "nemotron-llama-8b";
+
+function saveApiKey(val) { sessionStorage.setItem("tl_api_key", val); }
+function getApiKey() { return sessionStorage.getItem("tl_api_key") || ""; }
 let compareMode = false, compareModelKey = null;
 let messagesA = [], messagesB = [];
 let activeFilter = "all";
@@ -597,13 +595,13 @@ function refreshApiPanel() {
   document.getElementById("api-model-name").textContent   = m.fullModelName;
   const b = m.baseUrl, n = m.fullModelName;
   document.getElementById("code-curl-pre").textContent =
-    `curl ${b}/v1/chat/completions \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "${n}",\n    "messages": [\n      {"role": "system", "content": "You are a helpful assistant."},\n      {"role": "user",   "content": "Hello from TokenLabs!"}\n    ],\n    "max_tokens": 512,\n    "temperature": 0.7,\n    "stream": true\n  }'`;
+    `curl ${b}/v1/chat/completions \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "${n}",\n    "messages": [\n      {"role": "system", "content": "You are a helpful assistant."},\n      {"role": "user",   "content": "Hello from TokenLabs!"}\n    ],\n    "max_tokens": 512,\n    "temperature": 0.7,\n    "stream": true\n  }'`;
   document.getElementById("code-python-pre").textContent =
-    `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${b}/v1",\n    api_key="EMPTY",\n)\n\nstream = client.chat.completions.create(\n    model="${n}",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in stream:\n    delta = chunk.choices[0].delta\n    if delta.content:\n        print(delta.content, end="", flush=True)`;
+    `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${b}/v1",\n    api_key="YOUR_API_KEY",\n)\n\nstream = client.chat.completions.create(\n    model="${n}",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in stream:\n    delta = chunk.choices[0].delta\n    if delta.content:\n        print(delta.content, end="", flush=True)`;
   document.getElementById("code-node-pre").textContent =
-    `import OpenAI from "openai";\n\nconst client = new OpenAI({\n  baseURL: "${b}/v1",\n  apiKey: "EMPTY",\n});\n\nconst stream = await client.chat.completions.create({\n  model: "${n}",\n  messages: [\n    { role: "system", content: "You are a helpful assistant." },\n    { role: "user",   content: "Hello from TokenLabs!" },\n  ],\n  max_tokens: 512,\n  temperature: 0.7,\n  stream: true,\n});\n\nfor await (const chunk of stream) {\n  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");\n}`;
+    `import OpenAI from "openai";\n\nconst client = new OpenAI({\n  baseURL: "${b}/v1",\n  apiKey: "YOUR_API_KEY",\n});\n\nconst stream = await client.chat.completions.create({\n  model: "${n}",\n  messages: [\n    { role: "system", content: "You are a helpful assistant." },\n    { role: "user",   content: "Hello from TokenLabs!" },\n  ],\n  max_tokens: 512,\n  temperature: 0.7,\n  stream: true,\n});\n\nfor await (const chunk of stream) {\n  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");\n}`;
   document.getElementById("code-litellm-pre").textContent =
-    `import litellm\n\nresponse = litellm.completion(\n    model="openai/${n}",\n    api_base="${b}/v1",\n    api_key="EMPTY",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in response:\n    print(chunk["choices"][0]["delta"].get("content",""), end="")`;
+    `import litellm\n\nresponse = litellm.completion(\n    model="openai/${n}",\n    api_base="${b}/v1",\n    api_key="YOUR_API_KEY",\n    messages=[\n        {"role": "system", "content": "You are a helpful assistant."},\n        {"role": "user",   "content": "Hello from TokenLabs!"},\n    ],\n    max_tokens=512,\n    temperature=0.7,\n    stream=True,\n)\n\nfor chunk in response:\n    print(chunk["choices"][0]["delta"].get("content",""), end="")`;
 }
 
 function switchCodeTab(lang, el) {
@@ -701,6 +699,8 @@ function appendTyping(log){
 }
 
 async function callModel(cfg,messages,bubbleEl,logEl){
+  const apiKey=getApiKey();
+  if(!apiKey){throw new Error("No API key set — enter your key in the top-right field.");}
   const streamOn=document.getElementById("stream-toggle").classList.contains("on");
   const sys=document.getElementById("system-prompt-input").value.trim();
   const temp=parseFloat(document.getElementById("temp-slider").value);
@@ -710,7 +710,7 @@ async function callModel(cfg,messages,bubbleEl,logEl){
   if(sys)msgs.push({role:"system",content:sys});
   msgs.push(...messages);
   const resp=await fetch(`${cfg.baseUrl}/v1/chat/completions`,{
-    method:"POST",headers:{"Content-Type":"application/json"},
+    method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
     body:JSON.stringify({model:cfg.fullModelName,messages:msgs,max_tokens:maxTok,temperature:temp,top_p:topP,stream:streamOn}),
   });
   if(!resp.ok){const t=await resp.text();throw new Error(`${resp.status} - ${t.slice(0,200)}`);}
@@ -758,6 +758,8 @@ async function sendChat(){
 document.getElementById("chat-input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}});
 document.getElementById("chat-input").addEventListener("input",function(){this.style.height="auto";this.style.height=Math.min(this.scrollHeight,120)+"px";});
 
+const _storedKey = getApiKey();
+if (_storedKey) document.getElementById("api-key-input").value = _storedKey;
 renderSidebar();refreshHeader();refreshOverview();refreshApiPanel();refreshPlaygroundSelects();refreshColHeaders();
 </script>
 </body>
