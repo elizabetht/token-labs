@@ -172,6 +172,8 @@ curl https://inference.token-labs.local/v1/chat/completions \
 
 ## Deployment Guide
 
+> **Quick reference:** If you've done this before and just need the commands, see [`deploy/README.md`](deploy/README.md).
+
 ### Prerequisites
 
 - MicroK8s cluster with GPU addon enabled on worker nodes
@@ -328,12 +330,107 @@ kubectl get ratelimitpolicy -n token-labs       # Accepted: True
 kubectl get tokenratelimitpolicy -n token-labs  # Accepted: True
 ```
 
-### Step 6: Deploy audio services (Magpie TTS + Riva STT)
+### Step 6: Create tenant API keys
 
-Magpie TTS and Riva STT are deployed as standard services (not through llm-d). They use plain `HTTPRoute` — not `AIGatewayRoute` — because their requests use non-JSON content types that EAG's body parser doesn't handle.
+Before applying the tenant manifests, set a real company name and generate a unique API key for each tenant. The files in `deploy/tenants/` use placeholder values that must be replaced.
+
+**Using the template for a new tenant:**
 
 ```bash
-# Create the NVIDIA API key Secret for Riva STT (required before applying)
+COMPANY="acme"
+TIER="pro"        # free | pro | enterprise
+API_KEY="tlabs_sk_$(openssl rand -hex 24)"
+
+sed \
+  -e "s/COMPANY-NAME/${COMPANY}/g" \
+  -e "s/\"pro\"/\"${TIER}\"/g" \
+  -e "s/tlabs_CHANGEME/${API_KEY}/g" \
+  deploy/tenants/tenant-template.yaml \
+  | kubectl apply -f -
+
+echo "Tenant: ${COMPANY}  Key: ${API_KEY}"
+```
+
+**Editing the demo tenant files before applying:**
+
+Open `deploy/tenants/tenant-free-demo.yaml` and `tenant-pro-demo.yaml` and update:
+- `metadata.name` — e.g. `tenant-acme-free`
+- `secret.kuadrant.io/user-id` — unique identifier used as the rate-limit counter key
+- `api_key` — replace the placeholder with a generated key:
+
+```bash
+# Generate keys for each tenant
+echo "Free tier key:  tlabs_sk_$(openssl rand -hex 24)"
+echo "Pro tier key:   tlabs_sk_$(openssl rand -hex 24)"
+```
+
+Then apply:
+
+```bash
+kubectl apply -f deploy/tenants/
+```
+
+Verify (keys are live immediately, no restart needed):
+
+```bash
+kubectl get secrets -n kuadrant-system -l app=token-labs
+
+# Quick smoke test
+GATEWAY_IP=$(kubectl get gateway token-labs-gateway -n token-labs \
+  -o jsonpath='{.status.addresses[0].value}')
+curl -s -o /dev/null -w "%{http_code}" \
+  http://${GATEWAY_IP}/v1/models \
+  -H "Host: inference.token-labs.local" \
+  -H "Authorization: Bearer <your-key>"
+# Expect: 200
+```
+
+---
+
+## Optional Components
+
+### Magpie TTS (text-to-speech)
+
+Magpie TTS runs on spark-01 in CPU mode (the GB10 GPU is fully allocated to the Nemotron-Llama vLLM pod). It exposes an OpenAI-compatible `/v1/audio/speech` endpoint backed by `nvidia/magpie_tts_multilingual_357m`.
+
+**Build the image** (must be built natively on spark-01 — see build notes in `deploy/README.md`):
+
+```bash
+# On spark-01
+docker build -t ghcr.io/elizabetht/token-labs/magpie-tts:latest services/magpie-tts
+docker push ghcr.io/elizabetht/token-labs/magpie-tts:latest
+```
+
+If the GHCR package is private, create a pull secret first:
+
+```bash
+kubectl create secret docker-registry ghcr-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=elizabetht \
+  --docker-password=<GITHUB_PAT_read:packages> \
+  -n token-labs
+```
+
+**Deploy:**
+
+```bash
+kubectl apply -f deploy/magpie-tts/
+```
+
+The model (`nvidia/magpie_tts_multilingual_357m`) downloads from NGC on first pod startup — allow ~1–2 min.
+
+Verify:
+
+```bash
+kubectl get pods -n token-labs -l app=magpie-tts   # 1 pod running
+kubectl logs -n token-labs -l app=magpie-tts        # look for "model loaded successfully"
+```
+
+### Riva STT (speech-to-text via NVIDIA NIM)
+
+Riva STT proxies `/v1/audio/transcriptions` to `integrate.api.nvidia.com`. Requires an NVIDIA API key.
+
+```bash
 kubectl create secret generic nvidia-nim-api-key \
   --from-literal=apiKey=nvapi-CHANGEME \
   -n token-labs
@@ -341,30 +438,12 @@ kubectl create secret generic nvidia-nim-api-key \
 ./deploy/scripts/05-deploy-services.sh
 ```
 
-What it deploys:
-- **Magpie TTS**: Deployment + Service on spark-01 (CPU mode — GPU is fully allocated to vLLM) + `HTTPRoute` mapping `/v1/audio/speech`, `/v1/audio/models`, `/v1/audio/health`
-- **Riva STT**: Envoy Gateway `Backend` (FQDN: `integrate.api.nvidia.com`) + `BackendTLSPolicy` (TLS verification using system CA) + EAG `BackendSecurityPolicy` (injects NVIDIA API key) + `HTTPRoute` mapping `/v1/audio/transcriptions`
-
 Verify:
-```bash
-kubectl get pods -n token-labs -l app=magpie-tts      # 1 pod running
-kubectl get httproute -n token-labs                    # magpie-tts + riva-stt listed
-kubectl get backendsecuritypolicy -n token-labs        # nvidia-nim-api-key listed
-```
-
-### Step 7: Create tenant API keys
-
-Demo tenants are provided for testing (see [Tenant Model](#tenant-model) above for full onboarding instructions):
 
 ```bash
-kubectl apply -f deploy/tenants/
+kubectl get httproute -n token-labs                 # riva-stt listed
+kubectl get backendsecuritypolicy -n token-labs     # nvidia-nim-api-key listed
 ```
-
-This creates two demo tenants:
-- `tenant-free-demo` — free tier, key `tlabs_free_demo_key_change_me`
-- `tenant-pro-demo` — pro tier, key `tlabs_pro_demo_key_change_me`
-
-For production tenants, follow the [onboarding steps](#onboarding-a-new-tenant) in the Tenant Model section.
 
 ### Test it
 
@@ -375,7 +454,7 @@ GATEWAY_IP=$(kubectl get gateway token-labs-gateway -n token-labs \
 # Chat completion — Nemotron-Llama 8B (spark-01)
 curl -s http://${GATEWAY_IP}/v1/chat/completions \
   -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
+  -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
@@ -386,7 +465,7 @@ curl -s http://${GATEWAY_IP}/v1/chat/completions \
 # Vision-language — Nemotron VL 12B FP8 (spark-02)
 curl -s http://${GATEWAY_IP}/v1/chat/completions \
   -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
+  -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
@@ -394,10 +473,26 @@ curl -s http://${GATEWAY_IP}/v1/chat/completions \
     "max_tokens": 200
   }' | jq
 
+# Verify rate limiting (free tier — should get 429 after 10 requests/min)
+for i in $(seq 1 15); do
+  echo -n "Request $i: "
+  curl -s -o /dev/null -w "%{http_code}" \
+    http://${GATEWAY_IP}/v1/chat/completions \
+    -H "Host: inference.token-labs.local" \
+    -H "Authorization: Bearer <your-free-tier-key>" \
+    -H "Content-Type: application/json" \
+    -d '{"model":"nvidia/Llama-3.1-Nemotron-Nano-8B-v1","messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
+  echo
+done
+```
+
+**Optional — test audio services** (only after deploying Magpie TTS / Riva STT):
+
+```bash
 # Text-to-speech — Magpie TTS (spark-01, CPU mode)
 curl -s http://${GATEWAY_IP}/v1/audio/speech \
   -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
+  -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{"input": "Welcome to Token Labs.", "voice": "aria"}' \
   --output speech.wav
@@ -405,21 +500,9 @@ curl -s http://${GATEWAY_IP}/v1/audio/speech \
 # Speech-to-text — Riva STT via NVIDIA NIM
 curl -s http://${GATEWAY_IP}/v1/audio/transcriptions \
   -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
+  -H "Authorization: Bearer <your-api-key>" \
   -F "file=@audio.wav" \
   -F "model=nvidia/parakeet-ctc-1.1b"
-
-# Verify rate limiting (free tier — should get 429 after 10 requests/min)
-for i in $(seq 1 15); do
-  echo -n "Request $i: "
-  curl -s -o /dev/null -w "%{http_code}" \
-    http://${GATEWAY_IP}/v1/chat/completions \
-    -H "Host: inference.token-labs.local" \
-    -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
-    -H "Content-Type: application/json" \
-    -d '{"model":"nvidia/Llama-3.1-Nemotron-Nano-8B-v1","messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
-  echo
-done
 ```
 
 ---
