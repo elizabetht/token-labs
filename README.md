@@ -303,6 +303,7 @@ This step creates the actual networking and policy resources that wire everythin
 ```bash
 # Gateway + AIGatewayRoute
 kubectl apply -f deploy/gateway/namespace.yaml
+kubectl apply -f deploy/gateway/gatewayclass.yaml
 kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/aigwroute.yaml
 

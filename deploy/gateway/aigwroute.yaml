@@ -10,8 +10,8 @@
 # No ConfigMaps, no ext_proc sidecar — EAG handles body parsing natively.
 #
 # InferencePool backendRefs:
-#   token-labs-pool   → spark-01  (Nemotron-Llama 8B)
-#   nemotron-vl-pool  → spark-02  (Nemotron VL 12B FP8)
+#   llm-d-inferencepool              → spark-01  (Nemotron-Llama 8B)
+#   llm-d-inferencepool-nemotron-vl  → spark-02  (Nemotron VL 12B FP8)
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -33,7 +33,7 @@ spec:
     backendRefs:
     - group: inference.networking.k8s.io
       kind: InferencePool
-      name: token-labs-pool
+      name: llm-d-inferencepool
     timeouts:
       request: 300s
 
@@ -46,6 +46,6 @@ spec:
     backendRefs:
     - group: inference.networking.k8s.io
       kind: InferencePool
-      name: nemotron-vl-pool
+      name: llm-d-inferencepool-nemotron-vl
     timeouts:
       request: 300s

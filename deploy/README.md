@@ -29,6 +29,7 @@ kubectl create secret generic hf-token \
 
 # 5. Gateway + AIGatewayRoute + Kuadrant policies
 kubectl apply -f deploy/gateway/namespace.yaml
+kubectl apply -f deploy/gateway/gatewayclass.yaml
 kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/aigwroute.yaml
 kubectl apply -f deploy/policies/
@@ -116,6 +117,7 @@ deploy/
 │   └── 05-deploy-services.sh
 ├── gateway/             # Gateway + AIGatewayRoute resources
 │   ├── namespace.yaml
+│   ├── gatewayclass.yaml
 │   ├── gateway.yaml
 │   └── aigwroute.yaml
 ├── llm-d/               # llm-d helmfile + values (5 releases)
