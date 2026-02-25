@@ -1,0 +1,28 @@
+# ClusterIP Service for the Nemotron VL 12B vLLM decode pods.
+#
+# Exposes the vLLM OpenAI-compatible HTTP API (port 8000) cluster-wide so that
+# workloads in other namespaces (e.g. spellingbee) can reach the model directly
+# without going through the external API gateway, avoiding payload size limits.
+#
+# In-cluster URL:
+#   http://nemotron-vl-vllm-svc.token-labs.svc.cluster.local:8000/v1
+#
+# Selector targets pods created by the llm-d modelservice-nemotron-vl Helm
+# release (see deploy/llm-d/values/modelservice-nemotron-vl.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemotron-vl-vllm-svc
+  namespace: token-labs
+  labels:
+    app: nemotron-vl-vllm-svc
+spec:
+  type: ClusterIP
+  selector:
+    llm-d.ai/model: nemotron-vl-12b
+    llm-d.ai/role: decode
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

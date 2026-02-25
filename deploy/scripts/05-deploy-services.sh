@@ -8,6 +8,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+echo "==> Deploying Nemotron VL vLLM ClusterIP service..."
+kubectl apply -f "${SCRIPT_DIR}/../nemotron-vl/"
+
 echo "==> Deploying Magpie TTS (CPU mode on spark-01)..."
 kubectl apply -f "${SCRIPT_DIR}/../magpie-tts/"
 
