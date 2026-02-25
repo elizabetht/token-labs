@@ -747,10 +747,11 @@ async function sendChat(){
     const proms=[callModel(cfgA,messagesA,bA,logA)];
     if(cfgB&&tB)proms.push(callModel(cfgB,messagesB,tB.bubble,logB));
     const[rA,rB]=await Promise.all(proms);
-    if(rA)messagesA.push({role:"assistant",content:rA});else{try{logA.removeChild(dA);}catch(_){}setStatus("No response.",true);}
-    if(cfgB&&tB){if(rB)messagesB.push({role:"assistant",content:rB});else{try{logB.removeChild(tB.div);}catch(_){}}}
+    if(rA)messagesA.push({role:"assistant",content:rA});else{messagesA.pop();try{logA.removeChild(dA);}catch(_){}setStatus("No response.",true);}
+    if(cfgB&&tB){if(rB)messagesB.push({role:"assistant",content:rB});else{messagesB.pop();try{logB.removeChild(tB.div);}catch(_){}}}
   }catch(err){
     console.error(err);setStatus("Error: "+err.message,true);
+    messagesA.pop();if(cfgB)messagesB.pop();
     try{logA.removeChild(dA);}catch(_){}if(cfgB&&tB){try{logB.removeChild(tB.div);}catch(_){}}
   }finally{btn.disabled=false;input.focus();}
 }
