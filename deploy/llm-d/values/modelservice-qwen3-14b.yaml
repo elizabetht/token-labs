@@ -9,11 +9,11 @@
 # tensor_parallelism -> decode.parallelism.tensor, extraArgs -> decode.containers[].args
 
 modelArtifacts:
-  name: "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
+  name: "nvidia/Qwen3-14B-NVFP4"
   # Labels used by the InferencePool matchLabels selector
   labels:
     llm-d.ai/inference-serving: "true"
-    llm-d.ai/model: llama-3-1-8b
+    llm-d.ai/model: qwen-3-14b
 
 decode:
   replicas: 1

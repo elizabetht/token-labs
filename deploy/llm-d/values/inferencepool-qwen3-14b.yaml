@@ -1,0 +1,34 @@
+# InferencePool + EPP values — Qwen-3-14B (token-labs-pool)
+#
+# The EPP (Endpoint Picker) is the inference-aware ext_proc sidecar from upstream GAIE.
+# matchLabels must match the pods created by the llm-d-modelservice release.
+
+inferencePool:
+  modelServers:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+      llm-d.ai/model: qwen-3-14b
+  modelServerType: vllm
+
+inferenceExtension:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  # EPP image is amd64-only; pin to controller node (DGX Spark nodes are arm64)
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/arch
+            operator: In
+            values:
+            - amd64
+
+provider:
+  name: none

@@ -54,7 +54,7 @@ decode:
     # startupProbe: up to 15 min for FP8 model + trust-remote-code compilation
     startupProbe:
       httpGet:
-        path: /health
+        path: /v1/models
         port: 8000
       initialDelaySeconds: 30
       periodSeconds: 10
@@ -62,7 +62,7 @@ decode:
       timeoutSeconds: 5
     readinessProbe:
       httpGet:
-        path: /health
+        path: /v1/models
         port: 8000
       periodSeconds: 15
       failureThreshold: 3

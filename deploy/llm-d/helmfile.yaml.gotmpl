@@ -67,3 +67,24 @@ releases:
     - token-labs/llm-d-infra
     values:
     - values/modelservice-nemotron-vl.yaml
+
+  # 6. InferencePool + EPP — Inference-aware ext_proc routing
+  # Chart source: registry.k8s.io/gateway-api-inference-extension/charts/inferencepool
+  - name: llm-d-inferencepool-qwen3-14b
+    namespace: token-labs
+    chart: gaie/inferencepool
+    version: v1.3.0
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/inferencepool-qwen3-14b.yaml
+
+  # 3. Model Service — vLLM Llama workers on DGX Spark GPU nodes
+  - name: llm-d-modelservice-qwen3-14b
+    namespace: token-labs
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.5
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - values/modelservice-qwen3-14b.yaml

@@ -49,3 +49,16 @@ spec:
       name: llm-d-inferencepool-nemotron-vl
     timeouts:
       request: 300s
+
+  # ── Qwen3 14B NVFP4 ─────────────────────────────────────────────────────
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: nvidia/Qwen-3-14B-NVFP4
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: llm-d-inferencepool-qwen3-14b
+    timeouts:
+      request: 300s
