@@ -231,7 +231,7 @@
     <input type="password" id="api-key-input" placeholder="API Key" title="Your Token Labs API key"
       style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--text);outline:none;width:180px;transition:border-color 0.15s;"
       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
-      oninput="saveApiKey(this.value)" />
+      oninput="saveApiKey(this.value);fetchModels()" />
     <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">&#9733; GitHub</a>
   </div>
 </nav>
@@ -486,34 +486,133 @@
 <script>
 const DEFAULT_API_BASE = "https://api.tokenlabs.run";
 
-const MODELS = {
-  "nemotron-llama-8b": {
-    displayName:"Nemotron-Llama 8B", fullModelName:"nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+// Static enrichment metadata for known models.
+// For any model returned by /v1/models that isn't listed here, defaults are generated automatically.
+const MODEL_ENRICHMENT = {
+  "nvidia/Llama-3.1-Nemotron-Nano-8B-v1": {
+    displayName:"Nemotron-Llama 8B",
     org:"NVIDIA", avatar:"\uD83E\uDD16", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
     context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
     precision:"BF16", quantization:"None (full precision)", license:"Llama 3.1 Community", params:"8B",
-    baseUrl:DEFAULT_API_BASE, inputPricePerM:0.006, cachedInputPricePerM:0.0, outputPricePerM:0.037,
+    inputPricePerM:0.006, cachedInputPricePerM:0.0, outputPricePerM:0.037,
     description:"NVIDIA\'s Nemotron-Nano 8B — an instruction-tuned Llama 3.1 8B variant optimised for reasoning and STEM tasks. Runs in full BF16 on spark-01.",
     tags:["base","instruction","8B"], tagColors:["tag-green","tag-blue","tag-teal"], filter:"base",
   },
-  "nemotron-vl-12b-fp8": {
-    displayName:"Nemotron VL 12B FP8", fullModelName:"nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
+  "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8": {
+    displayName:"Nemotron VL 12B FP8",
     org:"NVIDIA", avatar:"\uD83D\uDDBC\uFE0F", avatarBg:"rgba(139,92,246,0.15)", avatarColor:"#a78bfa",
     context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
     precision:"FP8", quantization:"FP8 (ModelOpt)", license:"NVIDIA Open Model", params:"12B",
-    baseUrl:DEFAULT_API_BASE, inputPricePerM:0.012, cachedInputPricePerM:0.0, outputPricePerM:0.06,
+    inputPricePerM:0.012, cachedInputPricePerM:0.0, outputPricePerM:0.06,
     description:"NVIDIA\'s Nemotron-Nano 12B vision-language model with FP8 quantization. Accepts image + text inputs. Runs on spark-02.",
     tags:["quantized","vision","FP8","12B"], tagColors:["tag-purple","tag-orange","tag-blue","tag-teal"], filter:"quantized",
   },
+  "nvidia/Qwen-3-14B-NVFP4": {
+    displayName:"Qwen3 14B NVFP4",
+    org:"NVIDIA/Qwen", avatar:"\uD83E\uDDE0", avatarBg:"rgba(59,130,246,0.15)", avatarColor:"#60a5fa",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
+    precision:"FP4", quantization:"NVFP4 (ModelOpt)", license:"Qwen License", params:"14B",
+    inputPricePerM:0.018, cachedInputPricePerM:0.0, outputPricePerM:0.08,
+    description:"Qwen3 14B with NVIDIA FP4 quantization for efficient inference on DGX Spark.",
+    tags:["quantized","reasoning","FP4","14B"], tagColors:["tag-blue","tag-orange","tag-purple","tag-teal"], filter:"quantized",
+  },
 };
 
-let selectedModelKey = "nemotron-llama-8b";
+function modelDefaults(modelId) {
+  const parts = modelId.split('/');
+  const org = parts.length > 1 ? parts[0] : "Unknown";
+  const name = parts[parts.length - 1];
+  const paramMatch = name.match(/(\d+\.?\d*[BbMm])/i);
+  const params = paramMatch ? paramMatch[1].toUpperCase() : "?";
+  const isFp8 = /fp8/i.test(name), isFp4 = /fp4/i.test(name);
+  const isVl = /[-_]vl[-_]|vision/i.test(name);
+  const precision = isFp4 ? "FP4" : isFp8 ? "FP8" : "BF16";
+  const quantization = isFp4 ? "FP4" : isFp8 ? "FP8" : "None";
+  const palettes = [
+    ["rgba(118,185,0,0.15)","#76b900"],["rgba(59,130,246,0.15)","#60a5fa"],
+    ["rgba(139,92,246,0.15)","#a78bfa"],["rgba(245,158,11,0.15)","#fbbf24"],
+  ];
+  const [avatarBg, avatarColor] = palettes[Math.abs(modelId.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % 4];
+  const tags = [params], tagColors = ["tag-blue"];
+  if (isFp8||isFp4) { tags.push(precision); tagColors.push("tag-purple"); }
+  if (isVl) { tags.push("vision"); tagColors.push("tag-orange"); }
+  return {
+    displayName: name.replace(/[-_]/g,' '), org, avatar:"⚡",
+    avatarBg, avatarColor,
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
+    precision, quantization, license:"Unknown", params,
+    inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
+    description:`${modelId} — served via vLLM on TokenLabs infrastructure.`,
+    tags, tagColors, filter: (isFp8||isFp4) ? "quantized" : "base",
+  };
+}
+
+function buildModels(ids) {
+  const result = {};
+  for (const id of ids) {
+    const enrichment = MODEL_ENRICHMENT[id] || modelDefaults(id);
+    result[id] = { ...enrichment, fullModelName: id, baseUrl: DEFAULT_API_BASE };
+  }
+  return result;
+}
+
+let MODELS = {};
+let selectedModelKey = null;
 
 function saveApiKey(val) { sessionStorage.setItem("tl_api_key", val); }
 function getApiKey() { return sessionStorage.getItem("tl_api_key") || ""; }
 let compareMode = false, compareModelKey = null;
 let messagesA = [], messagesB = [];
 let activeFilter = "all";
+let _pollTimer = null;
+
+async function fetchModels() {
+  try {
+    const apiKey = getApiKey();
+    const headers = {};
+    if (apiKey) headers["Authorization"] = "Bearer " + apiKey;
+    const resp = await fetch(`${DEFAULT_API_BASE}/v1/models`, { headers });
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    const ids = (data.data || []).map(m => m.id).filter(Boolean);
+    if (!ids.length) return false;
+
+    const newModels = buildModels(ids);
+    const oldKeys = Object.keys(MODELS).sort().join(",");
+    const newKeys = Object.keys(newModels).sort().join(",");
+    if (oldKeys === newKeys) return true; // no change
+
+    MODELS = newModels;
+    if (!MODELS[selectedModelKey]) selectedModelKey = Object.keys(MODELS)[0] || null;
+    renderSidebar(document.getElementById("model-search").value, activeFilter);
+    if (selectedModelKey) {
+      refreshHeader(); refreshOverview(); refreshApiPanel();
+      refreshPlaygroundSelects(); refreshColHeaders();
+    }
+    return true;
+  } catch (e) {
+    console.warn("Model fetch failed:", e);
+    return false;
+  }
+}
+
+function schedulePoll() {
+  clearTimeout(_pollTimer);
+  _pollTimer = setTimeout(async () => { await fetchModels(); schedulePoll(); }, 30000);
+}
+
+async function initModels() {
+  document.getElementById("model-list").innerHTML =
+    '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Loading models\u2026</div>';
+  const ok = await fetchModels();
+  if (!ok) {
+    MODELS = buildModels(Object.keys(MODEL_ENRICHMENT));
+    selectedModelKey = Object.keys(MODELS)[0] || null;
+    renderSidebar();
+    if (selectedModelKey) { refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders(); }
+  }
+  schedulePoll();
+}
 
 function renderSidebar(q="", filter="all") {
   const list = document.getElementById("model-list");
@@ -761,7 +860,7 @@ document.getElementById("chat-input").addEventListener("input",function(){this.s
 
 const _storedKey = getApiKey();
 if (_storedKey) document.getElementById("api-key-input").value = _storedKey;
-renderSidebar();refreshHeader();refreshOverview();refreshApiPanel();refreshPlaygroundSelects();refreshColHeaders();
+initModels();
 </script>
 </body>
 </html>
