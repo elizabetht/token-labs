@@ -33,6 +33,7 @@ This directory contains the Grafana dashboard and Prometheus alerting rules for 
 | 🚦 Top-Line Golden Signals | TTFT, TPOT, Success Rate, Throughput, Queue depth | `vllm:time_to_first_token_seconds`, `vllm:time_per_output_token_seconds`, `vllm:request_success_total` |
 | 💰 Tenant Usage (Billable) | Token throughput by API key, Top 10 API keys, Rate-limit events | `limitador_calls_per_limit_total`, `limitador_limited_calls_total` |
 | 🖥️ Inference Pool Health | KV-Cache gauge + trend, RDMA/RoCE throughput, GPU framebuffer | `vllm:gpu_cache_usage_perc`, `dcgm_fi_dev_nvlink_bandwidth_total`, `dcgm_fi_dev_fb_used` |
+| 📊 DCGM GPU Telemetry | GPU utilization, temperature, power draw, Tensor/GR/DRAM activity, SM & mem clocks, XID errors | `dcgm_fi_dev_gpu_util`, `dcgm_fi_dev_gpu_temp`, `dcgm_fi_dev_power_usage`, `dcgm_fi_prof_pipe_tensor_active`, `dcgm_fi_dev_sm_clock`, `dcgm_fi_dev_xid_errors` |
 | ⚡ Prefix Cache Efficiency | Hit-rate gauge, hit/miss trend, per-node breakdown, TTFT correlation | `llm_d_prefix_cache_hit_total`, `llm_d_prefix_cache_miss_total` |
 
 ---
