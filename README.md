@@ -513,7 +513,7 @@ curl -s http://${GATEWAY_IP}/v1/audio/transcriptions \
 The stack exposes metrics from all layers via Prometheus ServiceMonitors:
 
 ```bash
-# Optional: deploy ServiceMonitors
+# Optional: deploy ServiceMonitors (includes vLLM GPU metrics)
 kubectl apply -f deploy/monitoring/service-monitors.yaml
 ```
 
@@ -521,10 +521,70 @@ kubectl apply -f deploy/monitoring/service-monitors.yaml
 |--------|-------------|
 | Limitador | `limitador_counter_hits_total` — per-tenant request/token counts |
 | Authorino | `auth_server_response_status` — auth allow/deny rates |
-| vLLM | `vllm:kv_cache_usage_perc`, `vllm:request_latency_seconds` |
+| vLLM | `vllm:num_requests_waiting`, `vllm:gpu_cache_usage_perc`, `vllm:avg_generation_throughput_toks_per_s` |
 | EPP | Routing decisions, prefix-cache hit rates |
 
 llm-d also provides ready-made Grafana dashboards — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+
+---
+
+## GPU-Aware Autoscaling
+
+vLLM workers scale horizontally based on GPU pressure signals rather than CPU/RAM. The HPA triggers scale-out before the queue becomes large, compensating for the 60–90 s model warm-up time.
+
+### Setup
+
+**1. Install Prometheus Adapter** (exposes vLLM metrics to the HPA API):
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install prometheus-adapter prometheus-community/prometheus-adapter \
+  --namespace monitoring --create-namespace \
+  --version 4.11.0 \
+  -f deploy/autoscaling/prometheus-adapter-values.yaml
+```
+
+**2. Verify metrics are available** to the HPA:
+
+```bash
+kubectl get --raw "/apis/custom.metrics.k8s.io/v1beta1" | jq '.resources[].name'
+kubectl get --raw \
+  "/apis/custom.metrics.k8s.io/v1beta1/namespaces/token-labs/pods/*/vllm_num_requests_waiting" \
+  | jq '.items[].value'
+```
+
+**3. Apply the HPAs**:
+
+```bash
+# Confirm Deployment names match your cluster before applying
+kubectl get deployments -n token-labs
+kubectl apply -f deploy/autoscaling/hpa.yaml
+```
+
+**4. Watch scaling events**:
+
+```bash
+kubectl describe hpa -n token-labs
+kubectl get events -n token-labs --field-selector reason=SuccessfulRescale
+```
+
+### Scale signals
+
+| Metric | Threshold | Meaning |
+|--------|-----------|---------|
+| `vllm_num_requests_waiting` | > 5 per pod | Queue backing up — scale out before head-of-line blocking |
+| `vllm_gpu_cache_usage_perc` | > 0.85 per pod | VRAM KV-cache near full — distribute load to avoid evictions |
+
+### Cooldown configuration
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| `scaleUp.stabilizationWindowSeconds` | `0` | No delay on scale-out — model warm-up (60–90 s) means we must start immediately |
+| `scaleUp.policies[].periodSeconds` | `90` | Add at most 1 pod per 90 s to match the model warm-up window |
+| `scaleDown.stabilizationWindowSeconds` | `300` | 5-minute cooldown prevents flapping during token-generation bursts (queue briefly empties mid-request) |
+| `scaleDown.policies[].periodSeconds` | `120` | Remove at most 1 pod per 2 minutes to allow traffic to drain gracefully |
+
+> See [`deploy/autoscaling/hpa.yaml`](deploy/autoscaling/hpa.yaml) for the full manifest with inline documentation.
 
 ---
 
@@ -567,7 +627,10 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   │   └── secret-template.yaml  # NVIDIA API key Secret template
 │   ├── policies/             # Kuadrant AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy
 │   ├── tenants/              # Tenant API key Secrets (template + demos)
-│   └── monitoring/           # Prometheus ServiceMonitors
+│   ├── monitoring/           # Prometheus ServiceMonitors (including vLLM GPU metrics)
+│   └── autoscaling/          # GPU-aware HPA manifests + Prometheus Adapter values
+│       ├── prometheus-adapter-values.yaml  # Custom metrics API bridge (vllm_ → HPA)
+│       └── hpa.yaml                        # HPA: scale on queue depth + VRAM pressure
 ├── services/
 │   └── magpie-tts/           # FastAPI TTS wrapper (server.py, Dockerfile)
 ├── docs/

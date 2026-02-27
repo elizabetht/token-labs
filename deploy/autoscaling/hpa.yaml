@@ -1,0 +1,208 @@
+# GPU-Aware HorizontalPodAutoscalers for vLLM workers
+#
+# Scales the vLLM decode Deployments created by the llm-d-modelservice Helm
+# chart based on real GPU pressure rather than CPU/RAM averages.
+#
+# Metric source: Prometheus Adapter (custom.metrics.k8s.io/v1beta1)
+# Configure the adapter first:
+#   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+#     --namespace monitoring --create-namespace \
+#     -f deploy/autoscaling/prometheus-adapter-values.yaml
+#
+# Verify the Deployment names before applying:
+#   kubectl get deployments -n token-labs
+# Then apply:
+#   kubectl apply -f deploy/autoscaling/hpa.yaml
+#
+# ============================================================
+# Scale signals (applied to each model independently)
+# ============================================================
+#
+# PRIMARY  vllm_num_requests_waiting > 5 (avg per pod)
+#   Queue depth is the most reliable signal for head-of-line blocking.
+#   A threshold of 5 provides a predictive buffer: scale-out is triggered
+#   before the queue becomes large, compensating for the 60–90 s model
+#   warm-up time required to load weights onto a new GPU pod.
+#
+# GUARD    vllm_gpu_cache_usage_perc > 0.85 (avg per pod)
+#   KV-cache saturation above 85% causes VRAM fragmentation and forces
+#   vLLM to evict or re-compute tokens. Scale out before this threshold
+#   to distribute the KV-cache across more pods.
+#
+# ============================================================
+# Cooldown / anti-flapping configuration
+# ============================================================
+#
+# scaleUp.stabilizationWindowSeconds = 0
+#   No stabilization on scale-up. The HPA reacts immediately the first time
+#   the queue threshold is breached. This is intentional: because a new GPU
+#   pod takes 60–90 s to become ready (model weight loading), any delay in
+#   triggering scale-out worsens tail latency.
+#
+# scaleUp.policies[].periodSeconds = 90
+#   After each scale-up event, the HPA waits 90 s before adding another pod.
+#   This matches the model warm-up window and prevents over-provisioning
+#   during a single load spike.
+#
+# scaleDown.stabilizationWindowSeconds = 300 (5 minutes)
+#   The HPA tracks the highest replica count seen in the last 5 minutes and
+#   will not scale below it. This prevents flapping: during token generation
+#   a long request briefly empties the queue, but the pod is still needed.
+#   The 5-minute window is chosen to exceed a typical P95 request duration.
+#
+# scaleDown.policies[].periodSeconds = 120
+#   At most 1 pod is removed every 2 minutes after the stabilization window
+#   expires, giving live traffic time to drain from the terminating pod.
+#
+---
+# HPA — Nemotron-Llama 8B / nvidia/Llama-3.1-Nemotron-Nano-8B-v1 (spark-01)
+#
+# The llm-d-modelservice Helm release (name: llm-d-modelservice) creates a
+# decode Deployment. Verify the exact name with:
+#   kubectl get deployments -n token-labs -l llm-d.ai/model=llama-3-1-8b
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-llama-8b
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+    app.kubernetes.io/component: autoscaling
+    llm-d.ai/model: llama-3-1-8b
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: llm-d-modelservice-decode
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  # Primary signal: queue depth
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_num_requests_waiting
+      target:
+        type: AverageValue
+        averageValue: "5"
+  # Guard: VRAM KV-cache saturation (850m = 0.85 in milli-units)
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_gpu_cache_usage_perc
+      target:
+        type: AverageValue
+        averageValue: "850m"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 90
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+---
+# HPA — Nemotron VL 12B FP8 (spark-02)
+#
+# The llm-d-modelservice-nemotron-vl Helm release creates a decode Deployment.
+# Verify the exact name with:
+#   kubectl get deployments -n token-labs -l llm-d.ai/model=nemotron-vl-12b
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-nemotron-vl-12b
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+    app.kubernetes.io/component: autoscaling
+    llm-d.ai/model: nemotron-vl-12b
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: llm-d-modelservice-nemotron-vl-decode
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_num_requests_waiting
+      target:
+        type: AverageValue
+        averageValue: "5"
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_gpu_cache_usage_perc
+      target:
+        type: AverageValue
+        averageValue: "850m"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 90
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120
+---
+# HPA — Qwen3 14B NVFP4 (spark-01)
+#
+# The llm-d-modelservice-qwen3-14b Helm release creates a decode Deployment.
+# Verify the exact name with:
+#   kubectl get deployments -n token-labs -l llm-d.ai/model=qwen-3-14b
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-qwen3-14b
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+    app.kubernetes.io/component: autoscaling
+    llm-d.ai/model: qwen-3-14b
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: llm-d-modelservice-qwen3-14b-decode
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_num_requests_waiting
+      target:
+        type: AverageValue
+        averageValue: "5"
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_gpu_cache_usage_perc
+      target:
+        type: AverageValue
+        averageValue: "850m"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 90
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 120

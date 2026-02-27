@@ -54,3 +54,30 @@ spec:
   endpoints:
   - port: metrics
     interval: 15s
+---
+# vLLM worker metrics — GPU cache usage, queue depth, and throughput
+#
+# Key metrics for GPU-aware HPA:
+#   vllm:num_requests_waiting      — queue depth (primary HPA signal)
+#   vllm:gpu_cache_usage_perc      — VRAM KV-cache saturation (0.0–1.0)
+#   vllm:avg_generation_throughput_toks_per_s — real-world throughput health
+#
+# vLLM exposes Prometheus metrics at GET /metrics on the same port as the API (8000).
+# The llm-d-modelservice chart creates a headless Service per model with a "http" port.
+# This ServiceMonitor scrapes all Services labeled llm-d.ai/inference-serving=true.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm-worker-metrics
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+    app.kubernetes.io/component: autoscaling
+spec:
+  selector:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
