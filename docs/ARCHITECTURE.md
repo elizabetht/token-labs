@@ -308,3 +308,59 @@ type: Opaque
 7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. It runs on GPU on spark-01 (shared with Llama) for faster inference. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
 
 8. **GPU allocation: Llama + TTS on spark-01, Nemotron VL on spark-02** — Llama 3.1 8B runs at 80% GPU utilization on spark-01, leaving room for Magpie TTS (~700 MB). Nemotron VL 12B FP8 (~13 GB) uses spark-02 at 90% utilization.
+
+---
+
+## GPU-Aware Autoscaling
+
+Standard Kubernetes CPU/Memory HPA metrics are insufficient for LLM inference because GPUs are the bottleneck, not CPU. TokenLabs uses a Prometheus Adapter to expose vLLM engine metrics to the Kubernetes Custom Metrics API, enabling HPAs that react to real GPU pressure.
+
+### Metric pipeline
+
+```
+vLLM pod (/metrics)
+    │
+    ▼  scrape every 15s
+Prometheus (ServiceMonitor: vllm-worker-metrics)
+    │
+    ▼  re-query every 30s (metricsRelistInterval in prometheus-adapter-values.yaml)
+Prometheus Adapter (custom.metrics.k8s.io/v1beta1)
+    │
+    ▼  evaluate on the default 15s HPA sync period (--horizontal-pod-autoscaler-sync-period)
+HorizontalPodAutoscaler
+    │
+    ▼  scale
+llm-d-modelservice Deployment (vLLM decode pods)
+```
+
+### Key signals
+
+| Prometheus metric | Kubernetes custom metric | Threshold | Role |
+|---|---|---|---|
+| `vllm:num_requests_waiting` | `vllm_num_requests_waiting` | > 5 avg per pod | **Primary** — queue depth; triggers scale-out before head-of-line blocking |
+| `vllm:gpu_cache_usage_perc` | `vllm_gpu_cache_usage_perc` | > 0.85 avg per pod | **Guard** — VRAM KV-cache saturation; prevents eviction/re-computation |
+| `vllm:avg_generation_throughput_toks_per_s` | `vllm_avg_generation_throughput_toks_per_s` | — | **Indicator** — throughput health; exposed for alerting and dashboards |
+
+### Predictive warm-up buffer
+
+A new vLLM GPU pod takes **60–90 seconds** to load model weights before it can accept requests. To compensate:
+
+- `scaleUp.stabilizationWindowSeconds = 0` — scale-out is triggered the moment the queue threshold is breached, not after a delay.
+- `scaleUp.policies[].periodSeconds = 90` — at most one pod is added per 90 s to match the warm-up window.
+
+### Cooldown / anti-flapping
+
+Token generation produces long-running requests. During generation, the queue briefly empties between requests even though pods are fully utilised. Without a cooldown this causes "flapping" (scale down → immediate scale up).
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| `scaleDown.stabilizationWindowSeconds` | `300` s | The HPA tracks the peak replica count over the last 5 minutes and will not drop below it. 5 minutes exceeds a typical P95 request duration. |
+| `scaleDown.policies[].periodSeconds` | `120` s | At most 1 pod is removed every 2 minutes after the cooldown window expires, allowing live traffic to drain gracefully. |
+
+### Files
+
+| File | Purpose |
+|---|---|
+| `deploy/monitoring/service-monitors.yaml` | `ServiceMonitor/vllm-worker-metrics` — scrapes `/metrics` on all `llm-d.ai/inference-serving=true` Services |
+| `deploy/autoscaling/prometheus-adapter-values.yaml` | Helm values for `prometheus-community/prometheus-adapter` v4.11.0 |
+| `deploy/autoscaling/hpa.yaml` | `HorizontalPodAutoscaler` for Llama 8B, Nemotron VL 12B, and Qwen3 14B |

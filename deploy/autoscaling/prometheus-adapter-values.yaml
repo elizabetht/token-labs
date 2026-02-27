@@ -1,0 +1,79 @@
+# prometheus-adapter Helm values
+#
+# Exposes vLLM Prometheus metrics via the Kubernetes Custom Metrics API
+# (custom.metrics.k8s.io/v1beta1) so that HorizontalPodAutoscalers can
+# scale vLLM Deployments based on GPU and queue metrics rather than CPU/RAM.
+#
+# Install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install prometheus-adapter prometheus-community/prometheus-adapter \
+#     --namespace monitoring --create-namespace \
+#     --version 4.11.0 \
+#     -f deploy/autoscaling/prometheus-adapter-values.yaml
+#
+# Verify that metrics are available to the HPA:
+#   kubectl get --raw "/apis/custom.metrics.k8s.io/v1beta1" | jq '.resources[].name'
+#   kubectl get --raw \
+#     "/apis/custom.metrics.k8s.io/v1beta1/namespaces/token-labs/pods/*/vllm_num_requests_waiting" \
+#     | jq '.items[].value'
+
+prometheus:
+  # URL of the Prometheus server that scrapes the vLLM ServiceMonitor.
+  # Adjust if your Prometheus is deployed in a different namespace or with a
+  # different service name (e.g. kube-prometheus-stack uses "kube-prometheus-stack-prometheus").
+  url: http://prometheus-operated.monitoring.svc
+  port: 9090
+
+# How often the adapter re-queries Prometheus for fresh metric values.
+# The HPA controller evaluates metrics on its own sync period (default 15 s);
+# setting metricsRelistInterval to 30 s provides two Prometheus scrapes per
+# evaluation cycle and reduces adapter→Prometheus load.
+metricsRelistInterval: 30s
+
+rules:
+  custom:
+  # -------------------------------------------------------------------------
+  # vllm_num_requests_waiting — PRIMARY HPA SIGNAL
+  # Number of requests currently queued in the vLLM engine (not yet scheduled
+  # onto a GPU). Values > 5 per pod indicate head-of-line blocking.
+  # A 2-minute average smooths out momentary bursts between long generations.
+  # -------------------------------------------------------------------------
+  - seriesQuery: 'vllm:num_requests_waiting{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace: {resource: "namespace"}
+        pod: {resource: "pod"}
+    name:
+      matches: "^vllm:num_requests_waiting$"
+      as: "vllm_num_requests_waiting"
+    metricsQuery: 'avg_over_time(vllm:num_requests_waiting{<<.LabelMatchers>>}[2m])'
+
+  # -------------------------------------------------------------------------
+  # vllm_gpu_cache_usage_perc — VRAM SATURATION GUARD
+  # KV-cache occupancy as a decimal (0.0 = empty, 1.0 = full). Values above
+  # 0.85 signal imminent VRAM fragmentation; scaling out distributes the load.
+  # -------------------------------------------------------------------------
+  - seriesQuery: 'vllm:gpu_cache_usage_perc{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace: {resource: "namespace"}
+        pod: {resource: "pod"}
+    name:
+      matches: "^vllm:gpu_cache_usage_perc$"
+      as: "vllm_gpu_cache_usage_perc"
+    metricsQuery: 'avg_over_time(vllm:gpu_cache_usage_perc{<<.LabelMatchers>>}[2m])'
+
+  # -------------------------------------------------------------------------
+  # vllm_avg_generation_throughput_toks_per_s — THROUGHPUT HEALTH INDICATOR
+  # Average token output rate. A sustained drop in throughput while the queue
+  # is non-empty indicates the model is bottlenecked; tracked for alerting.
+  # -------------------------------------------------------------------------
+  - seriesQuery: 'vllm:avg_generation_throughput_toks_per_s{namespace!="",pod!=""}'
+    resources:
+      overrides:
+        namespace: {resource: "namespace"}
+        pod: {resource: "pod"}
+    name:
+      matches: "^vllm:avg_generation_throughput_toks_per_s$"
+      as: "vllm_avg_generation_throughput_toks_per_s"
+    metricsQuery: 'avg_over_time(vllm:avg_generation_throughput_toks_per_s{<<.LabelMatchers>>}[2m])'
