@@ -1,0 +1,5 @@
+image:
+  pullPolicy: IfNotPresent
+kubeletPlugin:
+  nodeSelector:
+    nvidia.com/dra-kubelet-plugin: "true"

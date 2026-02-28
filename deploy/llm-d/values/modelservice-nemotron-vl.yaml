@@ -15,6 +15,12 @@ decode:
   replicas: 1
   parallelism:
     tensor: 1
+  monitoring:
+    podmonitor:
+      enabled: true
+      portName: "vllm"  # decode vLLM service port (from routing.proxy.targetPort)
+      path: "/metrics"
+      interval: "30s"
 
   # runtimeClassName must go through extraConfig — the chart template has no
   # direct runtimeClassName block; only nodeSelector/tolerations are explicit.

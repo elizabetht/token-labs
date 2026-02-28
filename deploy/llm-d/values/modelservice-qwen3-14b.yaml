@@ -19,6 +19,12 @@ decode:
   replicas: 1
   parallelism:
     tensor: 1
+  monitoring:
+    podmonitor:
+      enabled: true
+      portName: "vllm"  # decode vLLM service port (from routing.proxy.targetPort)
+      path: "/metrics"
+      interval: "30s"
 
   extraConfig:
     runtimeClassName: nvidia
