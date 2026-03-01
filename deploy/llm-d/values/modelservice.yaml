@@ -32,7 +32,7 @@ decode:
   # Pin to spark-01 (spark-02 is reserved for Nemotron VL).
   nodeSelector:
     kubernetes.io/hostname: spark-01
-    nvidia.com/gpu.product: "NVIDIA-GB10"
+    nvidia.com/gpu.product: "NVIDIA-GB10-SHARED"
 
   tolerations:
   - key: nvidia.com/gpu

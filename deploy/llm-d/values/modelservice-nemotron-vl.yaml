@@ -30,7 +30,7 @@ decode:
   # Pin to spark-02. spark-01 is reserved for Nemotron-Llama.
   nodeSelector:
     kubernetes.io/hostname: spark-02
-    nvidia.com/gpu.product: "NVIDIA-GB10"
+    nvidia.com/gpu.product: "NVIDIA-GB10-SHARED"
 
   tolerations:
   - key: nvidia.com/gpu
@@ -50,9 +50,6 @@ decode:
         cpu: "8"
         memory: 64Gi
         nvidia.com/gpu: "1"
-    # vLLM arguments for Nemotron VL 12B FP8
-    # --quantization=modelopt: uses NVIDIA ModelOpt FP8 calibration data
-    # --trust-remote-code: required for Nemotron VL custom model code
     env:
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
