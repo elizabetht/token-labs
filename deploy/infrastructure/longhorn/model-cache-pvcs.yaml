@@ -1,0 +1,45 @@
+# --- spark-01: Nemotron-Llama 8B cache ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-nemotron-8b
+  namespace: token-labs
+  annotations:
+    # Pin Longhorn volume replica to spark-01
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 20Gi    # Nemotron-Llama 8B BF16 ~16 GB + headroom
+---
+# --- spark-01: Qwen3-14B NVFP4 cache ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen3-14b
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 20Gi    # Qwen3-14B NVFP4 ~14 GB + headroom
+---
+# --- spark-02: Nemotron VL 12B FP8 cache ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-nemotron-vl-12b
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 50Gi    # Nemotron VL 12B FP8 ~15 GB + HF hub temp files during download
