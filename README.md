@@ -560,6 +560,9 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
 │   │   ├── helmfile.yaml.gotmpl
 │   │   └── values/
+│   ├── arc/                  # ARC self-hosted runner scale set (optional)
+│   │   ├── values-runner-scale-set.yaml  # Helm values: runner + listener pinned to controller node
+│   │   └── README.md
 │   ├── magpie-tts/           # Magpie TTS deployment + HTTPRoute
 │   ├── riva-stt/             # Riva STT → NVIDIA NIM proxy
 │   │   ├── backend.yaml      # EG Backend + BackendTLSPolicy + BackendSecurityPolicy
@@ -572,6 +575,7 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   └── magpie-tts/           # FastAPI TTS wrapper (server.py, Dockerfile)
 ├── docs/
 │   ├── ARCHITECTURE.md       # Full architecture deep-dive
+│   ├── GHA-RUNNER-NODE-PINNING.md  # How to pin ARC runner pods to the controller node
 │   ├── index.html            # Live demo page
 │   └── benchmark-results.*   # Benchmark data
 ├── baselines/                # Accuracy baseline values
@@ -584,6 +588,7 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 
 - [Live Demo](https://elizabetht.github.io/token-labs/)
 - [Architecture Deep-Dive](docs/ARCHITECTURE.md)
+- [ARC Runner Node Pinning](docs/GHA-RUNNER-NODE-PINNING.md)
 - [Benchmark Results](https://elizabetht.github.io/token-labs/benchmark-results.html)
 
 ## License

@@ -51,6 +51,35 @@ echo "Key for ${COMPANY}: ${API_KEY}"
 #   kubectl apply -f deploy/tenants/
 ```
 
+## Optional: ARC Self-Hosted Runners
+
+Pin GitHub Actions runner pods to the CPU controller node so GPU workers are reserved for inference.
+
+> Full guide: [docs/GHA-RUNNER-NODE-PINNING.md](../docs/GHA-RUNNER-NODE-PINNING.md)
+
+```bash
+# 1. Label the controller node
+kubectl label node controller gha-runner=cpu-controller
+
+# 2. Install the ARC controller (once per cluster)
+helm upgrade --install arc \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-controller \
+  -n arc-systems --create-namespace
+
+# 3. Create the GitHub credentials secret (GitHub App recommended)
+kubectl create secret generic arc-github-secret \
+  -n arc-runners \
+  --from-literal=githubAppId=<APP_ID> \
+  --from-literal=githubAppInstallationId=<INSTALLATION_ID> \
+  --from-literal=githubAppPrivateKey="$(cat private-key.pem)"
+
+# 4. Deploy the runner scale set (pinned to controller node)
+helm upgrade --install arc-runners \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+  -n arc-runners --create-namespace \
+  -f deploy/arc/values-runner-scale-set.yaml
+```
+
 ## Optional: Magpie TTS
 
 > Must be built natively on spark-01 (ARM64) — do NOT cross-compile via QEMU on controller.
@@ -128,6 +157,9 @@ deploy/
 │       ├── inferencepool-nemotron-vl.yaml
 │       ├── modelservice.yaml
 │       └── modelservice-nemotron-vl.yaml
+├── arc/                 # ARC runner scale set (optional, pinned to controller node)
+│   ├── values-runner-scale-set.yaml
+│   └── README.md
 ├── magpie-tts/          # Magpie TTS deployment (optional)
 │   ├── deployment.yaml
 │   └── httproute.yaml
