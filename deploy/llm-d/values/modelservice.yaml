@@ -16,6 +16,10 @@ modelArtifacts:
     llm-d.ai/model: llama-3-1-8b
 
 decode:
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-nemotron-8b
   replicas: 1
   parallelism:
     tensor: 1
@@ -55,6 +59,11 @@ decode:
     env:
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    - name: HF_HOME
+      value: "/model-cache/huggingface"   # vLLM's Hugging Face Hub cache dir
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
     # vLLM exposes GET /health on port 8000 (200 = ready, 503 = loading)
     # startupProbe: up to 10 min for model weights to load before liveness kicks in
     startupProbe:

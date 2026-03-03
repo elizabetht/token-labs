@@ -12,6 +12,10 @@ modelArtifacts:
     llm-d.ai/model: nemotron-vl-12b
 
 decode:
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-nemotron-vl-12b
   replicas: 1
   parallelism:
     tensor: 1
@@ -53,6 +57,11 @@ decode:
     env:
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    - name: HF_HOME
+      value: "/model-cache/huggingface"   # vLLM's Hugging Face Hub cache dir
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
     # vLLM exposes GET /health on port 8000 (200 = ready, 503 = loading)
     # startupProbe: up to 15 min for FP8 model + trust-remote-code compilation
     startupProbe:
