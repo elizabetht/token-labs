@@ -1,0 +1,88 @@
+# Helm values for gha-runner-scale-set
+# Chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+#
+# Pins runner pods and the listener pod to the CPU controller node so that
+# GPU worker nodes (spark-01, spark-02) are left exclusively for inference workloads.
+#
+# Prerequisites:
+#   1. Label the controller node:
+#      kubectl label node controller gha-runner=cpu-controller
+#
+#   2. If the controller carries a taint (e.g. MicroK8s control-plane taint), also
+#      apply a matching toleration — see the tolerations blocks below.
+#
+# Install:
+#   helm upgrade --install arc-runners \
+#     oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+#     -n arc-runners --create-namespace \
+#     -f deploy/arc/values-runner-scale-set.yaml
+
+# --------------------------------------------------------------------------
+# GitHub App / PAT credentials (set via --set or a separate secret)
+# --------------------------------------------------------------------------
+githubConfigUrl: "https://github.com/elizabetht/token-labs"
+githubConfigSecret: "arc-github-secret"   # Secret must contain githubAppId,
+                                           # githubAppInstallationId, githubAppPrivateKey
+                                           # OR githubToken for PAT-based auth.
+
+# --------------------------------------------------------------------------
+# Runner pod template — pinned to the controller node
+# --------------------------------------------------------------------------
+template:
+  spec:
+    # Pin to the dedicated CPU controller node.
+    nodeSelector:
+      gha-runner: cpu-controller
+
+    # Add a toleration if the controller node carries a NoSchedule taint
+    # (e.g. the MicroK8s control-plane taint).  Remove if untainted.
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+    # Optional: require the node via a hard affinity rule instead of (or in
+    # addition to) nodeSelector.  Useful when multiple labels need matching.
+    # affinity:
+    #   nodeAffinity:
+    #     requiredDuringSchedulingIgnoredDuringExecution:
+    #       nodeSelectorTerms:
+    #         - matchExpressions:
+    #             - key: gha-runner
+    #               operator: In
+    #               values: [cpu-controller]
+
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        # Resource requests for the CPU controller (no GPU).
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+
+# --------------------------------------------------------------------------
+# Listener pod template — also pinned to the controller node
+#
+# The listener is a separate pod (one per RunnerScaleSet) that long-polls
+# the GitHub API and creates/deletes runner pods on demand.  It is distinct
+# from the runner pod and has its own scheduling fields.
+# --------------------------------------------------------------------------
+listenerTemplate:
+  spec:
+    nodeSelector:
+      gha-runner: cpu-controller
+
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+# --------------------------------------------------------------------------
+# Scale limits
+# --------------------------------------------------------------------------
+minRunners: 0
+maxRunners: 5
