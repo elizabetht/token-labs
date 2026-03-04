@@ -11,30 +11,63 @@ Multi-tenant LLM inference-as-a-service on NVIDIA DGX Spark. All tenant manageme
 TokenLabs composes four open-source projects, each handling a distinct concern:
 
 ```
-Client (Authorization: Bearer <api-key>)
-  │
-  ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  Envoy AI Gateway (EAG v0.5.0) + Envoy Gateway (EG v1.5.0)      │
-│  ├─ Kuadrant AuthPolicy → Authorino          ① API key auth      │
-│  ├─ Kuadrant RateLimitPolicy → Limitador     ② Rate limits       │
-│  │                                                               │
-│  ├─ AIGatewayRoute: /v1/chat/completions     ③ Model routing     │
-│  │   EAG reads {"model":...} body → x-ai-eg-model header        │
-│  │   ├─ model=Nemotron-Llama-8B  → llm-d EPP → vLLM (spark-01) │
-│  │   └─ model=Nemotron-VL-12B   → llm-d EPP → vLLM (spark-02) │
-│  │                                                               │
-│  ├─ HTTPRoute: /v1/audio/speech ──► Magpie TTS  ④ Text-to-speech│
-│  └─ HTTPRoute: /v1/audio/transcriptions ──► Riva STT (NVIDIA NIM)│
-├──────────────────────────────────────────────────────────────────┤
-│  vLLM / TTS Workers                                              │
-│  └─ Response with usage.total_tokens (LLMs)                      │
-├──────────────────────────────────────────────────────────────────┤
-│  Kuadrant TokenRateLimitPolicy → Limitador    ⑤ Token quota      │
-└──────────────────────────────────────────────────────────────────┘
-  │
-  ▼
-Client receives response
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║               TOKEN LABS — Multi-tenant LLM Inference-as-a-Service              ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+  CLIENT  (Authorization: Bearer tlabs_sk_...)
+  POST /v1/chat/completions  |  POST /v1/audio/speech  |  POST /v1/audio/transcriptions
+  ─────────────────────────────────────┬────────────────────────────────────────────
+                                       │ HTTP :80  api.tokenlabs.run
+
+  ┌─────────────────────── GATEWAY LAYER (controller node) ───────────────────────┐
+  │                                                                                │
+  │  ① API Key Auth    Kuadrant / Authorino                                        │
+  │     └─ Looks up tenant Secret → extracts tier + user-id from annotations      │
+  │                                                                                │
+  │  ② Rate Limit      Kuadrant / Limitador  ◄── Redis                            │
+  │     └─ free: 100 req/day · 10/min   pro: 5k/day · 100/min                    │
+  │                                                                                │
+  │  ③ Model Routing   Envoy AI Gateway (ext_proc)                                │
+  │     └─ Reads "model" from JSON body → sets x-ai-eg-model header               │
+  │                                                                                │
+  │  ④ Pod Selection   llm-d EPP (ext_proc, one per InferencePool)                │
+  │     └─ Scores pods: KV-cache %, prefix-cache locality, queue depth            │
+  │                                                                                │
+  │  ⑤ Token Quota     Kuadrant TokenRateLimitPolicy (response phase)             │
+  │     └─ Parses usage.total_tokens → increments per-tenant counter              │
+  │        free: 50k tok/day   pro: 500k tok/day   enterprise: 5M tok/day         │
+  └────────┬──────────────────────────┬────────────────────────┬───────────────────┘
+           │ /v1/chat/completions      │ /v1/audio/speech        │ /v1/audio/transcriptions
+
+  ┌─────────────────────── INFERENCE LAYER ───────────────────────────────────────┐
+  │                                                                                │
+  │  spark-01 (NVIDIA GB10 · 72GB HBM3e)     spark-02 (NVIDIA GB10 · 72GB HBM3e) │
+  │  ┌──────────────────────────────┐         ┌─────────────────────────────────┐ │
+  │  │ vLLM  Nemotron-Llama 8B      │         │ vLLM  Nemotron VL 12B FP8       │ │
+  │  │ nvidia/Llama-3.1-Nemotron-   │         │ nvidia/NVIDIA-Nemotron-Nano-     │ │
+  │  │   Nano-8B-v1  (BF16)         │         │   12B-v2-VL-FP8                  │ │
+  │  │ 80% GPU util · port 8000     │         │ 90% GPU util · port 8000         │ │
+  │  └──────────────────────────────┘         └─────────────────────────────────┘ │
+  │  ┌──────────────────────────────┐                                              │
+  │  │ vLLM  Qwen3-14B NVFP4        │                                              │
+  │  │ nvidia/Qwen3-14B-NVFP4       │  ┌──────────────────────────────────────┐   │
+  │  │ port 8000                    │  │ Riva STT  (NVIDIA NIM proxy)          │   │
+  │  └──────────────────────────────┘  │ → integrate.api.nvidia.com:443        │   │
+  │  ┌──────────────────────────────┐  │   BackendSecurityPolicy swaps         │   │
+  │  │ Magpie TTS  357M  FastAPI    │  │   client key → NVIDIA API key         │   │
+  │  │ /v1/audio/speech  (CPU mode) │  └──────────────────────────────────────┘   │
+  │  └──────────────────────────────┘                                              │
+  └────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────── STORAGE & OBSERVABILITY ───────────────────────────────┐
+  │                                                                                │
+  │  Longhorn PVCs (Retain, node-pinned)     Prometheus + Grafana (optional)      │
+  │  spark-01: model-cache-nemotron-8b 20Gi  ServiceMonitors: Limitador,          │
+  │  spark-01: model-cache-qwen3-14b   20Gi    Authorino, Envoy, vLLM             │
+  │  spark-02: model-cache-nemotron-vl 50Gi  Dashboards: KV-cache, EPP routing,  │
+  │  Mount: /model-cache/huggingface           vLLM overview, saturation          │
+  └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Components
@@ -65,20 +98,20 @@ This produces better tail latency and higher throughput than round-robin or leas
 ### Infrastructure
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         MicroK8s Cluster                             │
-│                                                                      │
-│  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐       │
-│  │  controller     │   │  spark-01      │   │  spark-02      │       │
-│  │  (CPU, ARM64)   │   │  (GB10 GPU)    │   │  (GB10 GPU)    │       │
-│  │                 │   │                │   │                │       │
-│  │  Envoy AI GW    │   │  vLLM:         │   │  vLLM:         │       │
-│  │  Envoy GW       │   │  Nemotron-     │   │  Nemotron VL   │       │
-│  │  Kuadrant       │   │  Llama 8B      │   │  12B FP8       │       │
-│  │  llm-d EPPs     │   │  Magpie TTS    │   │                │       │
-│  │                 │   │  (CPU mode)    │   │                │       │
-│  └────────────────┘   └────────────────┘   └────────────────┘       │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                           MicroK8s Cluster                             │
+│                                                                        │
+│  ┌─────────────────┐   ┌──────────────────────┐   ┌────────────────┐  │
+│  │  controller      │   │  spark-01             │   │  spark-02      │  │
+│  │  (CPU, ARM64)    │   │  (GB10 GPU, 72GB)     │   │  (GB10 GPU,    │  │
+│  │                  │   │                       │   │   72GB)        │  │
+│  │  Envoy AI GW     │   │  vLLM: Nemotron-Llama │   │                │  │
+│  │  Envoy GW        │   │    8B (BF16, 80% GPU) │   │  vLLM:         │  │
+│  │  Kuadrant        │   │  vLLM: Qwen3-14B      │   │  Nemotron VL   │  │
+│  │  llm-d EPPs      │   │    (NVFP4)            │   │  12B FP8       │  │
+│  │  Redis           │   │  Magpie TTS (CPU)     │   │  (90% GPU)     │  │
+│  └─────────────────┘   └──────────────────────┘   └────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 The cluster has three nodes. The CPU controller runs control-plane components (Envoy AI Gateway, Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `nvidia/Llama-3.1-Nemotron-Nano-8B-v1` (80% GPU utilization, BF16) and Magpie TTS (CPU mode — the GPU is fully allocated to vLLM). **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model, 90% GPU utilization). Both use `tensor_parallelism=1`.
