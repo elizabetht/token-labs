@@ -1,0 +1,27 @@
+# ModelDeployment sample — Qwen3-14B NVFP4 on spark-02
+#
+# This replaces the three separate files that were previously required:
+#   - deploy/llm-d/values/modelservice-qwen3-14b.yaml
+#   - deploy/llm-d/values/inferencepool-qwen3-14b.yaml
+#   - Manual edit to deploy/gateway/aigwroute.yaml
+#
+# Apply with:
+#   kubectl apply -f deploy/samples/modeldeployment-qwen3-14b.yaml
+apiVersion: tokenlabs.io/v1alpha1
+kind: ModelDeployment
+metadata:
+  name: qwen3-14b
+  namespace: token-labs
+spec:
+  modelId: nvidia/Qwen3-14B-NVFP4
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  resources:
+    gpuMemoryFraction: "0.9"
+  quantization: nvfp4
+  replicas: 1
+  routing:
+    modelAliases:
+      - nvidia/Qwen3-14B-NVFP4
+      - qwen3-14b
+      - qwen3
