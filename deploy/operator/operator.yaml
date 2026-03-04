@@ -1,0 +1,119 @@
+# Namespace for the operator (uses the same token-labs namespace as the workloads).
+# The operator can be deployed in its own namespace by changing these references.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: modeldeployment-operator
+  namespace: token-labs
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: modeldeployment-operator
+rules:
+# ModelDeployment CRD management
+- apiGroups: ["tokenlabs.io"]
+  resources: ["modeldeployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["tokenlabs.io"]
+  resources: ["modeldeployments/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: ["tokenlabs.io"]
+  resources: ["modeldeployments/finalizers"]
+  verbs: ["update"]
+# Deployments and Services for vLLM pods
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+# InferencePool (GAIE CRD)
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+# AIGatewayRoute (Envoy AI Gateway CRD) — patch to add/remove routing rules
+- apiGroups: ["aigateway.envoyproxy.io"]
+  resources: ["aigwroutes"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+# Leader election
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: modeldeployment-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: modeldeployment-operator
+subjects:
+- kind: ServiceAccount
+  name: modeldeployment-operator
+  namespace: token-labs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: modeldeployment-operator
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/name: modeldeployment-operator
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: modeldeployment-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: modeldeployment-operator
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: modeldeployment-operator
+      # Pin the operator itself to an amd64 node (controller node).
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      containers:
+      - name: operator
+        image: ghcr.io/elizabetht/token-labs/modeldeployment-operator:latest
+        args:
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
