@@ -1,0 +1,37 @@
+// Package v1alpha1 contains API Schema definitions for the tokenlabs.io v1alpha1 API group.
+// +groupName=tokenlabs.io
+package v1alpha1
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
+)
+
+var (
+	// GroupVersion is group version used to register these objects.
+	GroupVersion = schema.GroupVersion{Group: "tokenlabs.io", Version: "v1alpha1"}
+
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+)
+
+func init() {
+	SchemeBuilder.Register(&Tenant{}, &TenantList{})
+}
+
+// Resource takes an unqualified resource and returns a Group-qualified GroupResource.
+func Resource(resource string) schema.GroupResource {
+	return GroupVersion.WithResource(resource).GroupResource()
+}
+
+// Ensure Tenant implements runtime.Object.
+var _ runtime.Object = &Tenant{}
+var _ runtime.Object = &TenantList{}
+
+// Ensure Tenant implements metav1.Object.
+var _ metav1.Object = &Tenant{}

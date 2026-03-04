@@ -1,0 +1,150 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tenants.tokenlabs.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.0
+spec:
+  group: tokenlabs.io
+  names:
+    kind: Tenant
+    listKind: TenantList
+    plural: tenants
+    singular: tenant
+    shortNames:
+      - tn
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Tier
+          type: string
+          jsonPath: .spec.tier
+        - name: Secret
+          type: string
+          jsonPath: .status.apiKeySecretRef
+        - name: Ready
+          type: string
+          jsonPath: '.status.conditions[?(@.type=="Ready")].status'
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          description: >
+            Tenant is the Schema for the tenants API.
+            It represents a first-class tenant whose lifecycle (API key creation,
+            tier changes, and optional key rotation) is managed by the tenant-operator.
+          type: object
+          properties:
+            apiVersion:
+              description: APIVersion defines the versioned schema of this representation of an object.
+              type: string
+            kind:
+              description: Kind is a string value representing the REST resource this object represents.
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: TenantSpec defines the desired state of a Tenant.
+              type: object
+              properties:
+                tier:
+                  description: Tier is the service tier for this tenant (free, pro, or enterprise).
+                  type: string
+                  default: free
+                  enum:
+                    - free
+                    - pro
+                    - enterprise
+                company:
+                  description: Company is the display name of the tenant's organisation.
+                  type: string
+                email:
+                  description: Email is the primary contact email address for this tenant.
+                  type: string
+                keyRotationPolicy:
+                  description: KeyRotationPolicy controls automatic API key rotation.
+                  type: object
+                  required:
+                    - enabled
+                  properties:
+                    enabled:
+                      description: Enabled controls whether automatic key rotation is active.
+                      type: boolean
+                      default: false
+                    intervalDays:
+                      description: IntervalDays is the number of days between automatic key rotations.
+                      type: integer
+                      minimum: 1
+            status:
+              description: TenantStatus defines the observed state of a Tenant.
+              type: object
+              properties:
+                apiKeySecretRef:
+                  description: APIKeySecretRef is the name of the Secret that holds the tenant's API key.
+                  type: string
+                tokensConsumedToday:
+                  description: TokensConsumedToday is the number of LLM tokens consumed today by this tenant.
+                  type: integer
+                  format: int64
+                rateLimitHits:
+                  description: RateLimitHits is the number of rate limit rejections recorded for this tenant today.
+                  type: integer
+                  format: int64
+                lastKeyRotation:
+                  description: LastKeyRotation is the timestamp of the most recent API key rotation.
+                  type: string
+                  format: date-time
+                conditions:
+                  description: Conditions reflect the current state of the Tenant.
+                  type: array
+                  items:
+                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    type: object
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
+                    properties:
+                      lastTransitionTime:
+                        description: LastTransitionTime is the last time the condition transitioned from one status to another.
+                        type: string
+                        format: date-time
+                      message:
+                        description: Message is a human readable message indicating details about the transition.
+                        type: string
+                        maxLength: 32768
+                      observedGeneration:
+                        description: ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+                        type: integer
+                        format: int64
+                        minimum: 0
+                      reason:
+                        description: Reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        type: string
+                        maxLength: 1024
+                        minLength: 1
+                        pattern: '^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$'
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      type:
+                        description: Type of condition in CamelCase.
+                        type: string
+                        maxLength: 316
+                        pattern: '^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$'
+                  x-kubernetes-list-map-keys:
+                    - type
+                  x-kubernetes-list-type: map

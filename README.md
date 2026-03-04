@@ -85,7 +85,7 @@ The cluster has three nodes. The CPU controller runs control-plane components (E
 
 ### Tenant Model
 
-There is no external identity provider (no Keycloak, no Auth0). Tenants are Kubernetes Secrets — Authorino validates API keys by looking up Secrets directly. No database, no restarts, no config reloads. The moment you `kubectl apply` a tenant Secret, the API key is live.
+There is no external identity provider (no Keycloak, no Auth0). Tenants are first-class Kubernetes objects — a `Tenant` CRD (`tokenlabs.io/v1alpha1`) drives the lifecycle of each tenant's Authorino API-key Secret. The **tenant-operator** watches `Tenant` resources and manages the underlying Secret automatically, making tenant management GitOps-friendly and eliminating manual Secret construction.
 
 #### How authentication works
 
@@ -95,49 +95,76 @@ There is no external identity provider (no Keycloak, no Auth0). Tenants are Kube
 4. On match, extracts the tenant's tier (`kuadrant.io/groups`) and ID (`secret.kuadrant.io/user-id`) from annotations
 5. Passes this metadata downstream — RateLimitPolicy and TokenRateLimitPolicy use it to enforce per-tenant quotas
 
-#### Tenant Secret structure
+#### Tenant CR structure
 
 ```yaml
-apiVersion: v1
-kind: Secret
+apiVersion: tokenlabs.io/v1alpha1
+kind: Tenant
 metadata:
-  name: tenant-acme
-  namespace: kuadrant-system
-  labels:
-    authorino.kuadrant.io/managed-by: authorino   # Authorino discovers this Secret
-    app: token-labs
-  annotations:
-    kuadrant.io/groups: "pro"                      # tier: free | pro | enterprise
-    secret.kuadrant.io/user-id: "acme"             # unique tenant ID (rate limit counter key)
-stringData:
-  api_key: "tlabs_sk_acme_..."                     # API key value
+  name: acme-corp          # used as the tenant ID and Secret name suffix
+spec:
+  tier: pro                # free | pro | enterprise
+  company: "Acme Corp"
+  email: admin@acme.com
+  keyRotationPolicy:       # optional: automatic key rotation
+    enabled: true
+    intervalDays: 90
+status:
+  apiKeySecretRef: tenant-acme-corp   # Secret created by the operator
+  conditions:
+    - type: Ready
+      status: "True"
 ```
 
-#### Onboarding a new tenant
+The operator creates an Authorino-annotated Secret automatically — no manual label/annotation construction required:
 
-```bash
-# 1. Generate a secure API key
-API_KEY="tlabs_sk_$(openssl rand -hex 24)"
-
-# 2. Create the tenant Secret (choose tier: free, pro, or enterprise)
-cat <<EOF | kubectl apply -f -
+```yaml
+# Created by the tenant-operator in kuadrant-system
 apiVersion: v1
 kind: Secret
 metadata:
-  name: tenant-acme
+  name: tenant-acme-corp
   namespace: kuadrant-system
   labels:
     authorino.kuadrant.io/managed-by: authorino
     app: token-labs
   annotations:
     kuadrant.io/groups: "pro"
-    secret.kuadrant.io/user-id: "acme"
-stringData:
-  api_key: "$API_KEY"
+    secret.kuadrant.io/user-id: "acme-corp"
+data:
+  api_key: <cryptographically random 32-byte hex>
+```
+
+#### Operator behaviour
+
+| Event | Action |
+|-------|--------|
+| Tenant created | Generate API key, create Authorino-annotated Secret in `kuadrant-system` |
+| `spec.tier` changed | Update `kuadrant.io/groups` annotation → rate limits update instantly |
+| Tenant deleted | Delete Secret, immediately revoking API access |
+| Key rotation due | Generate new key, update Secret atomically |
+
+#### Onboarding a new tenant
+
+```bash
+# 1. Install the Tenant CRD
+kubectl apply -f deploy/crds/tokenlabs.io_tenants.yaml
+
+# 2. Create a Tenant CR (the operator generates the API key automatically)
+kubectl apply -f - <<EOF
+apiVersion: tokenlabs.io/v1alpha1
+kind: Tenant
+metadata:
+  name: acme-corp
+spec:
+  tier: pro
+  company: "Acme Corp"
+  email: admin@acme.com
 EOF
 
-# 3. Share the API key with the client (securely, out-of-band)
-echo "API Key: $API_KEY"
+# 3. Retrieve the generated API key and share it with the client
+kubectl get secret tenant-acme-corp -n kuadrant-system \
+  -o jsonpath='{.data.api_key}' | base64 -d
 ```
 
 The client can use the key immediately — no waiting, no restart:
@@ -153,10 +180,11 @@ curl https://inference.token-labs.local/v1/chat/completions \
 
 | Action | Command |
 |--------|---------|
-| List all tenants | `kubectl get secrets -n kuadrant-system -l app=token-labs` |
-| Change tier | `kubectl annotate secret tenant-acme -n kuadrant-system kuadrant.io/groups=enterprise --overwrite` |
-| Rotate API key | `kubectl create secret generic tenant-acme -n kuadrant-system --from-literal=api_key="$(openssl rand -hex 24)" --dry-run=client -o yaml \| kubectl apply -f -` |
-| Revoke access | `kubectl delete secret tenant-acme -n kuadrant-system` |
+| List all tenants | `kubectl get tenants` |
+| View tenant status | `kubectl get tenant acme-corp -o yaml` |
+| Change tier | `kubectl patch tenant acme-corp --type=merge -p '{"spec":{"tier":"enterprise"}}'` |
+| Enable key rotation | `kubectl patch tenant acme-corp --type=merge -p '{"spec":{"keyRotationPolicy":{"enabled":true,"intervalDays":90}}}'` |
+| Revoke access | `kubectl delete tenant acme-corp` |
 
 #### Rate limits by tier
 
