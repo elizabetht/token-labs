@@ -1,18 +1,18 @@
-# We Built a Production LLM API Platform in a Weekend — With Zero Custom Middleware
+# A Production LLM API Platform in a Weekend — With Zero Custom Middleware
 
 *How composing four open-source projects replaced what used to require a dedicated platform team.*
 
 ---
 
-There's a version of this story where we built a custom API gateway, wrote a billing service, stood up an identity provider, and hired someone to maintain all of it. That version takes months.
+There's a version of this story that involves building a custom API gateway, writing a billing service, standing up an identity provider, and hiring someone to maintain all of it. That version takes months.
 
-Here's what we actually did: deployed a fully multi-tenant LLM inference platform — authentication, rate limiting, token-based billing, and GPU-aware load balancing — with **no custom application code**. Every capability is a Kubernetes CRD. The entire policy surface is declarative YAML.
+Here's what actually happened: a fully multi-tenant LLM inference platform deployed — authentication, rate limiting, token-based billing, and GPU-aware load balancing — with **no custom application code**. Every capability is a Kubernetes CRD. The entire policy surface is declarative YAML.
 
 This is the architecture breakdown.
 
 ---
 
-## The Problem We Were Solving
+## The Problem
 
 Running LLMs on private infrastructure sounds straightforward until you need to serve multiple tenants. Then you need:
 
@@ -24,7 +24,7 @@ Running LLMs on private infrastructure sounds straightforward until you need to 
 
 The default answer is to write a proxy service that sits in front of your inference workers and handles all of this. That service then becomes the most critical piece of infrastructure you own, and also the one with the least test coverage.
 
-We took a different approach.
+A different approach was taken.
 
 ---
 
@@ -120,7 +120,7 @@ Two models served simultaneously: Nemotron-Llama 8B on spark-01 (80% GPU utiliza
 
 ---
 
-## What We Did Not Build
+## What Was Not Built
 
 It is worth being explicit about what the architecture deliberately avoids:
 
@@ -163,4 +163,4 @@ The full source, deployment scripts, and benchmark data are open on GitHub: [git
 
 *Built on NVIDIA DGX Spark with MicroK8s, Envoy AI Gateway, Envoy Gateway, Kuadrant, llm-d, and vLLM.*
 
-*If you are working on inference infrastructure or LLM platform engineering, I would enjoy comparing notes.*
+*If you are working on inference infrastructure or LLM platform engineering, reach out to compare notes.*
