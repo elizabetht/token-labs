@@ -1,0 +1,51 @@
+# One-time Job: pre-serialize Nemotron-Llama 8B weights with Tensorizer.
+# Run once after the model has been downloaded into the model-cache-nemotron-8b PVC.
+# Usage: kubectl apply -f deploy/llm-d/jobs/serialize-nemotron-8b.yaml -n token-labs
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: serialize-nemotron-8b
+  namespace: token-labs
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: spark-01
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      runtimeClassName: nvidia
+      containers:
+      - name: serialize
+        image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0
+        command: ["python3", "-c"]
+        args:
+        - |
+          from tensorizer import TensorSerializer
+          from vllm import LLM
+          llm = LLM(model="nvidia/Llama-3.1-Nemotron-Nano-8B-v1", dtype="bfloat16",
+                     gpu_memory_utilization=0.4,
+                     download_dir="/model-cache/huggingface")
+          serializer = TensorSerializer("/model-cache/nemotron-8b.tensors")
+          serializer.write_module(llm.llm_engine.model_executor.driver_worker.model_runner.model)
+          serializer.close()
+          print("Done")
+        env:
+        - name: HF_HOME
+          value: /model-cache/huggingface
+        - name: CUDA_MODULE_LOADING
+          value: "LAZY"
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+            memory: 64Gi
+        volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: model-cache-nemotron-8b
+      restartPolicy: Never
+  backoffLimit: 1

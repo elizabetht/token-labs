@@ -61,18 +61,20 @@ decode:
       value: "1"
     - name: HF_HOME
       value: "/model-cache/huggingface"   # vLLM's Hugging Face Hub cache dir
+    - name: CUDA_MODULE_LOADING
+      value: "LAZY"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
     # vLLM exposes GET /health on port 8000 (200 = ready, 503 = loading)
-    # startupProbe: up to 10 min for model weights to load before liveness kicks in
+    # startupProbe: tightened after tensorizer serialization (~30s load time)
     startupProbe:
       httpGet:
         path: /v1/models
         port: 8000
-      initialDelaySeconds: 30
-      periodSeconds: 10
-      failureThreshold: 60   # 30s + 60x10s = up to 10 min
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 24   # 10s + 24x5s = up to 2 min
       timeoutSeconds: 10
     readinessProbe:
       httpGet:
@@ -93,6 +95,8 @@ decode:
     args:
     - "--dtype=bfloat16"
     - "--gpu-memory-utilization=0.4"
+    - "--load-format=tensorizer"
+    - "--model-loader-extra-config={\"tensorizer_uri\": \"/model-cache/nemotron-8b.tensors\"}"
 
 # HuggingFace token — required if the model is gated on HuggingFace.
 # Create secret: kubectl create secret generic hf-token-secret \
