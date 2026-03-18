@@ -6,142 +6,180 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --bg:            #0a0f1e;
-      --bg-nav:        #0d1426;
-      --bg-sidebar:    #0d1426;
-      --bg-card:       #111827;
-      --bg-card2:      #161f34;
-      --bg-input:      #1a2340;
-      --bg-code:       #090e1c;
+      --bg:            #0a0a0a;
+      --bg-elevated:   #141414;
+      --bg-card:       #1a1a1a;
+      --bg-card-hover: #222222;
+      --bg-input:      #1a1a1a;
+      --bg-code:       #0d0d0d;
       --accent:        #76b900;
-      --accent-dim:    rgba(118,185,0,0.15);
-      --accent-border: rgba(118,185,0,0.35);
+      --accent-dim:    rgba(118,185,0,0.12);
+      --accent-border: rgba(118,185,0,0.3);
+      --gold:          #c9a227;
+      --gold-dim:      rgba(201,162,39,0.1);
+      --gold-border:   rgba(201,162,39,0.3);
       --blue:          #3b82f6;
-      --blue-dim:      rgba(59,130,246,0.15);
+      --blue-dim:      rgba(59,130,246,0.12);
       --purple:        #8b5cf6;
-      --text:          #e2e8f0;
-      --text-muted:    #64748b;
-      --text-dim:      #94a3b8;
-      --border:        #1e2d4a;
-      --border-bright: #2d3f60;
+      --text:          #f5f5f5;
+      --text-secondary:#a3a3a3;
+      --text-muted:    #737373;
+      --border:        #262626;
+      --border-bright: #404040;
       --danger:        #ef4444;
       --success:       #10b981;
-      --radius:        10px;
-      --radius-lg:     14px;
+      --radius:        12px;
+      --radius-lg:     16px;
+      --transition:    0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 14px; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
     /* NAV */
-    .nav { background: var(--bg-nav); border-bottom: 1px solid var(--border); height: 56px; display: flex; align-items: center; padding: 0 24px; position: sticky; top: 0; z-index: 100; }
-    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; flex-shrink: 0; }
-    .nav-logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #000; }
-    .nav-links { display: flex; gap: 4px; flex: 1; }
-    .nav-link { padding: 6px 14px; border-radius: 7px; font-size: 13px; color: var(--text-muted); text-decoration: none; transition: background 0.15s, color 0.15s; }
+    .nav { background: rgba(10,10,10,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); height: 60px; display: flex; align-items: center; padding: 0 32px; position: sticky; top: 0; z-index: 200; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text); text-decoration: none; margin-right: 40px; flex-shrink: 0; cursor: pointer; }
+    .nav-logo-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: #000; }
+    .nav-links { display: flex; gap: 6px; flex: 1; }
+    .nav-link { padding: 7px 14px; border-radius: 8px; font-size: 13px; color: var(--text-secondary); text-decoration: none; transition: all var(--transition); font-weight: 500; }
     .nav-link:hover { background: var(--bg-card); color: var(--text); }
     .nav-link.active { background: var(--accent-dim); color: var(--accent); }
-    .nav-right { display: flex; align-items: center; gap: 12px; }
-    .live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--success); letter-spacing: 0.04em; }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; }
+    .nav-right { display: flex; align-items: center; gap: 14px; }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--success); letter-spacing: 0.04em; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.4;} }
+    .api-key-input { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 12px; color: var(--text); outline: none; width: 180px; transition: border-color var(--transition); font-family: inherit; }
+    .api-key-input:focus { border-color: var(--accent); }
+    .api-key-input::placeholder { color: var(--text-muted); }
 
-    /* LAYOUT */
-    .app-layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 56px); }
+    /* BUTTONS */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all var(--transition); text-decoration: none; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: #8fd400; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(118,185,0,0.3); }
+    .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-card); color: var(--text); border-color: var(--border-bright); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* SIDEBAR */
-    .sidebar { width: 300px; min-width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
-    .sidebar-header { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); }
-    .sidebar-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
-    .search-box { position: relative; }
-    .search-box input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px 8px 32px; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; }
-    .search-box input:focus { border-color: var(--accent); }
-    .search-box input::placeholder { color: var(--text-muted); }
-    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; pointer-events: none; }
-    .filter-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-    .filter-chip { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-size: 11px; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
-    .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
-    .filter-chip.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
-    .model-list { flex: 1; overflow-y: auto; padding: 10px; }
-    .model-card { padding: 12px; border-radius: var(--radius); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; }
-    .model-card:hover { background: var(--bg-card); border-color: var(--border); }
-    .model-card.selected { background: var(--accent-dim); border-color: var(--accent-border); }
-    .model-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .model-avatar { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-    .model-card-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
-    .model-card-org { font-size: 11px; color: var(--text-muted); }
-    .model-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .tag { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+    /* ==================== CATALOG VIEW ==================== */
+    .catalog-view { display: block; }
+    .detail-view  { display: none; }
+    .view-active  { display: block; }
+    .view-hidden  { display: none; }
+
+    /* HERO */
+    .hero { padding: 80px 32px 60px; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ""; position: absolute; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 800px; background: radial-gradient(circle, rgba(118,185,0,0.06) 0%, transparent 70%); pointer-events: none; }
+    .hero-title { font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+    .hero-title .accent { color: var(--accent); }
+    .hero-subtitle { font-size: 1.1rem; color: var(--text-secondary); max-width: 540px; margin: 0 auto 40px; line-height: 1.6; }
+    .hero-search { max-width: 560px; margin: 0 auto; position: relative; }
+    .hero-search input { width: 100%; background: var(--bg-card); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); padding: 16px 20px 16px 48px; font-size: 15px; color: var(--text); outline: none; transition: all var(--transition); font-family: inherit; }
+    .hero-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(118,185,0,0.1); }
+    .hero-search input::placeholder { color: var(--text-muted); }
+    .hero-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px; pointer-events: none; }
+
+    /* SECTION */
+    .section { max-width: 1200px; margin: 0 auto; padding: 0 32px 60px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .section-title { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+    .section-subtitle { font-size: 0.9rem; color: var(--text-secondary); }
+
+    /* MODEL GRID */
+    .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    @media(max-width:800px){ .model-grid { grid-template-columns: 1fr; } }
+
+    .model-card-catalog { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; transition: all var(--transition); position: relative; overflow: hidden; }
+    .model-card-catalog:hover { background: var(--bg-card-hover); border-color: var(--border-bright); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .model-card-catalog .card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .model-card-catalog .card-avatar { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .model-card-catalog .card-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .model-card-catalog .card-org { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .model-card-catalog .card-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .model-card-catalog .card-footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tag { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
     .tag-green  { background: rgba(118,185,0,0.12); color: #76b900; }
     .tag-blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
     .tag-purple { background: rgba(139,92,246,0.12); color: #a78bfa; }
     .tag-orange { background: rgba(245,158,11,0.12); color: #fbbf24; }
     .tag-teal   { background: rgba(20,184,166,0.12); color: #2dd4bf; }
+    .card-price { margin-left: auto; font-size: 12px; color: var(--accent); font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
 
-    /* MAIN */
-    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .model-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 16px 24px; }
-    .model-header-top { display: flex; align-items: flex-start; gap: 14px; }
-    .model-header-avatar { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; flex-shrink: 0; }
-    .model-header-info { flex: 1; }
-    .model-header-name { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.2; }
-    .model-header-org { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-    .model-header-desc { font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
-    .model-stats-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-    .stat-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
+    /* FEATURES GRID */
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; transition: all var(--transition); text-decoration: none; color: var(--text); }
+    .feature-card:hover { border-color: var(--accent-border); background: var(--bg-card-hover); }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .feature-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+    .feature-arrow { display: inline-block; margin-top: 12px; font-size: 13px; color: var(--accent); font-weight: 600; }
+
+    /* STATS ROW */
+    .stats-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
+    .stat-block { text-align: center; padding: 0 24px; }
+    .stat-block:not(:last-child) { border-right: 1px solid var(--border); }
+    .stat-number { font-size: 2rem; font-weight: 800; color: var(--accent); font-family: ui-monospace, Menlo, monospace; letter-spacing: -0.02em; }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    /* ==================== DETAIL VIEW ==================== */
+    .detail-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: color var(--transition); border: none; background: none; font-family: inherit; }
+    .detail-back:hover { color: var(--accent); }
+
+    .detail-container { max-width: 1200px; margin: 0 auto; padding: 16px 32px 48px; }
+
+    .detail-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+    .detail-avatar { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; flex-shrink: 0; }
+    .detail-info { flex: 1; }
+    .detail-name { font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .detail-org { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+    .detail-desc { font-size: 14px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
+    .detail-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .stat-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 8px; background: var(--bg-input); border: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
     .stat-pill strong { color: var(--text); font-weight: 600; }
-    .model-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
-    .btn-primary { background: var(--accent); color: #000; }
-    .btn-primary:hover { background: #8fd400; }
-    .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-    .btn-ghost:hover { background: var(--bg-input); color: var(--text); }
-    .btn-sm { padding: 5px 11px; font-size: 12px; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .detail-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: flex-start; }
 
     /* TABS */
-    .tab-bar { display: flex; gap: 2px; padding: 0 24px; background: var(--bg-card); border-bottom: 1px solid var(--border); }
-    .tab { padding: 12px 18px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    .tab { padding: 12px 18px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--transition); white-space: nowrap; }
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab-panel { display: none; flex: 1; overflow: hidden; }
+    .tab-panel { display: none; }
     .tab-panel.active { display: flex; flex-direction: column; }
 
-    /* OVERVIEW */
-    .overview-scroll { flex: 1; overflow-y: auto; padding: 24px; display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 20px; align-items: start; }
-    @media(max-width:1000px){.overview-scroll{grid-template-columns:1fr;}}
+    /* OVERVIEW TAB */
+    .overview-grid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 20px; align-items: start; }
+    @media(max-width:900px){ .overview-grid { grid-template-columns: 1fr; } }
     .info-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
     .info-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 14px; }
-    .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .spec-item { display: flex; flex-direction: column; gap: 2px; }
-    .spec-label { font-size: 11px; color: var(--text-muted); }
-    .spec-value { font-size: 14px; font-weight: 600; color: var(--text); }
-    .pricing-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .spec-label { font-size: 12px; color: var(--text-muted); }
+    .spec-value { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 2px; }
+    .pricing-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
     .pricing-row:last-child { border-bottom: none; }
-    .pricing-row-label { font-size: 13px; color: var(--text-dim); }
+    .pricing-row-label { font-size: 13px; color: var(--text-secondary); }
     .pricing-row-unit  { font-size: 11px; color: var(--text-muted); }
-    .pricing-row-price { font-size: 15px; font-weight: 700; color: var(--accent); font-family: ui-monospace,Menlo,monospace; }
+    .pricing-row-price { font-size: 16px; font-weight: 700; color: var(--accent); font-family: ui-monospace, Menlo, monospace; }
     .model-links { display: flex; flex-direction: column; gap: 8px; }
-    .model-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-input); text-decoration: none; color: var(--text-dim); font-size: 13px; transition: all 0.15s; }
+    .model-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-input); text-decoration: none; color: var(--text-secondary); font-size: 13px; transition: all var(--transition); }
     .model-link:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
     .model-link-arrow { margin-left: auto; }
 
     /* PLAYGROUND */
-    .playground-layout { display: flex; flex: 1; overflow: hidden; }
-    .playground-settings { width: 260px; min-width: 220px; background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0; }
+    .playground-layout { display: flex; height: calc(100vh - 340px); min-height: 400px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .playground-settings { width: 260px; min-width: 220px; background: var(--bg-elevated); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0; }
     .settings-section { margin-bottom: 20px; }
     .settings-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
     .setting-row { margin-bottom: 14px; }
-    .setting-row-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
-    .setting-row-label .val { font-weight: 600; color: var(--text); font-family: ui-monospace,Menlo,monospace; font-size: 11px; }
+    .setting-row-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+    .setting-row-label .val { font-weight: 600; color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
     input[type="range"] { width: 100%; accent-color: var(--accent); height: 4px; }
-    select { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 12px; color: var(--text); outline: none; cursor: pointer; transition: border-color 0.15s; }
+    select { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--text); outline: none; cursor: pointer; transition: border-color var(--transition); font-family: inherit; }
     select:focus { border-color: var(--accent); }
-    textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--text); outline: none; resize: vertical; min-height: 60px; transition: border-color 0.15s; font-family: inherit; }
+    textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--text); outline: none; resize: vertical; min-height: 60px; transition: border-color var(--transition); font-family: inherit; }
     textarea:focus { border-color: var(--accent); }
     textarea::placeholder { color: var(--text-muted); }
     .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .toggle-label { font-size: 12px; color: var(--text-dim); }
+    .toggle-label { font-size: 12px; color: var(--text-secondary); }
     .toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; border: none; flex-shrink: 0; }
     .toggle.on { background: var(--accent); }
     .toggle::after { content: ""; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: left 0.2s; }
@@ -152,7 +190,7 @@
     .chat-columns { flex: 1; display: flex; overflow: hidden; }
     .chat-column { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
     .chat-column:last-child { border-right: none; }
-    .chat-col-header { padding: 10px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .chat-col-header { padding: 10px 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
     .chat-col-model-name { font-size: 12px; font-weight: 600; color: var(--text); }
     .chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
     .chat-msg { display: flex; gap: 10px; max-width: 85%; animation: fadeSlide 0.2s ease; }
@@ -163,15 +201,15 @@
     .msg-avatar.user { background: var(--blue-dim); color: var(--blue); }
     .msg-avatar.assistant { background: var(--accent-dim); color: var(--accent); }
     .msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-    .chat-msg.user .msg-bubble { background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.25); color: var(--text); border-radius: 12px 4px 12px 12px; }
+    .chat-msg.user .msg-bubble { background: var(--blue-dim); border: 1px solid rgba(59,130,246,0.2); color: var(--text); border-radius: 12px 4px 12px 12px; }
     .chat-msg.assistant .msg-bubble { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); border-radius: 4px 12px 12px 12px; }
     .typing-indicator { display: inline-flex; gap: 4px; align-items: center; padding: 4px 0; }
     .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: typingPulse 1.2s infinite; }
     .typing-dot:nth-child(2){animation-delay:.2s;}.typing-dot:nth-child(3){animation-delay:.4s;}
     @keyframes typingPulse{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1);}}
-    .chat-input-area { padding: 12px 16px; background: var(--bg-card); border-top: 1px solid var(--border); }
+    .chat-input-area { padding: 12px 16px; background: var(--bg-elevated); border-top: 1px solid var(--border); }
     .chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
-    .chat-input-wrap { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; transition: border-color 0.15s; }
+    .chat-input-wrap { flex: 1; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; transition: border-color var(--transition); }
     .chat-input-wrap:focus-within { border-color: var(--accent); }
     .chat-input-wrap textarea { background: transparent; border: none; padding: 0; font-size: 13px; resize: none; min-height: 22px; max-height: 120px; color: var(--text); }
     .chat-input-wrap textarea:focus { outline: none; }
@@ -179,97 +217,168 @@
     .chat-actions-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
     .status-text { font-size: 12px; color: var(--text-muted); }
     .status-text.err { color: var(--danger); }
-    .compare-bar { padding: 8px 16px; background: var(--bg-card2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .compare-bar { padding: 8px 16px; background: var(--bg-elevated); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
     .compare-bar-label { font-size: 12px; color: var(--text-muted); }
+    .filter-chip { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-size: 11px; color: var(--text-muted); cursor: pointer; transition: all var(--transition); font-family: inherit; }
+    .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-chip.active { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent); }
 
-    /* API */
-    .api-scroll { flex: 1; overflow-y: auto; padding: 24px; }
+    /* API TAB */
     .api-section { margin-bottom: 28px; }
     .api-section-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
     .endpoint-box { background: var(--bg-code); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .method-badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: ui-monospace,Menlo,monospace; flex-shrink: 0; }
-    .method-post { background: rgba(118,185,0,0.15); color: var(--accent); }
-    .endpoint-url { font-family: ui-monospace,Menlo,monospace; font-size: 13px; color: var(--text); flex: 1; }
-    .copy-btn { padding: 5px 12px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .method-badge { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; font-family: ui-monospace, Menlo, monospace; flex-shrink: 0; }
+    .method-post { background: rgba(118,185,0,0.12); color: var(--accent); }
+    .endpoint-url { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--text); flex: 1; }
+    .copy-btn { padding: 5px 12px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); font-size: 11px; cursor: pointer; transition: all var(--transition); white-space: nowrap; font-family: inherit; }
     .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
     .code-tabs-bar { display: flex; gap: 2px; background: var(--bg-code); border: 1px solid var(--border); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 8px 8px 0; }
-    .code-tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.15s; border-bottom: 2px solid transparent; }
+    .code-tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all var(--transition); border-bottom: 2px solid transparent; }
     .code-tab:hover { color: var(--text); }
     .code-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg-card); }
     .code-block-wrap { background: var(--bg-code); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg); position: relative; }
     .code-panel { display: none; }
     .code-panel.active { display: block; }
-    pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color: #e2e8f0; }
+    pre { margin: 0; padding: 16px; overflow-x: auto; font-size: 12.5px; line-height: 1.65; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #e2e8f0; }
     .copy-overlay { position: absolute; top: 10px; right: 12px; }
+
+    /* EMPTY CHAT */
     .empty-chat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); padding: 40px; text-align: center; }
     .empty-icon { font-size: 40px; }
-    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-dim); }
+    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
     .empty-sub { font-size: 13px; color: var(--text-muted); max-width: 320px; line-height: 1.5; }
     .prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
-    .prompt-chip { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+    .prompt-chip { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; color: var(--text-secondary); cursor: pointer; transition: all var(--transition); }
     .prompt-chip:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
+
+    /* SCROLLBAR */
     *::-webkit-scrollbar{width:5px;height:5px;}*::-webkit-scrollbar-track{background:transparent;}*::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;}
+
+    /* UTILS */
     .ml-auto{margin-left:auto;}.hidden{display:none!important;}
-    @media(max-width:900px){.sidebar{width:220px;}.playground-settings{width:200px;}}
+
+    /* FOOTER */
+    .footer { border-top: 1px solid var(--border); padding: 32px; text-align: center; color: var(--text-muted); font-size: 12px; }
+    .footer a { color: var(--text-secondary); text-decoration: none; }
+    .footer a:hover { color: var(--accent); }
+
+    @media(max-width:900px){
+      .hero-title { font-size: 2rem; }
+      .nav { padding: 0 16px; }
+      .section { padding: 0 16px 40px; }
+      .hero { padding: 48px 16px 40px; }
+      .detail-container { padding: 16px; }
+      .playground-settings { width: 200px; }
+      .stats-row { gap: 10px; }
+      .stat-block { padding: 0 12px; }
+      .stat-number { font-size: 1.5rem; }
+    }
   </style>
 </head>
 <body>
 
 <nav class="nav">
-  <a class="nav-logo" href="#">
+  <a class="nav-logo" onclick="showCatalog()">
     <div class="nav-logo-icon">T</div>
     TokenLabs
   </a>
   <div class="nav-links">
-    <a class="nav-link active" href="#">Inference Endpoints</a>
+    <a class="nav-link active" href="#" onclick="showCatalog();return false;">Explore</a>
     <a class="nav-link" href="benchmark-results.html">Benchmarks</a>
     <a class="nav-link" href="accuracy-results.html">Accuracy</a>
     <a class="nav-link" href="comparison-results.html">Comparisons</a>
   </div>
   <div class="nav-right">
     <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-    <input type="password" id="api-key-input" placeholder="API Key" title="Your Token Labs API key"
-      style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--text);outline:none;width:180px;transition:border-color 0.15s;"
-      onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+    <input type="password" id="api-key-input" class="api-key-input" placeholder="API Key" title="Your Token Labs API key"
       oninput="saveApiKey(this.value);fetchModels()" />
-    <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">&#9733; GitHub</a>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">GitHub</a>
   </div>
 </nav>
 
-<div class="app-layout">
+<!-- ==================== CATALOG VIEW ==================== -->
+<div id="catalog-view" class="catalog-view">
 
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-title">Model Catalog</div>
-      <div class="search-box">
-        <span class="search-icon">&#128269;</span>
-        <input type="text" id="model-search" placeholder="Search models&hellip;" />
+  <section class="hero">
+    <h1 class="hero-title">Start Building with <span class="accent">TokenLabs</span></h1>
+    <p class="hero-subtitle">Production-ready inference endpoints powered by NVIDIA DGX Spark. OpenAI-compatible API, pay-per-token pricing.</p>
+    <div class="hero-search">
+      <span class="hero-search-icon">&#128269;</span>
+      <input type="text" id="catalog-search" placeholder="Search models..." oninput="filterCatalog(this.value)" />
+    </div>
+    <div class="stats-row" id="hero-stats">
+      <div class="stat-block"><div class="stat-number" id="stat-models">-</div><div class="stat-label">Models</div></div>
+      <div class="stat-block"><div class="stat-number">128K</div><div class="stat-label">Context</div></div>
+      <div class="stat-block"><div class="stat-number">$0.006</div><div class="stat-label">From / 1M Input</div></div>
+      <div class="stat-block"><div class="stat-number">99.9%</div><div class="stat-label">Uptime</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Inference Endpoints</h2>
+        <p class="section-subtitle">Select a model to view pricing, try the playground, or grab API code.</p>
       </div>
-      <div class="filter-row">
-        <button class="filter-chip active" data-filter="all">All</button>
-        <button class="filter-chip" data-filter="quantized">Quantized</button>
-        <button class="filter-chip" data-filter="base">Base</button>
+      <div style="display:flex;gap:6px;" id="catalog-filters">
+        <button class="filter-chip active" data-filter="all" onclick="setCatalogFilter('all',this)">All</button>
+        <button class="filter-chip" data-filter="quantized" onclick="setCatalogFilter('quantized',this)">Quantized</button>
+        <button class="filter-chip" data-filter="base" onclick="setCatalogFilter('base',this)">Base</button>
       </div>
     </div>
-    <div class="model-list" id="model-list"></div>
-  </aside>
+    <div class="model-grid" id="model-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);">Loading models...</div>
+    </div>
+  </section>
 
-  <main class="main">
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Platform</h2>
+    </div>
+    <div class="features-grid">
+      <a href="benchmark-results.html" class="feature-card">
+        <div class="feature-icon">&#9889;</div>
+        <div class="feature-title">Performance Benchmarks</div>
+        <div class="feature-desc">Throughput, latency, and pricing across all quantization configs on DGX Spark hardware.</div>
+        <span class="feature-arrow">View benchmarks &rarr;</span>
+      </a>
+      <a href="accuracy-results.html" class="feature-card">
+        <div class="feature-icon">&#127919;</div>
+        <div class="feature-title">Accuracy Evaluation</div>
+        <div class="feature-desc">IFEval instruction-following accuracy for every model and quantization configuration.</div>
+        <span class="feature-arrow">View accuracy &rarr;</span>
+      </a>
+      <a href="comparison-results.html" class="feature-card">
+        <div class="feature-icon">&#128202;</div>
+        <div class="feature-title">Baseline Comparison</div>
+        <div class="feature-desc">Side-by-side comparison against cloud inference providers and baseline configurations.</div>
+        <span class="feature-arrow">View comparisons &rarr;</span>
+      </a>
+    </div>
+  </section>
 
-    <div class="model-header">
-      <div class="model-header-top">
-        <div class="model-header-avatar" id="hdr-avatar"></div>
-        <div class="model-header-info">
-          <div class="model-header-name" id="hdr-name"></div>
-          <div class="model-header-org" id="hdr-org"></div>
-          <div class="model-header-desc" id="hdr-desc"></div>
-        </div>
-        <div class="model-actions">
-          <button class="btn btn-ghost btn-sm" id="compare-toggle-btn">&#9889; Compare Models</button>
-          <button class="btn btn-primary btn-sm" onclick="switchTab('tab-playground')">&#9654; Try in Playground</button>
-        </div>
+  <footer class="footer">
+    TokenLabs &mdash; Open-source inference platform &middot; <a href="https://github.com/elizabetht/token-labs" target="_blank">GitHub</a>
+  </footer>
+</div>
+
+<!-- ==================== DETAIL VIEW ==================== -->
+<div id="detail-view" class="detail-view">
+  <div class="detail-container">
+    <button class="detail-back" onclick="showCatalog()">&larr; Back to models</button>
+
+    <div class="detail-header">
+      <div class="detail-avatar" id="hdr-avatar"></div>
+      <div class="detail-info">
+        <div class="detail-name" id="hdr-name"></div>
+        <div class="detail-org" id="hdr-org"></div>
+        <div class="detail-desc" id="hdr-desc"></div>
+        <div class="detail-stats" id="hdr-stats"></div>
       </div>
-      <div class="model-stats-row" id="hdr-stats"></div>
+      <div class="detail-actions">
+        <button class="btn btn-ghost btn-sm" id="compare-toggle-btn">Compare</button>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('tab-playground')">Try in Playground</button>
+      </div>
     </div>
 
     <div class="tab-bar">
@@ -280,7 +389,7 @@
 
     <!-- OVERVIEW -->
     <div class="tab-panel active" id="tab-overview">
-      <div class="overview-scroll">
+      <div class="overview-grid">
         <div style="display:flex;flex-direction:column;gap:20px;">
           <div class="info-card">
             <div class="info-card-title">Model Specifications</div>
@@ -291,22 +400,22 @@
             <div class="pricing-row"><div><div class="pricing-row-label">Input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-in">$0.00</div></div>
             <div class="pricing-row"><div><div class="pricing-row-label">Cached input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-cached">$0.0000</div></div>
             <div class="pricing-row"><div><div class="pricing-row-label">Output tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-out">$0.00</div></div>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Prices derived from CI benchmarks (vLLM on DGX Spark @$0.26/hr). Free tier available.</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Prices derived from CI benchmarks (vLLM on DGX Spark). Free tier available.</p>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:20px;">
           <div class="info-card">
             <div class="info-card-title">Quick links</div>
             <div class="model-links">
-              <a href="benchmark-results.html" class="model-link"><span>&#128202;</span><span style="flex:1">Performance Benchmarks</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="benchmark-results.html" class="model-link"><span>&#9889;</span><span style="flex:1">Performance Benchmarks</span><span class="model-link-arrow">&rarr;</span></a>
               <a href="accuracy-results.html"  class="model-link"><span>&#127919;</span><span style="flex:1">Accuracy Evaluation (IFEval)</span><span class="model-link-arrow">&rarr;</span></a>
-              <a href="comparison-results.html" class="model-link"><span>&#128269;</span><span style="flex:1">Baseline Comparison</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="comparison-results.html" class="model-link"><span>&#128202;</span><span style="flex:1">Baseline Comparison</span><span class="model-link-arrow">&rarr;</span></a>
             </div>
           </div>
           <div class="info-card">
             <div class="info-card-title">API base URL</div>
             <code style="display:block;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--accent);font-family:ui-monospace,Menlo,monospace;" id="ov-base-url"></code>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Compatible with <strong style="color:var(--text-dim)">openai</strong>, <strong style="color:var(--text-dim)">litellm</strong>, <strong style="color:var(--text-dim)">langchain</strong>.</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">Compatible with <strong style="color:var(--text-secondary)">openai</strong>, <strong style="color:var(--text-secondary)">litellm</strong>, <strong style="color:var(--text-secondary)">langchain</strong>.</p>
           </div>
           <div class="info-card">
             <div class="info-card-title">All Available Models</div>
@@ -323,11 +432,11 @@
           <div class="settings-section">
             <div class="settings-label">Model</div>
             <div style="margin-bottom:10px;">
-              <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Primary</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Primary</div>
               <select id="primary-model-select"></select>
             </div>
             <div id="compare-second-model" class="hidden">
-              <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px;">Compare with</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">Compare with</div>
               <select id="secondary-model-select"></select>
             </div>
           </div>
@@ -355,7 +464,7 @@
             <div class="toggle-row"><span class="toggle-label">Streaming</span><button class="toggle on" id="stream-toggle" onclick="this.classList.toggle('on')"></button></div>
           </div>
           <div class="settings-section">
-            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;" onclick="clearAllChats()">&#128465; Clear Chats</button>
+            <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;" onclick="clearAllChats()">Clear Chats</button>
           </div>
         </div>
 
@@ -367,7 +476,7 @@
             <span class="ml-auto" style="font-size:12px;color:var(--text-muted);" id="compare-hint">Select a model to compare</span>
           </div>
 
-          <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-card2);">
+          <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-elevated);">
             <div class="chat-col-header" style="flex:1;border-right:1px solid var(--border);">
               <div style="width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;" id="col-a-avatar"></div>
               <div><div class="chat-col-model-name" id="col-a-name"></div><div style="font-size:10px;color:var(--text-muted);" id="col-a-tag"></div></div>
@@ -408,10 +517,10 @@
           <div class="chat-input-area">
             <div class="chat-input-row">
               <div class="chat-input-wrap">
-                <textarea id="chat-input" placeholder="Ask anything&hellip; (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
+                <textarea id="chat-input" placeholder="Ask anything... (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
                 <div class="chat-hint">Powered by vLLM &middot; OpenAI-compatible API</div>
               </div>
-              <button class="btn btn-primary" id="send-btn" onclick="sendChat()">Send &#10148;</button>
+              <button class="btn btn-primary" id="send-btn" onclick="sendChat()">Send</button>
             </div>
             <div class="chat-actions-row">
               <span class="status-text" id="chat-status"></span>
@@ -424,70 +533,66 @@
 
     <!-- API -->
     <div class="tab-panel" id="tab-api">
-      <div class="api-scroll">
-        <div class="api-section">
-          <div class="api-section-title">Endpoint</div>
-          <div class="endpoint-box">
-            <span class="method-badge method-post">POST</span>
-            <span class="endpoint-url" id="api-endpoint-url"></span>
-            <button class="copy-btn" onclick="copyText(document.getElementById('api-endpoint-url').textContent,this)">Copy</button>
-          </div>
-          <p style="font-size:13px;color:var(--text-dim);line-height:1.6;">OpenAI-compatible chat completions. Streaming via <code style="color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:4px;font-size:11px;">stream: true</code>.</p>
+      <div class="api-section">
+        <div class="api-section-title">Endpoint</div>
+        <div class="endpoint-box">
+          <span class="method-badge method-post">POST</span>
+          <span class="endpoint-url" id="api-endpoint-url"></span>
+          <button class="copy-btn" onclick="copyText(document.getElementById('api-endpoint-url').textContent,this)">Copy</button>
         </div>
-        <div class="api-section">
-          <div class="api-section-title">Model identifier</div>
-          <div class="endpoint-box">
-            <span class="endpoint-url" id="api-model-name" style="font-size:13px;"></span>
-            <button class="copy-btn" onclick="copyText(document.getElementById('api-model-name').textContent,this)">Copy</button>
-          </div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;">OpenAI-compatible chat completions. Streaming via <code style="color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:4px;font-size:11px;">stream: true</code>.</p>
+      </div>
+      <div class="api-section">
+        <div class="api-section-title">Model identifier</div>
+        <div class="endpoint-box">
+          <span class="endpoint-url" id="api-model-name" style="font-size:13px;"></span>
+          <button class="copy-btn" onclick="copyText(document.getElementById('api-model-name').textContent,this)">Copy</button>
         </div>
-        <div class="api-section">
-          <div class="api-section-title">Code Examples</div>
-          <div class="code-tabs-bar">
-            <div class="code-tab active" onclick="switchCodeTab('curl',this)">cURL</div>
-            <div class="code-tab" onclick="switchCodeTab('python',this)">Python</div>
-            <div class="code-tab" onclick="switchCodeTab('node',this)">Node.js</div>
-            <div class="code-tab" onclick="switchCodeTab('litellm',this)">LiteLLM</div>
-          </div>
-          <div class="code-block-wrap">
-            <div class="copy-overlay"><button class="copy-btn" onclick="copyActiveCode(this)">Copy</button></div>
-            <div class="code-panel active" id="code-curl"><pre id="code-curl-pre"></pre></div>
-            <div class="code-panel" id="code-python"><pre id="code-python-pre"></pre></div>
-            <div class="code-panel" id="code-node"><pre id="code-node-pre"></pre></div>
-            <div class="code-panel" id="code-litellm"><pre id="code-litellm-pre"></pre></div>
-          </div>
+      </div>
+      <div class="api-section">
+        <div class="api-section-title">Code Examples</div>
+        <div class="code-tabs-bar">
+          <div class="code-tab active" onclick="switchCodeTab('curl',this)">cURL</div>
+          <div class="code-tab" onclick="switchCodeTab('python',this)">Python</div>
+          <div class="code-tab" onclick="switchCodeTab('node',this)">Node.js</div>
+          <div class="code-tab" onclick="switchCodeTab('litellm',this)">LiteLLM</div>
         </div>
-        <div class="api-section">
-          <div class="api-section-title">Request Parameters</div>
-          <div class="info-card">
-            <table style="width:100%;border-collapse:collapse;font-size:13px;">
-              <thead><tr style="border-bottom:1px solid var(--border);">
-                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:150px;">Parameter</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:100px;">Type</th>
-                <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Description</th>
-              </tr></thead>
-              <tbody>
-                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">model</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">string</td><td style="padding:10px;color:var(--text-dim);">Full model identifier</td></tr>
-                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">messages</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">array</td><td style="padding:10px;color:var(--text-dim);">Array of {role, content} objects</td></tr>
-                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">max_tokens</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">integer</td><td style="padding:10px;color:var(--text-dim);">Max tokens to generate (default 512)</td></tr>
-                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">temperature</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-dim);">Sampling temperature 0&ndash;2 (default 0.7)</td></tr>
-                <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">top_p</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-dim);">Nucleus sampling (default 1.0)</td></tr>
-                <tr><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">stream</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">boolean</td><td style="padding:10px;color:var(--text-dim);">Stream via SSE (default false)</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="code-block-wrap">
+          <div class="copy-overlay"><button class="copy-btn" onclick="copyActiveCode(this)">Copy</button></div>
+          <div class="code-panel active" id="code-curl"><pre id="code-curl-pre"></pre></div>
+          <div class="code-panel" id="code-python"><pre id="code-python-pre"></pre></div>
+          <div class="code-panel" id="code-node"><pre id="code-node-pre"></pre></div>
+          <div class="code-panel" id="code-litellm"><pre id="code-litellm-pre"></pre></div>
+        </div>
+      </div>
+      <div class="api-section">
+        <div class="api-section-title">Request Parameters</div>
+        <div class="info-card">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:1px solid var(--border);">
+              <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:150px;">Parameter</th>
+              <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;width:100px;">Type</th>
+              <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Description</th>
+            </tr></thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">model</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">string</td><td style="padding:10px;color:var(--text-secondary);">Full model identifier</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">messages</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">array</td><td style="padding:10px;color:var(--text-secondary);">Array of {role, content} objects</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">max_tokens</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">integer</td><td style="padding:10px;color:var(--text-secondary);">Max tokens to generate (default 512)</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">temperature</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-secondary);">Sampling temperature 0&ndash;2 (default 0.7)</td></tr>
+              <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">top_p</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">float</td><td style="padding:10px;color:var(--text-secondary);">Nucleus sampling (default 1.0)</td></tr>
+              <tr><td style="padding:10px;font-family:monospace;color:var(--accent);font-size:12px;">stream</td><td style="padding:10px;color:var(--text-muted);font-size:12px;">boolean</td><td style="padding:10px;color:var(--text-secondary);">Stream via SSE (default false)</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-  </main>
+  </div>
 </div>
 
 <script>
 const DEFAULT_API_BASE = "https://api.tokenlabs.run";
 
-// Static enrichment metadata for known models.
-// For any model returned by /v1/models that isn't listed here, defaults are generated automatically.
 const MODEL_ENRICHMENT = {
   "nvidia/Llama-3.1-Nemotron-Nano-8B-v1": {
     displayName:"Nemotron-Llama 8B",
@@ -495,7 +600,7 @@ const MODEL_ENRICHMENT = {
     context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
     precision:"BF16", quantization:"None (full precision)", license:"Llama 3.1 Community", params:"8B",
     inputPricePerM:0.006, cachedInputPricePerM:0.0, outputPricePerM:0.037,
-    description:"NVIDIA\'s Nemotron-Nano 8B — an instruction-tuned Llama 3.1 8B variant optimised for reasoning and STEM tasks. Runs in full BF16 on spark-01.",
+    description:"NVIDIA\'s Nemotron-Nano 8B \u2014 an instruction-tuned Llama 3.1 8B variant optimised for reasoning and STEM tasks. Runs in full BF16 on spark-01.",
     tags:["base","instruction","8B"], tagColors:["tag-green","tag-blue","tag-teal"], filter:"base",
   },
   "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8": {
@@ -537,12 +642,12 @@ function modelDefaults(modelId) {
   if (isFp8||isFp4) { tags.push(precision); tagColors.push("tag-purple"); }
   if (isVl) { tags.push("vision"); tagColors.push("tag-orange"); }
   return {
-    displayName: name.replace(/[-_]/g,' '), org, avatar:"⚡",
+    displayName: name.replace(/[-_]/g,' '), org, avatar:"\u26A1",
     avatarBg, avatarColor,
     context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
     precision, quantization, license:"Unknown", params,
     inputPricePerM:0, cachedInputPricePerM:0, outputPricePerM:0,
-    description:`${modelId} — served via vLLM on TokenLabs infrastructure.`,
+    description:`${modelId} \u2014 served via vLLM on TokenLabs infrastructure.`,
     tags, tagColors, filter: (isFp8||isFp4) ? "quantized" : "base",
   };
 }
@@ -558,14 +663,68 @@ function buildModels(ids) {
 
 let MODELS = {};
 let selectedModelKey = null;
+let compareMode = false, compareModelKey = null;
+let messagesA = [], messagesB = [];
+let catalogFilter = "all";
+let _pollTimer = null;
 
 function saveApiKey(val) { sessionStorage.setItem("tl_api_key", val); }
 function getApiKey() { return sessionStorage.getItem("tl_api_key") || ""; }
-let compareMode = false, compareModelKey = null;
-let messagesA = [], messagesB = [];
-let activeFilter = "all";
-let _pollTimer = null;
 
+// ==================== VIEW SWITCHING ====================
+function showCatalog() {
+  document.getElementById('catalog-view').className = 'catalog-view view-active';
+  document.getElementById('detail-view').className = 'detail-view view-hidden';
+  document.querySelectorAll('.nav-link')[0].classList.add('active');
+}
+
+function showDetail(modelKey) {
+  selectedModelKey = modelKey;
+  document.getElementById('catalog-view').className = 'catalog-view view-hidden';
+  document.getElementById('detail-view').className = 'detail-view view-active';
+  document.querySelectorAll('.nav-link')[0].classList.remove('active');
+  refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders();
+  switchTab('tab-overview');
+}
+
+// ==================== CATALOG ====================
+function renderCatalog(query, filter) {
+  const grid = document.getElementById('model-grid');
+  const entries = Object.entries(MODELS).filter(([k,m]) => {
+    return (filter==="all"||m.filter===filter) && (!query||m.displayName.toLowerCase().includes(query.toLowerCase())||m.fullModelName.toLowerCase().includes(query.toLowerCase()));
+  });
+  if (!entries.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);">No models found</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(([key,m]) => `
+    <div class="model-card-catalog" onclick="showDetail('${key}')">
+      <div class="card-top">
+        <div class="card-avatar" style="background:${m.avatarBg};color:${m.avatarColor};">${m.avatar}</div>
+        <div>
+          <div class="card-name">${m.displayName}</div>
+          <div class="card-org">${m.org}</div>
+        </div>
+      </div>
+      <div class="card-desc">${m.description}</div>
+      <div class="card-footer">
+        ${m.tags.map((t,i)=>`<span class="tag ${m.tagColors[i]}">${t}</span>`).join("")}
+        ${m.outputPricePerM > 0 ? `<span class="card-price">$${m.outputPricePerM.toFixed(3)}/1M out</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('stat-models').textContent = Object.keys(MODELS).length;
+}
+
+function filterCatalog(q) { renderCatalog(q, catalogFilter); }
+function setCatalogFilter(f, el) {
+  catalogFilter = f;
+  document.querySelectorAll('#catalog-filters .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderCatalog(document.getElementById('catalog-search').value, f);
+}
+
+// ==================== MODEL FETCHING ====================
 async function fetchModels() {
   try {
     const apiKey = getApiKey();
@@ -580,14 +739,13 @@ async function fetchModels() {
     const newModels = buildModels(ids);
     const oldKeys = Object.keys(MODELS).sort().join(",");
     const newKeys = Object.keys(newModels).sort().join(",");
-    if (oldKeys === newKeys) return true; // no change
+    if (oldKeys === newKeys) return true;
 
     MODELS = newModels;
     if (!MODELS[selectedModelKey]) selectedModelKey = Object.keys(MODELS)[0] || null;
-    renderSidebar(document.getElementById("model-search").value, activeFilter);
-    if (selectedModelKey) {
-      refreshHeader(); refreshOverview(); refreshApiPanel();
-      refreshPlaygroundSelects(); refreshColHeaders();
+    renderCatalog(document.getElementById('catalog-search').value, catalogFilter);
+    if (selectedModelKey && document.getElementById('detail-view').classList.contains('view-active')) {
+      refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders();
     }
     return true;
   } catch (e) {
@@ -602,48 +760,16 @@ function schedulePoll() {
 }
 
 async function initModels() {
-  document.getElementById("model-list").innerHTML =
-    '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">Loading models\u2026</div>';
   const ok = await fetchModels();
   if (!ok) {
     MODELS = buildModels(Object.keys(MODEL_ENRICHMENT));
     selectedModelKey = Object.keys(MODELS)[0] || null;
-    renderSidebar();
-    if (selectedModelKey) { refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders(); }
   }
+  renderCatalog('', catalogFilter);
   schedulePoll();
 }
 
-function renderSidebar(q="", filter="all") {
-  const list = document.getElementById("model-list");
-  list.innerHTML = "";
-  const entries = Object.entries(MODELS).filter(([k,m]) => {
-    return (filter==="all"||m.filter===filter) && (!q||m.displayName.toLowerCase().includes(q.toLowerCase())||m.fullModelName.toLowerCase().includes(q.toLowerCase()));
-  });
-  if (!entries.length) { list.innerHTML='<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No models found</div>'; return; }
-  entries.forEach(([key,m]) => {
-    const card = document.createElement("div");
-    card.className = "model-card"+(key===selectedModelKey?" selected":"");
-    card.innerHTML = `<div class="model-card-header"><div class="model-avatar" style="background:${m.avatarBg};color:${m.avatarColor};">${m.avatar}</div><div><div class="model-card-name">${m.displayName}</div><div class="model-card-org">${m.org}</div></div></div><div class="model-card-tags">${m.tags.map((t,i)=>`<span class="tag ${m.tagColors[i]}">${t}</span>`).join("")}</div>`;
-    card.onclick = () => selectModel(key);
-    list.appendChild(card);
-  });
-}
-
-document.getElementById("model-search").addEventListener("input", function(){ renderSidebar(this.value, activeFilter); });
-document.querySelectorAll(".filter-chip").forEach(chip => chip.addEventListener("click", function(){
-  document.querySelectorAll(".filter-chip").forEach(c=>c.classList.remove("active"));
-  this.classList.add("active");
-  activeFilter = this.dataset.filter||"all";
-  renderSidebar(document.getElementById("model-search").value, activeFilter);
-}));
-
-function selectModel(key) {
-  selectedModelKey = key;
-  renderSidebar(document.getElementById("model-search").value, activeFilter);
-  refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders();
-}
-
+// ==================== DETAIL VIEW FUNCTIONS ====================
 function refreshHeader() {
   const m = MODELS[selectedModelKey]; if (!m) return;
   const av = document.getElementById("hdr-avatar");
@@ -652,11 +778,11 @@ function refreshHeader() {
   document.getElementById("hdr-org").innerHTML = `by ${m.org} &middot; <span style="color:var(--accent)">OpenAI-compatible API</span>`;
   document.getElementById("hdr-desc").textContent = m.description;
   document.getElementById("hdr-stats").innerHTML = [
-    `<div class="stat-pill">&#129504; <strong>${m.params}</strong> parameters</div>`,
-    `<div class="stat-pill">&#128220; Context <strong>${m.context}</strong></div>`,
-    `<div class="stat-pill">&#9881; Precision <strong>${m.precision}</strong></div>`,
-    `<div class="stat-pill">&#128444; <strong>${m.gpuType}</strong> ${m.gpuVram}</div>`,
-    `<div class="stat-pill">&#128196; ${m.license}</div>`,
+    `<div class="stat-pill"><strong>${m.params}</strong> parameters</div>`,
+    `<div class="stat-pill">Context <strong>${m.context}</strong></div>`,
+    `<div class="stat-pill">Precision <strong>${m.precision}</strong></div>`,
+    `<div class="stat-pill"><strong>${m.gpuType}</strong></div>`,
+    `<div class="stat-pill">${m.license}</div>`,
   ].join("");
 }
 
@@ -665,7 +791,7 @@ function refreshOverview() {
   document.getElementById("spec-grid").innerHTML = [
     ["Parameters",m.params],["Precision",m.precision],["Context window",m.context],
     ["Quantization",m.quantization],["GPU",m.gpuType],["VRAM",m.gpuVram],["License",m.license],["Provider",m.org],
-  ].map(([l,v])=>`<div class="spec-item"><div class="spec-label">${l}</div><div class="spec-value">${v}</div></div>`).join("");
+  ].map(([l,v])=>`<div><div class="spec-label">${l}</div><div class="spec-value">${v}</div></div>`).join("");
   document.getElementById("ov-price-in").textContent     = `$${m.inputPricePerM.toFixed(2)}`;
   document.getElementById("ov-price-cached").textContent = `$${m.cachedInputPricePerM.toFixed(4)}`;
   document.getElementById("ov-price-out").textContent    = `$${m.outputPricePerM.toFixed(2)}`;
@@ -675,9 +801,9 @@ function refreshOverview() {
   Object.entries(MODELS).forEach(([key,mm]) => {
     const row = document.createElement("div");
     const sel = key===selectedModelKey;
-    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid ${sel?"var(--accent-border)":"var(--border)"};background:${sel?"var(--accent-dim)":"var(--bg-input)"};cursor:pointer;transition:all 0.15s;`;
-    row.innerHTML = `<div style="width:26px;height:26px;border-radius:6px;background:${mm.avatarBg};color:${mm.avatarColor};display:flex;align-items:center;justify-content:center;font-size:12px;">${mm.avatar}</div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">${mm.displayName}</div><div style="font-size:11px;color:var(--text-muted);">${mm.precision} &middot; ${mm.params}</div></div><div style="display:flex;gap:4px;">${mm.tags.map((t,i)=>`<span class="tag ${mm.tagColors[i]}">${t}</span>`).join("")}</div>`;
-    row.onclick = () => selectModel(key);
+    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid ${sel?"var(--accent-border)":"var(--border)"};background:${sel?"var(--accent-dim)":"var(--bg-input)"};cursor:pointer;transition:all 0.2s;`;
+    row.innerHTML = `<div style="width:28px;height:28px;border-radius:7px;background:${mm.avatarBg};color:${mm.avatarColor};display:flex;align-items:center;justify-content:center;font-size:13px;">${mm.avatar}</div><div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">${mm.displayName}</div><div style="font-size:11px;color:var(--text-muted);">${mm.precision} &middot; ${mm.params}</div></div><div style="display:flex;gap:4px;">${mm.tags.map((t,i)=>`<span class="tag ${mm.tagColors[i]}">${t}</span>`).join("")}</div>`;
+    row.onclick = () => showDetail(key);
     allList.appendChild(row);
   });
 }
@@ -717,6 +843,7 @@ function copyText(text, btn) {
   });
 }
 
+// ==================== PLAYGROUND ====================
 function refreshPlaygroundSelects() {
   ["primary-model-select","secondary-model-select"].forEach((id,idx)=>{
     const sel=document.getElementById(id); sel.innerHTML="";
@@ -727,8 +854,7 @@ function refreshPlaygroundSelects() {
   document.getElementById("primary-model-select").onchange=function(){
     selectedModelKey=this.value; messagesA=[];
     document.getElementById("chat-log-a").innerHTML="";
-    refreshHeader();refreshOverview();refreshApiPanel();
-    renderSidebar(document.getElementById("model-search").value,activeFilter);refreshColHeaders();
+    refreshHeader();refreshOverview();refreshApiPanel();refreshColHeaders();
   };
   document.getElementById("secondary-model-select").onchange=function(){
     compareModelKey=this.value; messagesB=[];
@@ -745,7 +871,7 @@ function setCompareMode(on,chip){
   document.getElementById("col-b-header").classList.toggle("hidden",!on);
   document.getElementById("compare-second-model").classList.toggle("hidden",!on);
   document.getElementById("compare-hint").textContent=on?"Sending to both models simultaneously":"Select a model to compare";
-  document.getElementById("compare-toggle-btn").textContent=on?"✕ Single Mode":"⚡ Compare Models";
+  document.getElementById("compare-toggle-btn").textContent=on?"\u2715 Single Mode":"Compare";
   if(on&&(!compareModelKey||compareModelKey===selectedModelKey)){
     const keys=Object.keys(MODELS);
     compareModelKey=keys.find(k=>k!==selectedModelKey)||keys[0];
@@ -799,7 +925,7 @@ function appendTyping(log){
 
 async function callModel(cfg,messages,bubbleEl,logEl){
   const apiKey=getApiKey();
-  if(!apiKey){throw new Error("No API key set — enter your key in the top-right field.");}
+  if(!apiKey){throw new Error("No API key set \u2014 enter your key in the top-right field.");}
   const streamOn=document.getElementById("stream-toggle").classList.contains("on");
   const sys=document.getElementById("system-prompt-input").value.trim();
   const temp=parseFloat(document.getElementById("temp-slider").value);

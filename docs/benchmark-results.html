@@ -74,23 +74,10 @@
             margin-bottom: 1.5rem;
         }
 
-        .card-hero {
-            border: 1px solid rgba(118, 185, 0, 0.3);
-            background: linear-gradient(135deg, #1e293b 0%, #1a2332 100%);
-        }
-
         .card h2 {
             font-size: 1.25rem;
             margin-bottom: 1rem;
             color: var(--text);
-        }
-
-        .card-hero h2 {
-            font-size: 1.5rem;
-            background: linear-gradient(135deg, var(--nvidia-green), #a3e635);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
         .chart-subtitle {
@@ -98,15 +85,6 @@
             font-size: 0.875rem;
             margin-bottom: 1rem;
             line-height: 1.5;
-        }
-
-        .chart-subtitle a {
-            color: var(--nvidia-green);
-            text-decoration: none;
-        }
-
-        .chart-subtitle a:hover {
-            text-decoration: underline;
         }
 
         .stats-grid {
@@ -138,6 +116,12 @@
             font-size: 0.875rem;
             color: var(--text-muted);
             margin-left: 0.25rem;
+        }
+
+        .stat-config {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
         }
 
         table {
@@ -263,19 +247,6 @@
             border-radius: 3px;
         }
 
-        .card-quality {
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            background: linear-gradient(135deg, #1e293b 0%, #1c2235 100%);
-        }
-
-        .card-quality h2 {
-            font-size: 1.5rem;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
         .history-table {
             max-height: 400px;
             overflow-y: auto;
@@ -297,6 +268,11 @@
         .trend-down {
             color: #ef4444;
         }
+
+        .config-table td.best {
+            color: var(--success);
+            font-weight: 600;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
@@ -311,11 +287,13 @@
             <span class="badge">Auto-updated via CI/CD</span>
         </header>
 
-        <div id="throughput-interactivity-section"></div>
+        <div id="highlights-section"></div>
 
-        <div id="quality-cost-section"></div>
+        <div id="quality-speed-section"></div>
 
-        <div id="speed-cost-section"></div>
+        <div id="pricing-section"></div>
+
+        <div id="config-table-section"></div>
 
         <div id="results">
             <div class="loading">Loading benchmark results...</div>
@@ -345,9 +323,9 @@
 
                 <h3>Metrics</h3>
                 <ul>
-                    <li><strong>Interactivity (TPS/User):</strong> Output tokens per second per user &mdash; derived from decode throughput / concurrent request count. Higher = more responsive user experience.</li>
-                    <li><strong>Throughput (TPS/kW):</strong> Total output tokens per second / node power draw (0.15 kW). Higher = more revenue per unit of power.</li>
-                    <li><strong>Cost:</strong> (DGX hourly cost &times; 1,000,000) &divide; (tokens/sec &times; 3600). DGX Spark: $4000 &divide; 26,280 hours (3yr @ 30% utilization) + electricity &asymp; $0.07/hour</li>
+                    <li><strong>Output Speed (tok/s):</strong> Decode throughput &mdash; total output tokens generated per second. Higher = faster responses for users.</li>
+                    <li><strong>Input/Output Cost:</strong> (DGX hourly cost &times; 1,000,000) &divide; (tokens/sec &times; 3600). DGX Spark: $4000 &divide; 26,280 hours (3yr @ 30% utilization) + electricity &asymp; $0.07/hour</li>
+                    <li><strong>Quality (IFEval):</strong> Instruction-following accuracy measured on 541 prompts from the IFEval benchmark. Higher = better at following user instructions.</li>
                 </ul>
 
                 <a href="benchmark-results.json" class="json-link">
@@ -360,108 +338,153 @@
     </div>
 
     <script>
-        // DGX Spark power per node in kW
-        const DGX_SPARK_KW = 0.15;
-        // Estimated concurrent requests at 10 req/s benchmark rate
-        const EST_CONCURRENCY = 10;
+        // Shared helpers
+        const classifyModel = (model) => {
+            if (!model) return 'BF16';
+            if (model.includes('QAT')) return 'FP4-QAT';
+            if (model.includes('NVFP4')) return 'FP4';
+            if (model.includes('FP8')) return 'FP8';
+            return 'BF16';
+        };
 
-        async function loadThroughputInteractivity() {
-            const section = document.getElementById('throughput-interactivity-section');
+        const quantColors = {
+            'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
+            'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
+            'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
+            'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
+        };
 
+        const quantLegendHTML = `
+            <div class="tier-legend">
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
+            </div>
+        `;
+
+        const shortModelName = (model) => {
+            if (!model) return 'N/A';
+            const parts = model.split('/');
+            return parts[parts.length - 1] || model;
+        };
+
+        async function loadHighlights() {
+            const section = document.getElementById('highlights-section');
             try {
                 const response = await fetch('benchmark-history.json?t=' + Date.now());
                 if (!response.ok) throw new Error('No history available');
-
                 const history = await response.json();
                 if (!history || history.length === 0) return;
 
-                // Filter entries with valid decode data
-                const valid = history.filter(h => h.decode?.tokens_per_second > 0);
+                let bestSpeed = { value: 0, config: '', version: '' };
+                let bestInputCost = { value: Infinity, config: '', version: '' };
+                let bestOutputCost = { value: Infinity, config: '', version: '' };
+                let bestQuality = { value: 0, config: '', version: '' };
+
+                for (const h of history) {
+                    const type = classifyModel(h.model);
+                    const v = h.version || 'N/A';
+
+                    if (h.decode?.tokens_per_second > bestSpeed.value) {
+                        bestSpeed = { value: h.decode.tokens_per_second, config: type, version: v };
+                    }
+                    if (h.prefill?.cost_per_million_tokens > 0 && h.prefill.cost_per_million_tokens < bestInputCost.value) {
+                        bestInputCost = { value: h.prefill.cost_per_million_tokens, config: type, version: v };
+                    }
+                    if (h.decode?.cost_per_million_tokens > 0 && h.decode.cost_per_million_tokens < bestOutputCost.value) {
+                        bestOutputCost = { value: h.decode.cost_per_million_tokens, config: type, version: v };
+                    }
+                    if (h.accuracy?.ifeval?.evaluated && h.accuracy.ifeval.prompt_level_accuracy > bestQuality.value) {
+                        bestQuality = { value: h.accuracy.ifeval.prompt_level_accuracy, config: type, version: v };
+                    }
+                }
+
+                section.innerHTML = `
+                    <div class="card">
+                        <h2>Performance Highlights</h2>
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <div class="stat-label">Output Speed</div>
+                                <div class="stat-value">${bestSpeed.value.toLocaleString()}<span class="stat-unit">tok/s</span></div>
+                                <div class="stat-config">${bestSpeed.config} &mdash; v${bestSpeed.version}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Input Cost</div>
+                                <div class="stat-value">$${bestInputCost.value.toFixed(4)}<span class="stat-unit">/1M</span></div>
+                                <div class="stat-config">${bestInputCost.config} &mdash; v${bestInputCost.version}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Output Cost</div>
+                                <div class="stat-value">$${bestOutputCost.value.toFixed(4)}<span class="stat-unit">/1M</span></div>
+                                <div class="stat-config">${bestOutputCost.config} &mdash; v${bestOutputCost.version}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Quality (IFEval)</div>
+                                <div class="stat-value">${bestQuality.value.toFixed(1)}<span class="stat-unit">%</span></div>
+                                <div class="stat-config">${bestQuality.config} &mdash; v${bestQuality.version}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
+        async function loadQualitySpeed() {
+            const section = document.getElementById('quality-speed-section');
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                const valid = history.filter(h =>
+                    h.accuracy?.ifeval?.evaluated === true && h.decode?.tokens_per_second > 0
+                );
                 if (valid.length === 0) return;
 
-                // Classify model type
-                const classify = (model) => {
-                    if (!model) return 'BF16';
-                    if (model.includes('QAT')) return 'FP4-QAT';
-                    if (model.includes('NVFP4')) return 'FP4';
-                    if (model.includes('FP8')) return 'FP8';
-                    return 'BF16';
-                };
-
-                const colors = {
-                    'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
-                    'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
-                    'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
-                    'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
-                };
-
-                // Build scatter data grouped by model type
                 const groups = {};
                 for (const h of valid) {
-                    const type = classify(h.model);
+                    const type = classifyModel(h.model);
                     if (!groups[type]) groups[type] = [];
 
-                    const decodeTps = h.decode.tokens_per_second;
-                    const interactivity = decodeTps / EST_CONCURRENCY; // TPS per user
-                    const throughputPerKw = decodeTps / DGX_SPARK_KW;  // TPS per kW
-
                     groups[type].push({
-                        x: Math.round(interactivity * 10) / 10,
-                        y: Math.round(throughputPerKw),
+                        x: Math.round(h.accuracy.ifeval.prompt_level_accuracy * 100) / 100,
+                        y: h.decode.tokens_per_second,
                         version: h.version || 'N/A',
-                        model: h.model,
-                        decodeTps: decodeTps
+                        model: h.model
                     });
                 }
 
                 const datasets = Object.entries(groups).map(([type, points]) => ({
                     label: type,
                     data: points,
-                    backgroundColor: colors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
-                    borderColor: colors[type]?.border || '#94a3b8',
+                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
+                    borderColor: quantColors[type]?.border || '#94a3b8',
                     borderWidth: 2,
                     pointRadius: 8,
                     pointHoverRadius: 11
                 }));
 
-                // Compute axis bounds for tier zone placement
-                const allX = valid.map(h => (h.decode.tokens_per_second / EST_CONCURRENCY));
-                const allY = valid.map(h => (h.decode.tokens_per_second / DGX_SPARK_KW));
-                const maxX = Math.max(...allX) * 1.15;
-                const maxY = Math.max(...allY) * 1.15;
-
-                // Tier boundaries (roughly: bottom third, middle third, top third)
-                const tierFreeX = maxX * 0.38;
-                const tierProX = maxX * 0.70;
-                const tierFreeY = maxY * 0.38;
-                const tierProY = maxY * 0.70;
-
                 section.innerHTML = `
-                    <div class="card card-hero">
-                        <h2>Throughput vs Interactivity</h2>
+                    <div class="card">
+                        <h2>Quality vs Speed</h2>
                         <p class="chart-subtitle">
-                            Inspired by the revenue curve from Jensen Huang's
-                            <a href="https://www.nvidia.com/en-us/gtc/" target="_blank" rel="noopener">GTC 2026 keynote</a>.
-                            Each point is a Token Labs benchmark run on DGX Spark. Moving up and to the right means
-                            more tokens per user (faster responses) and more tokens per kilowatt (higher revenue efficiency).
-                            Quantization (FP4) shifts the curve into higher-value service tiers from the same hardware.
+                            Pick your tradeoff: accuracy on the X-axis, output speed on the Y-axis.
+                            Top-right is the sweet spot &mdash; fast AND accurate.
+                            FP4 configs are fastest with a slight quality tradeoff.
+                            BF16 delivers highest quality at lower throughput.
                         </p>
                         <div class="chart-container chart-container-hero">
-                            <canvas id="tiChart"></canvas>
+                            <canvas id="qualitySpeedChart"></canvas>
                         </div>
-                        <div class="tier-legend">
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.3);"></div> Free Tier</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(234,179,8,0.10); border: 1px solid rgba(234,179,8,0.3);"></div> Pro Tier</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3);"></div> Enterprise Tier</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
-                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
-                        </div>
+                        ${quantLegendHTML}
                     </div>
                 `;
 
-                const ctx = document.getElementById('tiChart').getContext('2d');
+                const ctx = document.getElementById('qualitySpeedChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'scatter',
                     data: { datasets },
@@ -469,9 +492,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                display: false
-                            },
+                            legend: { display: false },
                             tooltip: {
                                 backgroundColor: '#1e293b',
                                 titleColor: '#f8fafc',
@@ -482,93 +503,14 @@
                                 callbacks: {
                                     title: function(items) {
                                         const pt = items[0].raw;
-                                        const shortModel = pt.model ? pt.model.split('/').pop() : 'N/A';
-                                        return shortModel + ' (v' + pt.version + ')';
+                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
                                     },
                                     label: function(context) {
                                         const pt = context.raw;
                                         return [
-                                            'Interactivity: ' + pt.x.toFixed(1) + ' tok/s/user',
-                                            'Throughput: ' + pt.y.toLocaleString() + ' tok/s/kW',
-                                            'Decode total: ' + pt.decodeTps.toLocaleString() + ' tok/s'
+                                            'IFEval Accuracy: ' + pt.x.toFixed(1) + '%',
+                                            'Output Speed: ' + pt.y.toLocaleString() + ' tok/s'
                                         ];
-                                    }
-                                }
-                            },
-                            annotation: {
-                                annotations: {
-                                    freeTier: {
-                                        type: 'box',
-                                        xMin: 0,
-                                        xMax: tierFreeX,
-                                        yMin: 0,
-                                        yMax: tierFreeY,
-                                        backgroundColor: 'rgba(239, 68, 68, 0.06)',
-                                        borderColor: 'rgba(239, 68, 68, 0.15)',
-                                        borderWidth: 1,
-                                        label: {
-                                            display: true,
-                                            content: 'Free',
-                                            position: { x: 'start', y: 'start' },
-                                            color: 'rgba(239, 68, 68, 0.5)',
-                                            font: { size: 13, weight: '600' },
-                                            padding: 6
-                                        }
-                                    },
-                                    proTier: {
-                                        type: 'box',
-                                        xMin: tierFreeX,
-                                        xMax: tierProX,
-                                        yMin: tierFreeY,
-                                        yMax: tierProY,
-                                        backgroundColor: 'rgba(234, 179, 8, 0.06)',
-                                        borderColor: 'rgba(234, 179, 8, 0.15)',
-                                        borderWidth: 1,
-                                        label: {
-                                            display: true,
-                                            content: 'Pro',
-                                            position: { x: 'center', y: 'start' },
-                                            color: 'rgba(234, 179, 8, 0.5)',
-                                            font: { size: 13, weight: '600' },
-                                            padding: 6
-                                        }
-                                    },
-                                    enterpriseTier: {
-                                        type: 'box',
-                                        xMin: tierProX,
-                                        xMax: maxX,
-                                        yMin: tierProY,
-                                        yMax: maxY,
-                                        backgroundColor: 'rgba(34, 197, 94, 0.05)',
-                                        borderColor: 'rgba(34, 197, 94, 0.15)',
-                                        borderWidth: 1,
-                                        label: {
-                                            display: true,
-                                            content: 'Enterprise',
-                                            position: { x: 'end', y: 'end' },
-                                            color: 'rgba(34, 197, 94, 0.5)',
-                                            font: { size: 13, weight: '600' },
-                                            padding: 6
-                                        }
-                                    },
-                                    revenueLine: {
-                                        type: 'line',
-                                        xMin: 0,
-                                        yMin: 0,
-                                        xMax: maxX,
-                                        yMax: maxY,
-                                        borderColor: 'rgba(148, 163, 184, 0.15)',
-                                        borderWidth: 1,
-                                        borderDash: [6, 4],
-                                        label: {
-                                            display: true,
-                                            content: 'Revenue Curve',
-                                            position: 'end',
-                                            color: 'rgba(148, 163, 184, 0.4)',
-                                            font: { size: 11, style: 'italic' },
-                                            backgroundColor: 'transparent',
-                                            padding: 4
-                                        }
                                     }
                                 }
                             }
@@ -577,19 +519,17 @@
                             x: {
                                 title: {
                                     display: true,
-                                    text: 'Interactivity (tok/s per user)',
+                                    text: 'IFEval Accuracy (%)',
                                     color: '#94a3b8',
                                     font: { size: 13, weight: '500' }
                                 },
                                 ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' },
-                                min: 0,
-                                max: maxX
+                                grid: { color: '#334155' }
                             },
                             y: {
                                 title: {
                                     display: true,
-                                    text: 'Throughput (tok/s per kW)',
+                                    text: 'Output Speed (tok/s)',
                                     color: '#94a3b8',
                                     font: { size: 13, weight: '500' }
                                 },
@@ -600,12 +540,237 @@
                                     }
                                 },
                                 grid: { color: '#334155' },
-                                min: 0,
-                                max: maxY
+                                beginAtZero: true
                             }
                         }
                     }
                 });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
+        async function loadPricingComparison() {
+            const section = document.getElementById('pricing-section');
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                const parseVersion = (v) => {
+                    if (!v) return [0, 0, 0];
+                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                };
+
+                // Get latest version for each quantization type
+                const latest = {};
+                for (const h of history) {
+                    const type = classifyModel(h.model);
+                    const ver = parseVersion(h.version);
+                    if (!latest[type] || parseVersion(latest[type].version) < ver ||
+                        (parseVersion(latest[type].version).join('.') === ver.join('.') &&
+                         new Date(h.timestamp) > new Date(latest[type].timestamp))) {
+                        latest[type] = h;
+                    }
+                }
+
+                // Sort quantization types in a logical order
+                const quantOrder = ['BF16', 'FP8', 'FP4', 'FP4-QAT'];
+                const labels = quantOrder.filter(q => latest[q]);
+
+                const inputCosts = labels.map(q => latest[q].prefill?.cost_per_million_tokens || 0);
+                const outputCosts = labels.map(q => latest[q].decode?.cost_per_million_tokens || 0);
+                const cachedCosts = labels.map(q => {
+                    const c = latest[q].cached?.cost_per_million_tokens;
+                    return (c && c > 0) ? c : 0;
+                });
+
+                section.innerHTML = `
+                    <div class="card">
+                        <h2>Pricing by Configuration</h2>
+                        <p class="chart-subtitle">
+                            Cost per 1M tokens for each quantization type (latest version).
+                            FP4 and FP4-QAT are dramatically cheaper than BF16 across all categories.
+                        </p>
+                        <div class="chart-container chart-container-hero">
+                            <canvas id="pricingChart"></canvas>
+                        </div>
+                    </div>
+                `;
+
+                const ctx = document.getElementById('pricingChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Input Cost',
+                                data: inputCosts,
+                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                                borderColor: '#6366f1',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Output Cost',
+                                data: outputCosts,
+                                backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                                borderColor: '#a855f7',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Cached Input Cost',
+                                data: cachedCosts,
+                                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                                borderColor: '#22c55e',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { color: '#94a3b8' }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#94a3b8',
+                                borderColor: '#334155',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': $' + context.raw.toFixed(4) + '/1M tokens';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: '$/1M tokens',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(3);
+                                    }
+                                },
+                                grid: { color: '#334155' },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
+        async function loadConfigTable() {
+            const section = document.getElementById('config-table-section');
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                const parseVersion = (v) => {
+                    if (!v) return [0, 0, 0];
+                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
+                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+                };
+
+                const versionGreater = (a, b) => {
+                    const va = parseVersion(a);
+                    const vb = parseVersion(b);
+                    for (let i = 0; i < 3; i++) {
+                        if (va[i] !== vb[i]) return va[i] > vb[i];
+                    }
+                    return false;
+                };
+
+                // Get latest version for each quantization type
+                const latest = {};
+                for (const h of history) {
+                    const type = classifyModel(h.model);
+                    if (!latest[type] || versionGreater(h.version, latest[type].version) ||
+                        (h.version === latest[type].version && new Date(h.timestamp) > new Date(latest[type].timestamp))) {
+                        latest[type] = h;
+                    }
+                }
+
+                const quantOrder = ['BF16', 'FP8', 'FP4', 'FP4-QAT'];
+                const configs = quantOrder.filter(q => latest[q]);
+
+                // Compute best values for highlighting
+                let bestSpeed = 0, bestInput = Infinity, bestOutput = Infinity, bestCached = Infinity, bestQuality = 0;
+                for (const q of configs) {
+                    const h = latest[q];
+                    if (h.decode?.tokens_per_second > bestSpeed) bestSpeed = h.decode.tokens_per_second;
+                    if (h.prefill?.cost_per_million_tokens > 0 && h.prefill.cost_per_million_tokens < bestInput) bestInput = h.prefill.cost_per_million_tokens;
+                    if (h.decode?.cost_per_million_tokens > 0 && h.decode.cost_per_million_tokens < bestOutput) bestOutput = h.decode.cost_per_million_tokens;
+                    if (h.cached?.cost_per_million_tokens > 0 && h.cached.cost_per_million_tokens < bestCached) bestCached = h.cached.cost_per_million_tokens;
+                    if (h.accuracy?.ifeval?.evaluated && h.accuracy.ifeval.prompt_level_accuracy > bestQuality) bestQuality = h.accuracy.ifeval.prompt_level_accuracy;
+                }
+
+                const rows = configs.map(q => {
+                    const h = latest[q];
+                    const speed = h.decode?.tokens_per_second || 0;
+                    const inputCost = h.prefill?.cost_per_million_tokens || 0;
+                    const outputCost = h.decode?.cost_per_million_tokens || 0;
+                    const cachedCost = h.cached?.cost_per_million_tokens || 0;
+                    const quality = h.accuracy?.ifeval?.evaluated ? h.accuracy.ifeval.prompt_level_accuracy : null;
+
+                    return `<tr>
+                        <td><strong>${q}</strong></td>
+                        <td>${shortModelName(h.model)}</td>
+                        <td class="${speed === bestSpeed ? 'best' : ''}">${speed.toLocaleString()} tok/s</td>
+                        <td class="${inputCost === bestInput ? 'best' : ''}">$${inputCost.toFixed(4)}</td>
+                        <td class="${outputCost === bestOutput ? 'best' : ''}">$${outputCost.toFixed(4)}</td>
+                        <td class="${cachedCost > 0 && cachedCost === bestCached ? 'best' : ''}">${cachedCost > 0 ? '$' + cachedCost.toFixed(4) : '&mdash;'}</td>
+                        <td class="${quality !== null && quality === bestQuality ? 'best' : ''}">${quality !== null ? quality.toFixed(1) + '%' : '&mdash;'}</td>
+                    </tr>`;
+                }).join('');
+
+                section.innerHTML = `
+                    <div class="card">
+                        <h2>Configuration Comparison</h2>
+                        <p class="chart-subtitle">
+                            Latest benchmarked version of each quantization type. Best values highlighted in green.
+                        </p>
+                        <table class="config-table">
+                            <thead>
+                                <tr>
+                                    <th>Configuration</th>
+                                    <th>Model</th>
+                                    <th>Output Speed</th>
+                                    <th>Input Cost</th>
+                                    <th>Output Cost</th>
+                                    <th>Cached Cost</th>
+                                    <th>Quality</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
 
             } catch (error) {
                 section.innerHTML = '';
@@ -623,42 +788,6 @@
                 const data = await response.json();
 
                 container.innerHTML = `
-                    <div class="card">
-                        <h2>Performance Summary</h2>
-
-                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0;">Throughput Performance</h3>
-                        <div class="stats-grid">
-                            <div class="stat">
-                                <div class="stat-label">Prefill Throughput</div>
-                                <div class="stat-value">${data.prefill.tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Cached Prefill Throughput</div>
-                                <div class="stat-value">${data.cached.tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Decode Throughput</div>
-                                <div class="stat-value">${data.decode.tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
-                            </div>
-                        </div>
-
-                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 1.5rem;">Cost Efficiency</h3>
-                        <div class="stats-grid">
-                            <div class="stat">
-                                <div class="stat-label">Input Cost</div>
-                                <div class="stat-value">$${data.prefill.cost_per_million_tokens.toFixed(4)}<span class="stat-unit">/1M</span></div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Cached Input Cost</div>
-                                <div class="stat-value">$${data.cached.cost_per_million_tokens.toFixed(4)}<span class="stat-unit">/1M</span></div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Output Cost</div>
-                                <div class="stat-value">$${data.decode.cost_per_million_tokens.toFixed(4)}<span class="stat-unit">/1M</span></div>
-                            </div>
-                        </div>
-                    </div>
-
                     ${data.benchmark_args ? `
                     <div class="card">
                         <h2>Benchmark Test Parameters</h2>
@@ -721,331 +850,6 @@
                         Results will be available after the first benchmark run.
                     </div>
                 `;
-            }
-        }
-
-        // Shared helpers for history-based charts
-        const classifyModel = (model) => {
-            if (!model) return 'BF16';
-            if (model.includes('QAT')) return 'FP4-QAT';
-            if (model.includes('NVFP4')) return 'FP4';
-            if (model.includes('FP8')) return 'FP8';
-            return 'BF16';
-        };
-
-        const quantColors = {
-            'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
-            'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
-            'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
-            'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
-        };
-
-        const quantLegendHTML = `
-            <div class="tier-legend">
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
-            </div>
-        `;
-
-        const shortModelName = (model) => {
-            if (!model) return 'N/A';
-            const parts = model.split('/');
-            return parts[parts.length - 1] || model;
-        };
-
-        // Blended cost: (3 * prefill_cost + decode_cost) / 4
-        const blendedCost = (h) => (3 * (h.prefill?.cost_per_million_tokens || 0) + (h.decode?.cost_per_million_tokens || 0)) / 4;
-
-        async function loadQualityCost() {
-            const section = document.getElementById('quality-cost-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                // Filter to entries with IFEval accuracy
-                const valid = history.filter(h => h.accuracy?.ifeval?.evaluated === true && h.decode?.tokens_per_second > 0);
-                if (valid.length === 0) return;
-
-                // Group by quantization type
-                const groups = {};
-                for (const h of valid) {
-                    const type = classifyModel(h.model);
-                    if (!groups[type]) groups[type] = [];
-
-                    const accuracy = h.accuracy.ifeval.prompt_level_accuracy;
-                    const cost = blendedCost(h);
-                    const decodeTps = h.decode.tokens_per_second;
-
-                    groups[type].push({
-                        x: Math.round(accuracy * 100) / 100,
-                        y: Math.round(cost * 10000) / 10000,
-                        r: Math.max(6, Math.min(20, decodeTps / 30)), // bubble radius scaled
-                        version: h.version || 'N/A',
-                        model: h.model,
-                        decodeTps,
-                        accuracy,
-                        cost
-                    });
-                }
-
-                const datasets = Object.entries(groups).map(([type, points]) => ({
-                    label: type,
-                    data: points,
-                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
-                    borderColor: quantColors[type]?.border || '#94a3b8',
-                    borderWidth: 2,
-                    hoverRadius: 2
-                }));
-
-                section.innerHTML = `
-                    <div class="card card-quality">
-                        <h2>Quality vs Cost</h2>
-                        <p class="chart-subtitle">
-                            IFEval accuracy on the X-axis measures instruction-following quality.
-                            Blended cost (3:1 input:output ratio) on the Y-axis shows the effective price per million tokens.
-                            Bubble size reflects decode throughput &mdash; bigger means faster.
-                            Bottom-right is the sweet spot: high quality at low cost.
-                        </p>
-                        <div class="chart-container chart-container-hero">
-                            <canvas id="qualityCostChart"></canvas>
-                        </div>
-                        ${quantLegendHTML}
-                    </div>
-                `;
-
-                const ctx = document.getElementById('qualityCostChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'bubble',
-                    data: { datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#1e293b',
-                                titleColor: '#f8fafc',
-                                bodyColor: '#94a3b8',
-                                borderColor: '#334155',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    title: function(items) {
-                                        const pt = items[0].raw;
-                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
-                                    },
-                                    label: function(context) {
-                                        const pt = context.raw;
-                                        return [
-                                            'IFEval Accuracy: ' + pt.accuracy.toFixed(1) + '%',
-                                            'Blended Cost: $' + pt.cost.toFixed(4) + '/1M tokens',
-                                            'Decode: ' + pt.decodeTps.toLocaleString() + ' tok/s'
-                                        ];
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'IFEval Accuracy (%)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Blended Cost ($/1M tokens)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: {
-                                    color: '#94a3b8',
-                                    callback: function(value) {
-                                        return '$' + value.toFixed(3);
-                                    }
-                                },
-                                grid: { color: '#334155' },
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        async function loadSpeedCost() {
-            const section = document.getElementById('speed-cost-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                const valid = history.filter(h => h.decode?.tokens_per_second > 0);
-                if (valid.length === 0) return;
-
-                // Build all points for Pareto computation
-                const allPoints = valid.map(h => ({
-                    x: h.decode.tokens_per_second,
-                    y: blendedCost(h),
-                    type: classifyModel(h.model),
-                    version: h.version || 'N/A',
-                    model: h.model,
-                    decodeTps: h.decode.tokens_per_second,
-                    cost: blendedCost(h)
-                }));
-
-                // Compute Pareto frontier: no other point is both faster AND cheaper
-                // Sort by x (speed) ascending
-                const sorted = [...allPoints].sort((a, b) => a.x - b.x);
-                const paretoPoints = [];
-                let minCost = Infinity;
-                // Walk from fastest to slowest (right to left)
-                for (let i = sorted.length - 1; i >= 0; i--) {
-                    if (sorted[i].y <= minCost) {
-                        minCost = sorted[i].y;
-                        paretoPoints.push(sorted[i]);
-                    }
-                }
-                paretoPoints.reverse(); // ascending x order
-
-                // Build stepped line data: for each pair of Pareto points, add horizontal then vertical step
-                const paretoLineData = [];
-                for (let i = 0; i < paretoPoints.length; i++) {
-                    paretoLineData.push({ x: paretoPoints[i].x, y: paretoPoints[i].y });
-                    if (i < paretoPoints.length - 1) {
-                        // horizontal step to next point's x at current y
-                        paretoLineData.push({ x: paretoPoints[i + 1].x, y: paretoPoints[i].y });
-                    }
-                }
-
-                // Group scatter points by type
-                const groups = {};
-                for (const pt of allPoints) {
-                    if (!groups[pt.type]) groups[pt.type] = [];
-                    groups[pt.type].push(pt);
-                }
-
-                const datasets = Object.entries(groups).map(([type, points]) => ({
-                    label: type,
-                    data: points,
-                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
-                    borderColor: quantColors[type]?.border || '#94a3b8',
-                    borderWidth: 2,
-                    pointRadius: 8,
-                    pointHoverRadius: 11,
-                    type: 'scatter'
-                }));
-
-                // Add Pareto frontier line dataset
-                datasets.push({
-                    label: 'Pareto Frontier',
-                    data: paretoLineData,
-                    borderColor: 'rgba(250, 204, 21, 0.7)',
-                    backgroundColor: 'rgba(250, 204, 21, 0.05)',
-                    borderWidth: 2,
-                    borderDash: [6, 3],
-                    pointRadius: 0,
-                    fill: false,
-                    type: 'line',
-                    order: 1
-                });
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Speed vs Cost (Pareto Frontier)</h2>
-                        <p class="chart-subtitle">
-                            Decode throughput on the X-axis shows raw generation speed.
-                            Blended cost on the Y-axis shows the effective price per million tokens.
-                            The dashed yellow line traces the Pareto frontier &mdash; configurations where
-                            no other config is both faster AND cheaper. FP4 quantization dominates the frontier.
-                        </p>
-                        <div class="chart-container chart-container-hero">
-                            <canvas id="speedCostChart"></canvas>
-                        </div>
-                        ${quantLegendHTML}
-                    </div>
-                `;
-
-                const ctx = document.getElementById('speedCostChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'scatter',
-                    data: { datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#1e293b',
-                                titleColor: '#f8fafc',
-                                bodyColor: '#94a3b8',
-                                borderColor: '#334155',
-                                borderWidth: 1,
-                                padding: 12,
-                                filter: function(tooltipItem) {
-                                    return tooltipItem.dataset.label !== 'Pareto Frontier';
-                                },
-                                callbacks: {
-                                    title: function(items) {
-                                        const pt = items[0].raw;
-                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
-                                    },
-                                    label: function(context) {
-                                        const pt = context.raw;
-                                        return [
-                                            'Decode: ' + pt.decodeTps.toLocaleString() + ' tok/s',
-                                            'Blended Cost: $' + pt.cost.toFixed(4) + '/1M tokens'
-                                        ];
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Decode Throughput (tok/s)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Blended Cost ($/1M tokens)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: {
-                                    color: '#94a3b8',
-                                    callback: function(value) {
-                                        return '$' + value.toFixed(3);
-                                    }
-                                },
-                                grid: { color: '#334155' },
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                section.innerHTML = '';
             }
         }
 
@@ -1152,9 +956,10 @@
         }
 
         // Load all sections
-        loadThroughputInteractivity();
-        loadQualityCost();
-        loadSpeedCost();
+        loadHighlights();
+        loadQualitySpeed();
+        loadPricingComparison();
+        loadConfigTable();
         loadResults();
         loadHistory();
     </script>
