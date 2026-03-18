@@ -263,6 +263,19 @@
             border-radius: 3px;
         }
 
+        .card-quality {
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            background: linear-gradient(135deg, #1e293b 0%, #1c2235 100%);
+        }
+
+        .card-quality h2 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
         .history-table {
             max-height: 400px;
             overflow-y: auto;
@@ -299,6 +312,10 @@
         </header>
 
         <div id="throughput-interactivity-section"></div>
+
+        <div id="quality-cost-section"></div>
+
+        <div id="speed-cost-section"></div>
 
         <div id="results">
             <div class="loading">Loading benchmark results...</div>
@@ -707,6 +724,331 @@
             }
         }
 
+        // Shared helpers for history-based charts
+        const classifyModel = (model) => {
+            if (!model) return 'BF16';
+            if (model.includes('QAT')) return 'FP4-QAT';
+            if (model.includes('NVFP4')) return 'FP4';
+            if (model.includes('FP8')) return 'FP8';
+            return 'BF16';
+        };
+
+        const quantColors = {
+            'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
+            'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
+            'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
+            'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
+        };
+
+        const quantLegendHTML = `
+            <div class="tier-legend">
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
+                <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
+            </div>
+        `;
+
+        const shortModelName = (model) => {
+            if (!model) return 'N/A';
+            const parts = model.split('/');
+            return parts[parts.length - 1] || model;
+        };
+
+        // Blended cost: (3 * prefill_cost + decode_cost) / 4
+        const blendedCost = (h) => (3 * (h.prefill?.cost_per_million_tokens || 0) + (h.decode?.cost_per_million_tokens || 0)) / 4;
+
+        async function loadQualityCost() {
+            const section = document.getElementById('quality-cost-section');
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                // Filter to entries with IFEval accuracy
+                const valid = history.filter(h => h.accuracy?.ifeval?.evaluated === true && h.decode?.tokens_per_second > 0);
+                if (valid.length === 0) return;
+
+                // Group by quantization type
+                const groups = {};
+                for (const h of valid) {
+                    const type = classifyModel(h.model);
+                    if (!groups[type]) groups[type] = [];
+
+                    const accuracy = h.accuracy.ifeval.prompt_level_accuracy;
+                    const cost = blendedCost(h);
+                    const decodeTps = h.decode.tokens_per_second;
+
+                    groups[type].push({
+                        x: Math.round(accuracy * 100) / 100,
+                        y: Math.round(cost * 10000) / 10000,
+                        r: Math.max(6, Math.min(20, decodeTps / 30)), // bubble radius scaled
+                        version: h.version || 'N/A',
+                        model: h.model,
+                        decodeTps,
+                        accuracy,
+                        cost
+                    });
+                }
+
+                const datasets = Object.entries(groups).map(([type, points]) => ({
+                    label: type,
+                    data: points,
+                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
+                    borderColor: quantColors[type]?.border || '#94a3b8',
+                    borderWidth: 2,
+                    hoverRadius: 2
+                }));
+
+                section.innerHTML = `
+                    <div class="card card-quality">
+                        <h2>Quality vs Cost</h2>
+                        <p class="chart-subtitle">
+                            IFEval accuracy on the X-axis measures instruction-following quality.
+                            Blended cost (3:1 input:output ratio) on the Y-axis shows the effective price per million tokens.
+                            Bubble size reflects decode throughput &mdash; bigger means faster.
+                            Bottom-right is the sweet spot: high quality at low cost.
+                        </p>
+                        <div class="chart-container chart-container-hero">
+                            <canvas id="qualityCostChart"></canvas>
+                        </div>
+                        ${quantLegendHTML}
+                    </div>
+                `;
+
+                const ctx = document.getElementById('qualityCostChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bubble',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#94a3b8',
+                                borderColor: '#334155',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    title: function(items) {
+                                        const pt = items[0].raw;
+                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
+                                    },
+                                    label: function(context) {
+                                        const pt = context.raw;
+                                        return [
+                                            'IFEval Accuracy: ' + pt.accuracy.toFixed(1) + '%',
+                                            'Blended Cost: $' + pt.cost.toFixed(4) + '/1M tokens',
+                                            'Decode: ' + pt.decodeTps.toLocaleString() + ' tok/s'
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'IFEval Accuracy (%)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Blended Cost ($/1M tokens)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(3);
+                                    }
+                                },
+                                grid: { color: '#334155' },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
+        async function loadSpeedCost() {
+            const section = document.getElementById('speed-cost-section');
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                const valid = history.filter(h => h.decode?.tokens_per_second > 0);
+                if (valid.length === 0) return;
+
+                // Build all points for Pareto computation
+                const allPoints = valid.map(h => ({
+                    x: h.decode.tokens_per_second,
+                    y: blendedCost(h),
+                    type: classifyModel(h.model),
+                    version: h.version || 'N/A',
+                    model: h.model,
+                    decodeTps: h.decode.tokens_per_second,
+                    cost: blendedCost(h)
+                }));
+
+                // Compute Pareto frontier: no other point is both faster AND cheaper
+                // Sort by x (speed) ascending
+                const sorted = [...allPoints].sort((a, b) => a.x - b.x);
+                const paretoPoints = [];
+                let minCost = Infinity;
+                // Walk from fastest to slowest (right to left)
+                for (let i = sorted.length - 1; i >= 0; i--) {
+                    if (sorted[i].y <= minCost) {
+                        minCost = sorted[i].y;
+                        paretoPoints.push(sorted[i]);
+                    }
+                }
+                paretoPoints.reverse(); // ascending x order
+
+                // Build stepped line data: for each pair of Pareto points, add horizontal then vertical step
+                const paretoLineData = [];
+                for (let i = 0; i < paretoPoints.length; i++) {
+                    paretoLineData.push({ x: paretoPoints[i].x, y: paretoPoints[i].y });
+                    if (i < paretoPoints.length - 1) {
+                        // horizontal step to next point's x at current y
+                        paretoLineData.push({ x: paretoPoints[i + 1].x, y: paretoPoints[i].y });
+                    }
+                }
+
+                // Group scatter points by type
+                const groups = {};
+                for (const pt of allPoints) {
+                    if (!groups[pt.type]) groups[pt.type] = [];
+                    groups[pt.type].push(pt);
+                }
+
+                const datasets = Object.entries(groups).map(([type, points]) => ({
+                    label: type,
+                    data: points,
+                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
+                    borderColor: quantColors[type]?.border || '#94a3b8',
+                    borderWidth: 2,
+                    pointRadius: 8,
+                    pointHoverRadius: 11,
+                    type: 'scatter'
+                }));
+
+                // Add Pareto frontier line dataset
+                datasets.push({
+                    label: 'Pareto Frontier',
+                    data: paretoLineData,
+                    borderColor: 'rgba(250, 204, 21, 0.7)',
+                    backgroundColor: 'rgba(250, 204, 21, 0.05)',
+                    borderWidth: 2,
+                    borderDash: [6, 3],
+                    pointRadius: 0,
+                    fill: false,
+                    type: 'line',
+                    order: 1
+                });
+
+                section.innerHTML = `
+                    <div class="card">
+                        <h2>Speed vs Cost (Pareto Frontier)</h2>
+                        <p class="chart-subtitle">
+                            Decode throughput on the X-axis shows raw generation speed.
+                            Blended cost on the Y-axis shows the effective price per million tokens.
+                            The dashed yellow line traces the Pareto frontier &mdash; configurations where
+                            no other config is both faster AND cheaper. FP4 quantization dominates the frontier.
+                        </p>
+                        <div class="chart-container chart-container-hero">
+                            <canvas id="speedCostChart"></canvas>
+                        </div>
+                        ${quantLegendHTML}
+                    </div>
+                `;
+
+                const ctx = document.getElementById('speedCostChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#94a3b8',
+                                borderColor: '#334155',
+                                borderWidth: 1,
+                                padding: 12,
+                                filter: function(tooltipItem) {
+                                    return tooltipItem.dataset.label !== 'Pareto Frontier';
+                                },
+                                callbacks: {
+                                    title: function(items) {
+                                        const pt = items[0].raw;
+                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
+                                    },
+                                    label: function(context) {
+                                        const pt = context.raw;
+                                        return [
+                                            'Decode: ' + pt.decodeTps.toLocaleString() + ' tok/s',
+                                            'Blended Cost: $' + pt.cost.toFixed(4) + '/1M tokens'
+                                        ];
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Decode Throughput (tok/s)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Blended Cost ($/1M tokens)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(3);
+                                    }
+                                },
+                                grid: { color: '#334155' },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
         async function loadHistory() {
             const historySection = document.getElementById('history-section');
 
@@ -747,19 +1089,7 @@
                     return new Date(a.timestamp) - new Date(b.timestamp);
                 });
 
-                const chartHistory = sortedHistory.filter(h => h.version !== '0.3.0');
-
-                const labels = chartHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
-                const prefillData = chartHistory.map(h => h.prefill?.tokens_per_second || 0);
-                const cachedData = chartHistory.map(h => h.cached?.tokens_per_second || 0);
-
                 const reversedHistory = [...sortedHistory].reverse();
-
-                const shortModelName = (model) => {
-                    if (!model) return 'N/A';
-                    const parts = model.split('/');
-                    return parts[parts.length - 1] || model;
-                };
 
                 const tableRows = reversedHistory.map((h, i, arr) => {
                     const prev = arr[i + 1];
@@ -787,40 +1117,7 @@
                     </tr>`;
                 }).join('');
 
-                const v020 = sortedHistory.find(h => h.version === '0.2.0');
-                const v030 = sortedHistory.find(h => h.version === '0.3.0');
-
                 historySection.innerHTML = `
-                    <div class="card">
-                        <h2>Prefill Performance: Out-of-the-box Prefill vs Cached Prefill</h2>
-                        <div class="chart-container">
-                            <canvas id="historyChart"></canvas>
-                        </div>
-                    </div>
-
-                    ${v020 && v030 ? `
-                    <div class="card">
-                        <h2>Time to First Token (TTFT) Comparison</h2>
-                        <div class="chart-container">
-                            <canvas id="ttftChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h2>Time Per Output Token (TPOT) Comparison</h2>
-                        <div class="chart-container">
-                            <canvas id="tpotChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h2>Inter-Token Latency (ITL) Comparison</h2>
-                        <div class="chart-container">
-                            <canvas id="itlChart"></canvas>
-                        </div>
-                    </div>
-                    ` : ''}
-
                     <div class="card">
                         <h2>Release History</h2>
                         <div class="history-table">
@@ -849,290 +1146,15 @@
                     </div>
                 `;
 
-                // Prefill vs Cached chart
-                const ctx = document.getElementById('historyChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Prefill Throughput (tok/s)',
-                                data: prefillData,
-                                borderColor: '#6366f1',
-                                backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                fill: true,
-                                tension: 0.3
-                            },
-                            {
-                                label: 'Cached Input Throughput (tok/s)',
-                                data: cachedData,
-                                borderColor: '#a855f7',
-                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                                fill: true,
-                                tension: 0.3
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                labels: {
-                                    color: '#94a3b8'
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' }
-                            },
-                            y: {
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' },
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-                // Latency comparison charts
-                if (v020 && v030) {
-                    const ttftCtx = document.getElementById('ttftChart').getContext('2d');
-                    const ttftMetrics = ['Mean TTFT', 'Median TTFT', 'P99 TTFT'];
-                    const v020TTFT = [
-                        v020.decode.latency.mean_ttft_ms,
-                        v020.decode.latency.median_ttft_ms,
-                        v020.decode.latency.p99_ttft_ms
-                    ];
-                    const v030TTFT = [
-                        v030.decode.latency.mean_ttft_ms,
-                        v030.decode.latency.median_ttft_ms,
-                        v030.decode.latency.p99_ttft_ms
-                    ];
-
-                    new Chart(ttftCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: ttftMetrics,
-                            datasets: [
-                                {
-                                    label: 'vLLM with LMCache (v0.2.0)',
-                                    data: v020TTFT,
-                                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                    borderColor: '#6366f1',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'vLLM with Speculative Decoding (v0.3.0)',
-                                    data: v030TTFT,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                                    borderColor: '#22c55e',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    labels: { color: '#94a3b8' }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                                            if (context.datasetIndex === 1) {
-                                                const improvement = ((v020TTFT[context.dataIndex] - v030TTFT[context.dataIndex]) / v020TTFT[context.dataIndex] * 100).toFixed(1);
-                                                if (improvement > 0) {
-                                                    return label + ' (' + improvement + '% faster)';
-                                                }
-                                            }
-                                            return label;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    ticks: { color: '#94a3b8' },
-                                    grid: { color: '#334155' }
-                                },
-                                y: {
-                                    ticks: {
-                                        color: '#94a3b8',
-                                        callback: function(value) {
-                                            return value.toFixed(0) + ' ms';
-                                        }
-                                    },
-                                    grid: { color: '#334155' },
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-
-                    const tpotCtx = document.getElementById('tpotChart').getContext('2d');
-                    const tpotMetrics = ['Mean TPOT', 'Median TPOT', 'P99 TPOT'];
-                    const v020TPOT = [
-                        v020.decode.latency.mean_tpot_ms,
-                        v020.decode.latency.median_tpot_ms,
-                        v020.decode.latency.p99_tpot_ms
-                    ];
-                    const v030TPOT = [
-                        v030.decode.latency.mean_tpot_ms,
-                        v030.decode.latency.median_tpot_ms,
-                        v030.decode.latency.p99_tpot_ms
-                    ];
-
-                    new Chart(tpotCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: tpotMetrics,
-                            datasets: [
-                                {
-                                    label: 'vLLM with LMCache (v0.2.0)',
-                                    data: v020TPOT,
-                                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                    borderColor: '#6366f1',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'vLLM with Speculative Decoding (v0.3.0)',
-                                    data: v030TPOT,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                                    borderColor: '#22c55e',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    labels: { color: '#94a3b8' }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                                            if (context.datasetIndex === 1) {
-                                                const improvement = ((v020TPOT[context.dataIndex] - v030TPOT[context.dataIndex]) / v020TPOT[context.dataIndex] * 100).toFixed(1);
-                                                if (improvement > 0) {
-                                                    return label + ' (' + improvement + '% faster)';
-                                                }
-                                            }
-                                            return label;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    ticks: { color: '#94a3b8' },
-                                    grid: { color: '#334155' }
-                                },
-                                y: {
-                                    ticks: {
-                                        color: '#94a3b8',
-                                        callback: function(value) {
-                                            return value.toFixed(0) + ' ms';
-                                        }
-                                    },
-                                    grid: { color: '#334155' },
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-
-                    const itlCtx = document.getElementById('itlChart').getContext('2d');
-                    const itlMetrics = ['Mean ITL', 'Median ITL', 'P99 ITL'];
-                    const v020ITL = [
-                        v020.decode.latency.mean_itl_ms || 0,
-                        v020.decode.latency.median_itl_ms || 0,
-                        v020.decode.latency.p99_itl_ms || 0
-                    ];
-                    const v030ITL = [
-                        v030.decode.latency.mean_itl_ms || 0,
-                        v030.decode.latency.median_itl_ms || 0,
-                        v030.decode.latency.p99_itl_ms || 0
-                    ];
-
-                    new Chart(itlCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: itlMetrics,
-                            datasets: [
-                                {
-                                    label: 'vLLM with LMCache (v0.2.0)',
-                                    data: v020ITL,
-                                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                    borderColor: '#6366f1',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'vLLM with Speculative Decoding (v0.3.0)',
-                                    data: v030ITL,
-                                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                                    borderColor: '#22c55e',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    labels: { color: '#94a3b8' }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                                            if (context.datasetIndex === 1 && v020ITL[context.dataIndex] > 0) {
-                                                const improvement = ((v020ITL[context.dataIndex] - v030ITL[context.dataIndex]) / v020ITL[context.dataIndex] * 100).toFixed(1);
-                                                if (improvement > 0) {
-                                                    return label + ' (' + improvement + '% faster)';
-                                                }
-                                            }
-                                            return label;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                x: {
-                                    ticks: { color: '#94a3b8' },
-                                    grid: { color: '#334155' }
-                                },
-                                y: {
-                                    ticks: {
-                                        color: '#94a3b8',
-                                        callback: function(value) {
-                                            return value.toFixed(0) + ' ms';
-                                        }
-                                    },
-                                    grid: { color: '#334155' },
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                }
-
             } catch (error) {
                 historySection.innerHTML = '';
             }
         }
 
-        // Load hero chart first, then the rest
+        // Load all sections
         loadThroughputInteractivity();
+        loadQualityCost();
+        loadSpeedCost();
         loadResults();
         loadHistory();
     </script>
