@@ -8,79 +8,47 @@ Multi-tenant LLM inference-as-a-service on NVIDIA DGX Spark. All tenant manageme
 
 ## Architecture
 
-TokenLabs composes four open-source projects, each handling a distinct concern:
+TokenLabs composes three open-source projects, each handling a distinct concern:
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════════╗
-║               TOKEN LABS — Multi-tenant LLM Inference-as-a-Service              ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
-
-  CLIENT  (Authorization: Bearer tlabs_sk_...)
-  POST /v1/chat/completions  |  POST /v1/audio/speech  |  POST /v1/audio/transcriptions
-  ─────────────────────────────────────┬────────────────────────────────────────────
-                                       │ HTTP :80  api.tokenlabs.run
-
-  ┌─────────────────────── GATEWAY LAYER (controller node) ───────────────────────┐
-  │                                                                                │
-  │  ① API Key Auth    Kuadrant / Authorino                                        │
-  │     └─ Looks up tenant Secret → extracts tier + user-id from annotations      │
-  │                                                                                │
-  │  ② Rate Limit      Kuadrant / Limitador  ◄── Redis                            │
-  │     └─ free: 100 req/day · 10/min   pro: 5k/day · 100/min                    │
-  │                                                                                │
-  │  ③ Model Routing   Envoy AI Gateway (ext_proc)                                │
-  │     └─ Reads "model" from JSON body → sets x-ai-eg-model header               │
-  │                                                                                │
-  │  ④ Pod Selection   llm-d EPP (ext_proc, one per InferencePool)                │
-  │     └─ Scores pods: KV-cache %, prefix-cache locality, queue depth            │
-  │                                                                                │
-  │  ⑤ Token Quota     Kuadrant TokenRateLimitPolicy (response phase)             │
-  │     └─ Parses usage.total_tokens → increments per-tenant counter              │
-  │        free: 50k tok/day   pro: 500k tok/day   enterprise: 5M tok/day         │
-  └────────┬──────────────────────────┬────────────────────────┬───────────────────┘
-           │ /v1/chat/completions      │ /v1/audio/speech        │ /v1/audio/transcriptions
-
-  ┌─────────────────────── INFERENCE LAYER ───────────────────────────────────────┐
-  │                                                                                │
-  │  spark-01 (NVIDIA GB10 · 72GB HBM3e)     spark-02 (NVIDIA GB10 · 72GB HBM3e) │
-  │  ┌──────────────────────────────┐         ┌─────────────────────────────────┐ │
-  │  │ vLLM  Nemotron-Llama 8B      │         │ vLLM  Nemotron VL 12B FP8       │ │
-  │  │ nvidia/Llama-3.1-Nemotron-   │         │ nvidia/NVIDIA-Nemotron-Nano-     │ │
-  │  │   Nano-8B-v1  (BF16)         │         │   12B-v2-VL-FP8                  │ │
-  │  │ 80% GPU util · port 8000     │         │ 90% GPU util · port 8000         │ │
-  │  └──────────────────────────────┘         └─────────────────────────────────┘ │
-  │  ┌──────────────────────────────┐                                              │
-  │  │ vLLM  Qwen3-14B NVFP4        │                                              │
-  │  │ nvidia/Qwen3-14B-NVFP4       │  ┌──────────────────────────────────────┐   │
-  │  │ port 8000                    │  │ Riva STT  (NVIDIA NIM proxy)          │   │
-  │  └──────────────────────────────┘  │ → integrate.api.nvidia.com:443        │   │
-  │  ┌──────────────────────────────┐  │   BackendSecurityPolicy swaps         │   │
-  │  │ Magpie TTS  357M  FastAPI    │  │   client key → NVIDIA API key         │   │
-  │  │ /v1/audio/speech  (CPU mode) │  └──────────────────────────────────────┘   │
-  │  └──────────────────────────────┘                                              │
-  └────────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────────── STORAGE & OBSERVABILITY ───────────────────────────────┐
-  │                                                                                │
-  │  Longhorn PVCs (Retain, node-pinned)     Prometheus + Grafana (optional)      │
-  │  spark-01: model-cache-nemotron-8b 20Gi  ServiceMonitors: Limitador,          │
-  │  spark-01: model-cache-qwen3-14b   20Gi    Authorino, Envoy, vLLM             │
-  │  spark-02: model-cache-nemotron-vl 50Gi  Dashboards: KV-cache, EPP routing,  │
-  │  Mount: /model-cache/huggingface           vLLM overview, saturation          │
-  └────────────────────────────────────────────────────────────────────────────────┘
+Client (Authorization: Bearer <api-key>)
+  │
+  ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Envoy Gateway  (gatewayClassName: eg)                       │
+│  ├─ Kuadrant AuthPolicy → Authorino        ① API key auth   │
+│  ├─ Kuadrant RateLimitPolicy → Limitador   ② Rate limits    │
+│  │                                                           │
+│  ├─ AI Gateway ext_proc                   ③ Model routing  │
+│  │   reads "model" → sets x-ai-eg-model header              │
+│  ├─ AIGatewayRoute → InferencePool                           │
+│  │   ├─ model=Llama-3.1-8B     → token-labs-pool (spark-01) │
+│  │   └─ model=Nemotron-VL-12B  → nemotron-vl-pool (spark-02)│
+│  ├─ llm-d EPP ext_proc                    ④ Inference sched │
+│  │                                                           │
+│  └─ /v1/audio/speech ──► Magpie TTS        ⑤ Text-to-speech │
+├──────────────────────────────────────────────────────────────┤
+│  vLLM / TTS Workers                                          │
+│  └─ Response with usage.total_tokens (LLMs)                  │
+├──────────────────────────────────────────────────────────────┤
+│  Kuadrant TokenRateLimitPolicy → Limitador  ⑥ Token quota   │
+└──────────────────────────────────────────────────────────────┘
+  │
+  ▼
+Client receives response
 ```
 
 ### Components
 
-**[Envoy AI Gateway](https://aigateway.envoyproxy.io/) (EAG v0.5.0)** — AI-aware proxy layer that extends Envoy Gateway. EAG adds the `AIGatewayRoute` CRD which natively parses the `"model"` field from JSON request bodies, sets the `x-ai-eg-model` header, and routes to the matching `InferencePool`. It also introduces `BackendSecurityPolicy` for upstream credential injection (used by Riva STT to swap the client's token-labs key for the NVIDIA API key). EAG replaces the old Body Based Router (BBR) ext_proc pattern — no ConfigMaps, no extra sidecar.
+**[Envoy Gateway](https://gateway.envoyproxy.io/)** — Kubernetes-native L7 proxy that implements the Gateway API. It serves as the single entry point for all client traffic. Envoy Gateway handles TLS termination, HTTP routing, and hosts ext_proc filters for the AI Gateway controller and llm-d EPP. It was chosen over Istio because the Gateway API Inference Extension explicitly supports it, and it's lighter weight than a full service mesh.
 
-**[Envoy Gateway](https://gateway.envoyproxy.io/) (EG v1.5.0)** — Kubernetes-native L7 proxy that implements the Gateway API. EG is the data plane; EAG extends it via an xDS extension manager hook. EG provisions Envoy proxy pods, handles TLS termination, and hosts ext_proc filters for llm-d's EPP. Chosen over Istio because the Gateway API Inference Extension explicitly supports it and it's lighter weight than a full service mesh.
+**[Envoy AI Gateway](https://aigateway.envoyproxy.io/)** — AI-native routing layer that runs on top of Envoy Gateway. Its controller runs as an ext_proc extension that automatically extracts the `"model"` field from the request body, sets the `x-ai-eg-model` header, and routes to the correct InferencePool backend via `AIGatewayRoute` rules. It also tracks per-request token usage via `llmRequestCosts` (InputToken, OutputToken, TotalToken). This replaces the need for a separate Body Based Router or custom HTTPRoute header matching.
 
 **[Kuadrant](https://docs.kuadrant.io/)** — CNCF policy layer that deploys two backing services:
 - **Authorino** — external authorization service. When the `AuthPolicy` CRD is applied, Authorino intercepts every request and validates the API key (stored as a Kubernetes Secret). It extracts tenant metadata (tier, user-id) from the Secret's annotations and enriches the request context so downstream policies can use it.
 - **Limitador** — rate limiting service. Enforces request-count limits (via `RateLimitPolicy`) and, critically, token-based quotas (via `TokenRateLimitPolicy`). The token policy automatically parses `usage.total_tokens` from OpenAI-compatible JSON responses and counts it against the tenant's quota — no custom middleware required. This is what makes per-tenant billing feasible without writing a proxy.
 
-**[llm-d](https://llm-d.ai/) (v0.5.0)** — inference-aware request scheduler. Its Endpoint Picker (EPP) runs as an Envoy `ext_proc` server and scores every vLLM pod on three signals before routing the request:
+**[llm-d](https://llm-d.ai/)** — inference-aware request scheduler. Its Endpoint Picker (EPP) runs as an Envoy `ext_proc` server and scores every vLLM pod on three signals before routing the request:
 1. **KV-cache usage** — avoids pods whose GPU memory is nearly full
 2. **Prefix-cache locality** — routes similar prompts to the same pod to reuse cached KV entries
 3. **Queue depth** — prefers pods with fewer in-flight requests
@@ -88,33 +56,29 @@ TokenLabs composes four open-source projects, each handling a distinct concern:
 This produces better tail latency and higher throughput than round-robin or least-connections load balancing.
 
 **[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GB10 GPUs. Served via the `ghcr.io/llm-d/llm-d-cuda:v0.5.0` container image. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves two models:
-- **Nemotron-Llama 8B** (`nvidia/Llama-3.1-Nemotron-Nano-8B-v1`, spark-01) — general-purpose chat model, BF16, 80% GPU utilization
-- **Nemotron VL 12B FP8** (`nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8`, spark-02) — NVIDIA vision-language model with FP8 quantization, supports image+text inputs
+- **Llama 3.1 8B Instruct** (spark-01) — general-purpose chat model
+- **Nemotron VL 12B FP8** (spark-02) — NVIDIA vision-language model with FP8 quantization, supports image+text inputs
 
-**[Magpie TTS](https://huggingface.co/nvidia/magpie_tts_multilingual_357m)** — NVIDIA's multilingual text-to-speech model (357M parameters). Runs on spark-01 in **CPU mode** (the GB10 GPU is fully allocated to the Nemotron-Llama vLLM pod). Served via a custom FastAPI wrapper that exposes an OpenAI-compatible `/v1/audio/speech` endpoint. Supports 5 voices and 7 languages (en, es, de, fr, vi, it, zh). Built on the NeMo framework.
-
-**Riva STT (NVIDIA NIM proxy)** — speech-to-text via [NVIDIA NIM](https://docs.api.nvidia.com/nim/reference/riva-asr) at `integrate.api.nvidia.com`. TokenLabs proxies `/v1/audio/transcriptions` to the NIM endpoint using an Envoy Gateway `Backend` + `BackendTLSPolicy` (TLS toward NVIDIA) + EAG `BackendSecurityPolicy` (swaps the client's token-labs key for the NVIDIA API key). The client never sees the NVIDIA key.
+**[Magpie TTS](https://huggingface.co/nvidia/magpie_tts_multilingual_357m)** — NVIDIA's multilingual text-to-speech model (357M parameters). Runs on spark-01 (GPU, shared with Llama 3.1 8B). Served via a custom FastAPI wrapper that exposes an OpenAI-compatible `/v1/audio/speech` endpoint. Supports 5 voices and 7 languages (en, es, de, fr, vi, it, zh). Built on the NeMo framework.
 
 ### Infrastructure
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                           MicroK8s Cluster                             │
-│                                                                        │
-│  ┌─────────────────┐   ┌──────────────────────┐   ┌────────────────┐  │
-│  │  controller      │   │  spark-01             │   │  spark-02      │  │
-│  │  (CPU, ARM64)    │   │  (GB10 GPU, 72GB)     │   │  (GB10 GPU,    │  │
-│  │                  │   │                       │   │   72GB)        │  │
-│  │  Envoy AI GW     │   │  vLLM: Nemotron-Llama │   │                │  │
-│  │  Envoy GW        │   │    8B (BF16, 80% GPU) │   │  vLLM:         │  │
-│  │  Kuadrant        │   │  vLLM: Qwen3-14B      │   │  Nemotron VL   │  │
-│  │  llm-d EPPs      │   │    (NVFP4)            │   │  12B FP8       │  │
-│  │  Redis           │   │  Magpie TTS (CPU)     │   │  (90% GPU)     │  │
-│  └─────────────────┘   └──────────────────────┘   └────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         MicroK8s Cluster                             │
+│                                                                      │
+│  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐       │
+│  │  controller     │   │  spark-01      │   │  spark-02      │       │
+│  │  (CPU, ARM64)   │   │  (GB10 GPU)    │   │  (GB10 GPU)    │       │
+│  │                 │   │                │   │                │       │
+│  │  Envoy GW       │   │  vLLM:         │   │  vLLM:         │       │
+│  │  Kuadrant       │   │  Llama 3.1 8B  │   │  Nemotron VL   │       │
+│  │  llm-d EPPs     │   │  Magpie TTS    │   │  12B FP8       │       │
+│  └────────────────┘   └────────────────┘   └────────────────┘       │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-The cluster has three nodes. The CPU controller runs control-plane components (Envoy AI Gateway, Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `nvidia/Llama-3.1-Nemotron-Nano-8B-v1` (80% GPU utilization, BF16) and Magpie TTS (CPU mode — the GPU is fully allocated to vLLM). **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model, 90% GPU utilization). Both use `tensor_parallelism=1`.
+The cluster has three nodes. The CPU controller runs control-plane components (Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `meta-llama/Llama-3.1-8B-Instruct` (80% GPU utilization) and Magpie TTS (GPU-accelerated, ~700 MB). **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model). Both use `tensor_parallelism=1`.
 
 ### Tenant Model
 
@@ -179,7 +143,7 @@ The client can use the key immediately — no waiting, no restart:
 curl https://inference.token-labs.local/v1/chat/completions \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1", "messages": [{"role": "user", "content": "Hello"}]}'
+  -d '{"model": "meta-llama/Llama-3.1-8B-Instruct", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
 #### Managing tenants
@@ -204,8 +168,6 @@ curl https://inference.token-labs.local/v1/chat/completions \
 ---
 
 ## Deployment Guide
-
-> **Quick reference:** If you've done this before and just need the commands, see [`deploy/README.md`](deploy/README.md).
 
 ### Prerequisites
 
@@ -256,26 +218,24 @@ kubectl get crd inferencepools.inference.networking.k8s.io
 kubectl get crd aigatewayroutes.aigateway.envoyproxy.io
 ```
 
-### Step 2: Install Envoy AI Gateway + Envoy Gateway + Redis
+### Step 2: Install Envoy Gateway + AI Gateway + Redis
 
-[Envoy AI Gateway (EAG)](https://aigateway.envoyproxy.io/) extends Envoy Gateway with AI-specific routing. Install order matters: EAG CRDs first, then the EAG controller (which creates a TLS cert Secret), then EG configured to connect to EAG via its extension manager. Redis is required for Kuadrant's distributed rate limiting (Limitador stores counters in Redis).
+[Envoy Gateway](https://gateway.envoyproxy.io/) is the data-plane proxy. [Envoy AI Gateway](https://aigateway.envoyproxy.io/) adds AI-native routing on top — its controller extracts the model from the request body and routes to the correct InferencePool. Redis is required as the backend for Kuadrant's distributed rate limiting (Limitador stores counters in Redis).
 
 ```bash
-./deploy/scripts/02-install-envoy-ai-gateway.sh
+./deploy/scripts/02-install-envoy-gateway.sh
 ```
 
 What it does:
-1. Installs EAG CRDs (`ai-gateway-crds-helm` v0.5.0) — registers `AIGatewayRoute`, `AIServiceBackend`, `BackendSecurityPolicy`
-2. Installs the EAG controller (`ai-gateway-helm` v0.5.0) into `envoy-ai-gateway-system` and waits for it to be ready (it creates the TLS cert Secret needed by EG)
-3. Installs Envoy Gateway (`gateway-helm` v1.5.0) into `envoy-gateway-system` with EAG extension manager config and `InferencePool` as a valid backendRef type
-4. Deploys a standalone Redis instance into `redis-system` for rate-limit counters
+1. Deploys a standalone Redis instance into `redis-system`
+2. Installs Envoy Gateway v1.6.4 Helm chart with AI Gateway values files (extension manager, rate limiting addon, InferencePool addon)
+3. Installs the AI Gateway controller v0.5.0 into `envoy-ai-gateway-system`
 
 Verify:
 ```bash
-kubectl get pods -n envoy-ai-gateway-system   # ai-gateway-controller running
 kubectl get pods -n envoy-gateway-system       # envoy-gateway controller running
+kubectl get pods -n envoy-ai-gateway-system    # ai-gateway controller running
 kubectl get pods -n redis-system               # redis pod running
-kubectl get gatewayclass                       # "eg" class listed
 ```
 
 ### Step 3: Install Kuadrant
@@ -329,16 +289,49 @@ kubectl get pods -n token-labs           # 2 vLLM pods + 2 EPP pods running
 kubectl get inferencepool -n token-labs  # both pools should show Ready
 ```
 
-### Step 5: Deploy Gateway, routes, and policies
+### Step 5: Deploy AI Gateway Route
+
+The [Envoy AI Gateway](https://aigateway.envoyproxy.io/) uses the `AIGatewayRoute` CRD for model-based routing. The AI Gateway controller automatically extracts the `"model"` field from the request body, sets the `x-ai-eg-model` header, and the `AIGatewayRoute` matches on this header to route to the correct InferencePool backend. Token usage is tracked via `llmRequestCosts`.
+
+```bash
+./deploy/scripts/05-deploy-ai-gateway-route.sh
+```
+
+What it does:
+1. Applies the `AIGatewayRoute` resource which defines model-to-InferencePool routing rules
+2. Configures `llmRequestCosts` for per-request token tracking (InputToken, OutputToken, TotalToken)
+
+Verify:
+```bash
+kubectl get aigatewayroute -n token-labs    # AIGatewayRoute listed
+```
+
+### Step 6: Deploy Magpie TTS
+
+Magpie TTS is deployed as a standalone service (not through llm-d) because it uses the NeMo framework, not vLLM:
+
+```bash
+kubectl apply -f deploy/magpie-tts/
+```
+
+What it deploys:
+- A Deployment running the FastAPI TTS wrapper on spark-01 (GPU-accelerated, shared with Llama)
+- A Service exposing port 8000
+- An HTTPRoute mapping `/v1/audio/speech` through the same Gateway
+
+Verify:
+```bash
+kubectl get pods -n token-labs -l app=magpie-tts  # 1 pod running
+kubectl get httproute -n token-labs               # magpie-tts-route listed
+```
+
+### Step 7: Apply Gateway, routes, and policies
 
 This step creates the actual networking and policy resources that wire everything together:
 
 ```bash
-# Gateway + AIGatewayRoute
-kubectl apply -f deploy/gateway/namespace.yaml
-kubectl apply -f deploy/gateway/gatewayclass.yaml
-kubectl apply -f deploy/gateway/gateway.yaml
-kubectl apply -f deploy/gateway/aigwroute.yaml
+# Gateway + HTTPRoute
+kubectl apply -f deploy/gateway/
 
 # Kuadrant policies
 kubectl apply -f deploy/policies/
@@ -347,159 +340,61 @@ kubectl apply -f deploy/policies/
 **Gateway resources** (`deploy/gateway/`):
 - `namespace.yaml` — creates the `token-labs` namespace (idempotent)
 - `gateway.yaml` — creates a `Gateway` resource with `gatewayClassName: eg`, listening on HTTP port 80 with hostname `inference.token-labs.local`. Envoy Gateway sees this and provisions an Envoy proxy pod to handle traffic.
-- `aigwroute.yaml` — creates an `AIGatewayRoute` for `/v1/chat/completions`. EAG's AI filter reads the `"model"` field from the JSON request body and sets the `x-ai-eg-model` header. Each rule matches on this header and routes to the correct `InferencePool` backend. The `InferencePool` is the bridge to llm-d's EPP — Envoy invokes the EPP via ext_proc to pick the optimal vLLM pod for each request.
+- `aigatewayroute.yaml` — creates an `AIGatewayRoute` with per-model header matching (deployed in step 5). The AI Gateway controller extracts the `"model"` field from the request body and sets the `x-ai-eg-model` header. Each rule matches on this header and routes to the correct `InferencePool` backend. The InferencePool is the bridge to llm-d's EPP — when Envoy receives a matching request, it invokes the EPP via ext_proc to pick the optimal vLLM pod.
 
 **Kuadrant policies** (`deploy/policies/`):
 - `kuadrant.yaml` — the `Kuadrant` CR (idempotent, already created in step 3)
-- `auth-policy.yaml` — `AuthPolicy` targeting the Gateway. Configures API key authentication: Authorino validates the `Authorization: Bearer <key>` header by looking up Secrets labeled `app: token-labs`. On match, it extracts `kuadrant.io/groups` (tier) and `secret.kuadrant.io/user-id` (tenant ID) from annotations and passes them in the request context. An OPA policy validates the tier is one of `free`, `pro`, or `enterprise`.
+- `auth-policy.yaml` — `AuthPolicy` targeting the Gateway. Configures API key authentication: Authorino validates the `Authorization: Bearer <key>` header by looking up Secrets labeled `authorino.kuadrant.io/managed-by: authorino`. On match, it extracts `kuadrant.io/groups` (tier) and `secret.kuadrant.io/user-id` (tenant ID) from annotations and passes them in the request context. An OPA policy validates the tier is one of `free`, `pro`, or `enterprise`.
 - `rate-limit-policy.yaml` — `RateLimitPolicy` targeting the Gateway. Defines per-tier request count limits (e.g., free = 10/min and 100/day). Uses `when` predicates with CEL expressions to match `auth.identity.groups` and `counters` keyed by `auth.identity.userid` for tenant isolation.
-- `token-rate-limit-policy.yaml` — `TokenRateLimitPolicy` targeting the `AIGatewayRoute` for `/v1/chat/completions`. After vLLM returns a response, Kuadrant's wasm-shim parses `usage.total_tokens` from the JSON body and sends it to Limitador as `hits_addend`. Each tenant's cumulative token usage is tracked per time window.
+- `token-rate-limit-policy.yaml` — `TokenRateLimitPolicy` targeting the Gateway for `/v1/chat/completions`. This is the key CRD for LLM billing. After vLLM returns a response, Kuadrant's wasm-shim parses `usage.total_tokens` from the JSON body and sends it to Limitador as `hits_addend`. Each tenant's cumulative token usage is tracked per time window.
 
 Verify:
 ```bash
-kubectl get gateway -n token-labs               # Programmed: True
-kubectl get aigatewayroute -n token-labs        # llm-inference listed
-kubectl get authpolicy -n token-labs            # Accepted: True
-kubectl get ratelimitpolicy -n token-labs       # Accepted: True
+kubectl get gateway -n token-labs            # Programmed: True
+kubectl get aigatewayroute -n token-labs     # Listed
+kubectl get authpolicy -n token-labs         # Accepted: True
+kubectl get ratelimitpolicy -n token-labs    # Accepted: True
 kubectl get tokenratelimitpolicy -n token-labs  # Accepted: True
 ```
 
-### Step 6: Create tenant API keys
+### Step 8: Create tenant API keys
 
-Before applying the tenant manifests, set a real company name and generate a unique API key for each tenant. The files in `deploy/tenants/` use placeholder values that must be replaced.
-
-**Using the template for a new tenant:**
-
-```bash
-COMPANY="acme"
-TIER="pro"        # free | pro | enterprise
-API_KEY="tlabs_sk_$(openssl rand -hex 24)"
-
-sed \
-  -e "s/COMPANY-NAME/${COMPANY}/g" \
-  -e "s/\"pro\"/\"${TIER}\"/g" \
-  -e "s/tlabs_CHANGEME/${API_KEY}/g" \
-  deploy/tenants/tenant-template.yaml \
-  | kubectl apply -f -
-
-echo "Tenant: ${COMPANY}  Key: ${API_KEY}"
-```
-
-**Editing the demo tenant files before applying:**
-
-Open `deploy/tenants/tenant-free-demo.yaml` and `tenant-pro-demo.yaml` and update:
-- `metadata.name` — e.g. `tenant-acme-free`
-- `secret.kuadrant.io/user-id` — unique identifier used as the rate-limit counter key
-- `api_key` — replace the placeholder with a generated key:
-
-```bash
-# Generate keys for each tenant
-echo "Free tier key:  tlabs_sk_$(openssl rand -hex 24)"
-echo "Pro tier key:   tlabs_sk_$(openssl rand -hex 24)"
-```
-
-Then apply:
+Demo tenants are provided for testing (see [Tenant Model](#tenant-model) above for full onboarding instructions):
 
 ```bash
 kubectl apply -f deploy/tenants/
 ```
 
-Verify (keys are live immediately, no restart needed):
+This creates two demo tenants:
+- `tenant-free-demo` — free tier, key `tlabs_free_demo_key_change_me`
+- `tenant-pro-demo` — pro tier, key `tlabs_pro_demo_key_change_me`
 
-```bash
-kubectl get secrets -n kuadrant-system -l app=token-labs
-
-# Quick smoke test
-GATEWAY_IP=$(kubectl get gateway token-labs-gateway -n token-labs \
-  -o jsonpath='{.status.addresses[0].value}')
-curl -s -o /dev/null -w "%{http_code}" \
-  http://${GATEWAY_IP}/v1/models \
-  -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer <your-key>"
-# Expect: 200
-```
-
----
-
-## Optional Components
-
-### Magpie TTS (text-to-speech)
-
-Magpie TTS runs on spark-01 in CPU mode (the GB10 GPU is fully allocated to the Nemotron-Llama vLLM pod). It exposes an OpenAI-compatible `/v1/audio/speech` endpoint backed by `nvidia/magpie_tts_multilingual_357m`.
-
-**Build the image** (must be built natively on spark-01 — see build notes in `deploy/README.md`):
-
-```bash
-# On spark-01
-docker build -t ghcr.io/elizabetht/token-labs/magpie-tts:latest services/magpie-tts
-docker push ghcr.io/elizabetht/token-labs/magpie-tts:latest
-```
-
-If the GHCR package is private, create a pull secret first:
-
-```bash
-kubectl create secret docker-registry ghcr-pull-secret \
-  --docker-server=ghcr.io \
-  --docker-username=elizabetht \
-  --docker-password=<GITHUB_PAT_read:packages> \
-  -n token-labs
-```
-
-**Deploy:**
-
-```bash
-kubectl apply -f deploy/magpie-tts/
-```
-
-The model (`nvidia/magpie_tts_multilingual_357m`) downloads from NGC on first pod startup — allow ~1–2 min.
-
-Verify:
-
-```bash
-kubectl get pods -n token-labs -l app=magpie-tts   # 1 pod running
-kubectl logs -n token-labs -l app=magpie-tts        # look for "model loaded successfully"
-```
-
-### Riva STT (speech-to-text via NVIDIA NIM)
-
-Riva STT proxies `/v1/audio/transcriptions` to `integrate.api.nvidia.com`. Requires an NVIDIA API key.
-
-```bash
-kubectl create secret generic nvidia-nim-api-key \
-  --from-literal=apiKey=nvapi-CHANGEME \
-  -n token-labs
-
-./deploy/scripts/05-deploy-services.sh
-```
-
-Verify:
-
-```bash
-kubectl get httproute -n token-labs                 # riva-stt listed
-kubectl get backendsecuritypolicy -n token-labs     # nvidia-nim-api-key listed
-```
+For production tenants, follow the [onboarding steps](#onboarding-a-new-tenant) in the Tenant Model section.
 
 ### Test it
 
 ```bash
-GATEWAY_IP=$(kubectl get gateway token-labs-gateway -n token-labs \
-  -o jsonpath='{.status.addresses[0].value}')
+# Port-forward to the gateway (or use MetalLB IP)
+kubectl port-forward -n envoy-gateway-system \
+  svc/envoy-default-token-labs-gateway 8080:80 &
 
-# Chat completion — Nemotron-Llama 8B (spark-01)
-curl -s http://${GATEWAY_IP}/v1/chat/completions \
-  -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer <your-api-key>" \
+# List models
+curl -s http://localhost:8080/v1/models \
+  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" | jq
+
+# Chat completion (Llama 3.1 8B)
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "nvidia/Llama-3.1-Nemotron-Nano-8B-v1",
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
     "messages": [{"role": "user", "content": "What is Kubernetes?"}],
     "max_tokens": 200
   }' | jq
 
-# Vision-language — Nemotron VL 12B FP8 (spark-02)
-curl -s http://${GATEWAY_IP}/v1/chat/completions \
-  -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer <your-api-key>" \
+# Vision-language (Nemotron VL 12B)
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
@@ -507,36 +402,26 @@ curl -s http://${GATEWAY_IP}/v1/chat/completions \
     "max_tokens": 200
   }' | jq
 
+# Text-to-speech (Magpie TTS)
+curl -s http://localhost:8080/v1/audio/speech \
+  -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Welcome to Token Labs.",
+    "voice": "aria",
+    "language": "en"
+  }' --output speech.wav
+
 # Verify rate limiting (free tier — should get 429 after 10 requests/min)
 for i in $(seq 1 15); do
   echo -n "Request $i: "
   curl -s -o /dev/null -w "%{http_code}" \
-    http://${GATEWAY_IP}/v1/chat/completions \
-    -H "Host: inference.token-labs.local" \
-    -H "Authorization: Bearer <your-free-tier-key>" \
+    http://localhost:8080/v1/chat/completions \
+    -H "Authorization: Bearer tlabs_free_demo_key_change_me" \
     -H "Content-Type: application/json" \
-    -d '{"model":"nvidia/Llama-3.1-Nemotron-Nano-8B-v1","messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
+    -d '{"model":"meta-llama/Llama-3.1-8B-Instruct","messages":[{"role":"user","content":"Hi"}],"max_tokens":5}'
   echo
 done
-```
-
-**Optional — test audio services** (only after deploying Magpie TTS / Riva STT):
-
-```bash
-# Text-to-speech — Magpie TTS (spark-01, CPU mode)
-curl -s http://${GATEWAY_IP}/v1/audio/speech \
-  -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer <your-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"input": "Welcome to Token Labs.", "voice": "aria"}' \
-  --output speech.wav
-
-# Speech-to-text — Riva STT via NVIDIA NIM
-curl -s http://${GATEWAY_IP}/v1/audio/transcriptions \
-  -H "Host: inference.token-labs.local" \
-  -H "Authorization: Bearer <your-api-key>" \
-  -F "file=@audio.wav" \
-  -F "model=nvidia/parakeet-ctc-1.1b"
 ```
 
 ---
@@ -580,24 +465,16 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 ```
 ├── deploy/
 │   ├── scripts/              # Installation scripts (run in order)
-│   │   ├── 01-install-crds.sh               # Gateway API + Inference Extension CRDs
-│   │   ├── 02-install-envoy-ai-gateway.sh   # EAG v0.5.0 + EG v1.5.0 + Redis
-│   │   ├── 03-install-kuadrant.sh           # Kuadrant (Authorino + Limitador)
-│   │   ├── 04-deploy-llm-d.sh               # llm-d helmfile (5 releases)
-│   │   └── 05-deploy-services.sh            # Magpie TTS + Riva STT
-│   ├── gateway/              # Gateway + AIGatewayRoute + Envoy Gateway values
-│   │   ├── namespace.yaml
-│   │   ├── gateway.yaml                     # Gateway (gatewayClassName: eg)
-│   │   ├── aigwroute.yaml                   # AIGatewayRoute: model → InferencePool
-│   │   └── envoy-gateway-values.yaml        # EG helm values: EAG extension manager
+│   │   ├── 01-install-crds.sh
+│   │   ├── 02-install-envoy-gateway.sh
+│   │   ├── 03-install-kuadrant.sh
+│   │   ├── 04-deploy-llm-d.sh
+│   │   └── 05-deploy-ai-gateway-route.sh
+│   ├── gateway/              # Gateway + AIGatewayRoute resources
 │   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
 │   │   ├── helmfile.yaml.gotmpl
 │   │   └── values/
 │   ├── magpie-tts/           # Magpie TTS deployment + HTTPRoute
-│   ├── riva-stt/             # Riva STT → NVIDIA NIM proxy
-│   │   ├── backend.yaml      # EG Backend + BackendTLSPolicy + BackendSecurityPolicy
-│   │   ├── httproute.yaml    # HTTPRoute: /v1/audio/transcriptions → NVIDIA NIM
-│   │   └── secret-template.yaml  # NVIDIA API key Secret template
 │   ├── policies/             # Kuadrant AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy
 │   ├── tenants/              # Tenant API key Secrets (template + demos)
 │   └── monitoring/           # Prometheus ServiceMonitors

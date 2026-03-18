@@ -14,14 +14,15 @@
             --text-muted: #94a3b8;
             --border: #334155;
             --success: #22c55e;
+            --nvidia-green: #76b900;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: var(--bg);
@@ -29,18 +30,18 @@
             line-height: 1.6;
             min-height: 100vh;
         }
-        
+
         .container {
             max-width: 1000px;
             margin: 0 auto;
             padding: 2rem;
         }
-        
+
         header {
             text-align: center;
             margin-bottom: 3rem;
         }
-        
+
         h1 {
             font-size: 2.5rem;
             margin-bottom: 0.5rem;
@@ -49,12 +50,12 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        
+
         .subtitle {
             color: var(--text-muted);
             font-size: 1.1rem;
         }
-        
+
         .badge {
             display: inline-block;
             background: var(--primary);
@@ -64,7 +65,7 @@
             font-size: 0.875rem;
             margin-top: 1rem;
         }
-        
+
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -72,56 +73,85 @@
             padding: 1.5rem;
             margin-bottom: 1.5rem;
         }
-        
+
+        .card-hero {
+            border: 1px solid rgba(118, 185, 0, 0.3);
+            background: linear-gradient(135deg, #1e293b 0%, #1a2332 100%);
+        }
+
         .card h2 {
             font-size: 1.25rem;
             margin-bottom: 1rem;
             color: var(--text);
         }
-        
+
+        .card-hero h2 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--nvidia-green), #a3e635);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chart-subtitle {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .chart-subtitle a {
+            color: var(--nvidia-green);
+            text-decoration: none;
+        }
+
+        .chart-subtitle a:hover {
+            text-decoration: underline;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
         }
-        
+
         .stat {
             background: var(--bg);
             border-radius: 0.75rem;
             padding: 1.25rem;
             text-align: center;
         }
-        
+
         .stat-label {
             color: var(--text-muted);
             font-size: 0.875rem;
             margin-bottom: 0.5rem;
         }
-        
+
         .stat-value {
             font-size: 1.75rem;
             font-weight: 700;
             color: var(--success);
         }
-        
+
         .stat-unit {
             font-size: 0.875rem;
             color: var(--text-muted);
             margin-left: 0.25rem;
         }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 1rem;
         }
-        
+
         th, td {
             padding: 0.75rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
-        
+
         th {
             color: var(--text-muted);
             font-weight: 500;
@@ -129,33 +159,33 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
-        
+
         td {
             font-size: 1rem;
         }
-        
+
         .highlight {
             color: var(--success);
             font-weight: 600;
         }
-        
+
         .methodology {
             color: var(--text-muted);
             font-size: 0.875rem;
             line-height: 1.7;
         }
-        
+
         .methodology h3 {
             color: var(--text);
             font-size: 1rem;
             margin: 1rem 0 0.5rem 0;
         }
-        
+
         .methodology ul {
             margin-left: 1.5rem;
             margin-bottom: 0.5rem;
         }
-        
+
         .json-link {
             display: inline-flex;
             align-items: center;
@@ -165,35 +195,35 @@
             font-size: 0.875rem;
             margin-top: 1rem;
         }
-        
+
         .json-link:hover {
             text-decoration: underline;
         }
-        
+
         .last-updated {
             text-align: center;
             color: var(--text-muted);
             font-size: 0.875rem;
             margin-top: 2rem;
         }
-        
+
         .back-link {
             display: inline-block;
             color: var(--primary);
             text-decoration: none;
             margin-bottom: 1rem;
         }
-        
+
         .back-link:hover {
             text-decoration: underline;
         }
-        
+
         .loading {
             text-align: center;
             padding: 2rem;
             color: var(--text-muted);
         }
-        
+
         .error {
             background: #7f1d1d;
             border: 1px solid #991b1b;
@@ -201,18 +231,43 @@
             padding: 1rem;
             color: #fecaca;
         }
-        
+
         .chart-container {
             position: relative;
             height: 300px;
             margin: 1rem 0;
         }
-        
+
+        .chart-container-hero {
+            height: 420px;
+        }
+
+        .tier-legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tier-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .tier-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
         .history-table {
             max-height: 400px;
             overflow-y: auto;
         }
-        
+
         .version-badge {
             background: var(--primary);
             color: white;
@@ -221,43 +276,47 @@
             font-size: 0.75rem;
             font-family: monospace;
         }
-        
+
         .trend-up {
             color: var(--success);
         }
-        
+
         .trend-down {
             color: #ef4444;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <a href="index.html" class="back-link">← Back to Token Labs</a>
-        
+        <a href="index.html" class="back-link">&larr; Back to Token Labs</a>
+
         <header>
-            <h1>📊 Benchmark Results</h1>
+            <h1>Benchmark Results</h1>
             <p class="subtitle">vLLM Performance on NVIDIA DGX Spark</p>
             <span class="badge">Auto-updated via CI/CD</span>
         </header>
-        
+
+        <div id="throughput-interactivity-section"></div>
+
         <div id="results">
             <div class="loading">Loading benchmark results...</div>
         </div>
-        
+
         <div id="history-section"></div>
-        
+
         <div class="card">
-            <h2>📐 Methodology</h2>
+            <h2>Methodology</h2>
             <div class="methodology">
                 <h3>Hardware</h3>
                 <ul>
                     <li><strong>Platform:</strong> NVIDIA DGX Spark</li>
                     <li><strong>GPU:</strong> Grace Hopper (~120GB GPU memory)</li>
                     <li><strong>Architecture:</strong> ARM64</li>
+                    <li><strong>TDP:</strong> ~150W per node</li>
                 </ul>
-                
+
                 <h3>Benchmark Configuration</h3>
                 <ul>
                     <li><strong>Prefill Test:</strong> 100 prompts, 3072 input tokens, 1024 output tokens (3:1 ratio)</li>
@@ -266,44 +325,291 @@
                     <li><strong>Request Rate:</strong> 10 requests/second</li>
                     <li><strong>Tool:</strong> <code>vllm bench serve</code></li>
                 </ul>
-                
-                <h3>Metrics Extraction</h3>
+
+                <h3>Metrics</h3>
                 <ul>
-                    <li><strong>Prefill Throughput:</strong> Total token throughput from prefill-heavy test</li>
-                    <li><strong>Cached Throughput:</strong> Calculated from server metrics (prompt throughput × cache hit rate)</li>
-                    <li><strong>Decode Throughput:</strong> Output token throughput from decode-heavy test</li>
+                    <li><strong>Interactivity (TPS/User):</strong> Output tokens per second per user &mdash; derived from decode throughput / concurrent request count. Higher = more responsive user experience.</li>
+                    <li><strong>Throughput (TPS/kW):</strong> Total output tokens per second / node power draw (0.15 kW). Higher = more revenue per unit of power.</li>
+                    <li><strong>Cost:</strong> (DGX hourly cost &times; 1,000,000) &divide; (tokens/sec &times; 3600). DGX Spark: $4000 &divide; 26,280 hours (3yr @ 30% utilization) + electricity &asymp; $0.07/hour</li>
                 </ul>
-                
-                <h3>Cost Calculation</h3>
-                <p>Cost per million tokens = (DGX hourly cost × 1,000,000) ÷ (tokens/sec × 3600)</p>
-                <p>DGX Spark economics: $4000 hardware ÷ 26,280 hours (3yr @ 30% utilization) + electricity ≈ $0.07/hour</p>
-                
+
                 <a href="benchmark-results.json" class="json-link">
-                    📄 View Raw JSON Data
+                    View Raw JSON Data
                 </a>
             </div>
         </div>
-        
+
         <p class="last-updated" id="last-updated"></p>
     </div>
-    
+
     <script>
+        // DGX Spark power per node in kW
+        const DGX_SPARK_KW = 0.15;
+        // Estimated concurrent requests at 10 req/s benchmark rate
+        const EST_CONCURRENCY = 10;
+
+        async function loadThroughputInteractivity() {
+            const section = document.getElementById('throughput-interactivity-section');
+
+            try {
+                const response = await fetch('benchmark-history.json?t=' + Date.now());
+                if (!response.ok) throw new Error('No history available');
+
+                const history = await response.json();
+                if (!history || history.length === 0) return;
+
+                // Filter entries with valid decode data
+                const valid = history.filter(h => h.decode?.tokens_per_second > 0);
+                if (valid.length === 0) return;
+
+                // Classify model type
+                const classify = (model) => {
+                    if (!model) return 'BF16';
+                    if (model.includes('QAT')) return 'FP4-QAT';
+                    if (model.includes('NVFP4')) return 'FP4';
+                    if (model.includes('FP8')) return 'FP8';
+                    return 'BF16';
+                };
+
+                const colors = {
+                    'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
+                    'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
+                    'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
+                    'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
+                };
+
+                // Build scatter data grouped by model type
+                const groups = {};
+                for (const h of valid) {
+                    const type = classify(h.model);
+                    if (!groups[type]) groups[type] = [];
+
+                    const decodeTps = h.decode.tokens_per_second;
+                    const interactivity = decodeTps / EST_CONCURRENCY; // TPS per user
+                    const throughputPerKw = decodeTps / DGX_SPARK_KW;  // TPS per kW
+
+                    groups[type].push({
+                        x: Math.round(interactivity * 10) / 10,
+                        y: Math.round(throughputPerKw),
+                        version: h.version || 'N/A',
+                        model: h.model,
+                        decodeTps: decodeTps
+                    });
+                }
+
+                const datasets = Object.entries(groups).map(([type, points]) => ({
+                    label: type,
+                    data: points,
+                    backgroundColor: colors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
+                    borderColor: colors[type]?.border || '#94a3b8',
+                    borderWidth: 2,
+                    pointRadius: 8,
+                    pointHoverRadius: 11
+                }));
+
+                // Compute axis bounds for tier zone placement
+                const allX = valid.map(h => (h.decode.tokens_per_second / EST_CONCURRENCY));
+                const allY = valid.map(h => (h.decode.tokens_per_second / DGX_SPARK_KW));
+                const maxX = Math.max(...allX) * 1.15;
+                const maxY = Math.max(...allY) * 1.15;
+
+                // Tier boundaries (roughly: bottom third, middle third, top third)
+                const tierFreeX = maxX * 0.38;
+                const tierProX = maxX * 0.70;
+                const tierFreeY = maxY * 0.38;
+                const tierProY = maxY * 0.70;
+
+                section.innerHTML = `
+                    <div class="card card-hero">
+                        <h2>Throughput vs Interactivity</h2>
+                        <p class="chart-subtitle">
+                            Inspired by the revenue curve from Jensen Huang's
+                            <a href="https://www.nvidia.com/en-us/gtc/" target="_blank" rel="noopener">GTC 2026 keynote</a>.
+                            Each point is a Token Labs benchmark run on DGX Spark. Moving up and to the right means
+                            more tokens per user (faster responses) and more tokens per kilowatt (higher revenue efficiency).
+                            Quantization (FP4) shifts the curve into higher-value service tiers from the same hardware.
+                        </p>
+                        <div class="chart-container chart-container-hero">
+                            <canvas id="tiChart"></canvas>
+                        </div>
+                        <div class="tier-legend">
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.3);"></div> Free Tier</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(234,179,8,0.10); border: 1px solid rgba(234,179,8,0.3);"></div> Pro Tier</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3);"></div> Enterprise Tier</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
+                            <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
+                        </div>
+                    </div>
+                `;
+
+                const ctx = document.getElementById('tiChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#f8fafc',
+                                bodyColor: '#94a3b8',
+                                borderColor: '#334155',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    title: function(items) {
+                                        const pt = items[0].raw;
+                                        const shortModel = pt.model ? pt.model.split('/').pop() : 'N/A';
+                                        return shortModel + ' (v' + pt.version + ')';
+                                    },
+                                    label: function(context) {
+                                        const pt = context.raw;
+                                        return [
+                                            'Interactivity: ' + pt.x.toFixed(1) + ' tok/s/user',
+                                            'Throughput: ' + pt.y.toLocaleString() + ' tok/s/kW',
+                                            'Decode total: ' + pt.decodeTps.toLocaleString() + ' tok/s'
+                                        ];
+                                    }
+                                }
+                            },
+                            annotation: {
+                                annotations: {
+                                    freeTier: {
+                                        type: 'box',
+                                        xMin: 0,
+                                        xMax: tierFreeX,
+                                        yMin: 0,
+                                        yMax: tierFreeY,
+                                        backgroundColor: 'rgba(239, 68, 68, 0.06)',
+                                        borderColor: 'rgba(239, 68, 68, 0.15)',
+                                        borderWidth: 1,
+                                        label: {
+                                            display: true,
+                                            content: 'Free',
+                                            position: { x: 'start', y: 'start' },
+                                            color: 'rgba(239, 68, 68, 0.5)',
+                                            font: { size: 13, weight: '600' },
+                                            padding: 6
+                                        }
+                                    },
+                                    proTier: {
+                                        type: 'box',
+                                        xMin: tierFreeX,
+                                        xMax: tierProX,
+                                        yMin: tierFreeY,
+                                        yMax: tierProY,
+                                        backgroundColor: 'rgba(234, 179, 8, 0.06)',
+                                        borderColor: 'rgba(234, 179, 8, 0.15)',
+                                        borderWidth: 1,
+                                        label: {
+                                            display: true,
+                                            content: 'Pro',
+                                            position: { x: 'center', y: 'start' },
+                                            color: 'rgba(234, 179, 8, 0.5)',
+                                            font: { size: 13, weight: '600' },
+                                            padding: 6
+                                        }
+                                    },
+                                    enterpriseTier: {
+                                        type: 'box',
+                                        xMin: tierProX,
+                                        xMax: maxX,
+                                        yMin: tierProY,
+                                        yMax: maxY,
+                                        backgroundColor: 'rgba(34, 197, 94, 0.05)',
+                                        borderColor: 'rgba(34, 197, 94, 0.15)',
+                                        borderWidth: 1,
+                                        label: {
+                                            display: true,
+                                            content: 'Enterprise',
+                                            position: { x: 'end', y: 'end' },
+                                            color: 'rgba(34, 197, 94, 0.5)',
+                                            font: { size: 13, weight: '600' },
+                                            padding: 6
+                                        }
+                                    },
+                                    revenueLine: {
+                                        type: 'line',
+                                        xMin: 0,
+                                        yMin: 0,
+                                        xMax: maxX,
+                                        yMax: maxY,
+                                        borderColor: 'rgba(148, 163, 184, 0.15)',
+                                        borderWidth: 1,
+                                        borderDash: [6, 4],
+                                        label: {
+                                            display: true,
+                                            content: 'Revenue Curve',
+                                            position: 'end',
+                                            color: 'rgba(148, 163, 184, 0.4)',
+                                            font: { size: 11, style: 'italic' },
+                                            backgroundColor: 'transparent',
+                                            padding: 4
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Interactivity (tok/s per user)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' },
+                                min: 0,
+                                max: maxX
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Throughput (tok/s per kW)',
+                                    color: '#94a3b8',
+                                    font: { size: 13, weight: '500' }
+                                },
+                                ticks: {
+                                    color: '#94a3b8',
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                },
+                                grid: { color: '#334155' },
+                                min: 0,
+                                max: maxY
+                            }
+                        }
+                    }
+                });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
         async function loadResults() {
             const container = document.getElementById('results');
             const lastUpdated = document.getElementById('last-updated');
-            
+
             try {
-                // Add cache-busting to prevent stale data
                 const response = await fetch('benchmark-results.json?t=' + Date.now());
                 if (!response.ok) throw new Error('Failed to load results');
-                
+
                 const data = await response.json();
-                
+
                 container.innerHTML = `
                     <div class="card">
-                        <h2>🚀 Performance Summary</h2>
-                        
-                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0;">⚡ Throughput Performance</h3>
+                        <h2>Performance Summary</h2>
+
+                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 0;">Throughput Performance</h3>
                         <div class="stats-grid">
                             <div class="stat">
                                 <div class="stat-label">Prefill Throughput</div>
@@ -318,8 +624,8 @@
                                 <div class="stat-value">${data.decode.tokens_per_second.toLocaleString()}<span class="stat-unit">tok/s</span></div>
                             </div>
                         </div>
-                        
-                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 1.5rem;">💰 Cost Efficiency</h3>
+
+                        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 1rem; margin-top: 1.5rem;">Cost Efficiency</h3>
                         <div class="stats-grid">
                             <div class="stat">
                                 <div class="stat-label">Input Cost</div>
@@ -335,10 +641,10 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     ${data.benchmark_args ? `
                     <div class="card">
-                        <h2>🧪 Benchmark Test Parameters</h2>
+                        <h2>Benchmark Test Parameters</h2>
                         <table>
                             <thead>
                                 <tr>
@@ -384,13 +690,13 @@
                     </div>
                     ` : ''}
                 `;
-                
+
                 if (data.timestamp) {
                     lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
                 } else {
                     lastUpdated.textContent = `Results auto-updated on each deployment`;
                 }
-                
+
             } catch (error) {
                 container.innerHTML = `
                     <div class="error">
@@ -400,29 +706,28 @@
                 `;
             }
         }
-        
+
         async function loadHistory() {
             const historySection = document.getElementById('history-section');
-            
+
             try {
                 const response = await fetch('benchmark-history.json?t=' + Date.now());
                 if (!response.ok) throw new Error('No history available');
-                
+
                 const history = await response.json();
-                
+
                 if (!history || history.length === 0) {
                     historySection.innerHTML = '';
                     return;
                 }
-                
-                // Helper function to parse semantic version (e.g., "0.1.0" -> [0, 1, 0])
+
                 const parseVersion = (v) => {
                     if (!v) return [0, 0, 0];
                     const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
                     return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
                 };
-                
-                // Deduplicate by model + version, keeping the latest (by timestamp)
+
+                // Deduplicate by model + version
                 const dedupeMap = new Map();
                 for (const h of history) {
                     const key = `${h.model || 'unknown'}|${h.version || 'unknown'}`;
@@ -432,50 +737,43 @@
                     }
                 }
                 const dedupedHistory = Array.from(dedupeMap.values());
-                
-                // Sort by version ascending (oldest first for chart, newest last)
+
                 const sortedHistory = [...dedupedHistory].sort((a, b) => {
                     const vA = parseVersion(a.version);
                     const vB = parseVersion(b.version);
-                    // Compare major, minor, patch in order
                     for (let i = 0; i < 3; i++) {
                         if (vA[i] !== vB[i]) return vA[i] - vB[i];
                     }
-                    // If versions are equal, sort by timestamp
                     return new Date(a.timestamp) - new Date(b.timestamp);
                 });
-                
-                // Filter out v0.3.0 for the chart
+
                 const chartHistory = sortedHistory.filter(h => h.version !== '0.3.0');
-                
+
                 const labels = chartHistory.map(h => h.version || new Date(h.timestamp).toLocaleDateString());
                 const prefillData = chartHistory.map(h => h.prefill?.tokens_per_second || 0);
                 const cachedData = chartHistory.map(h => h.cached?.tokens_per_second || 0);
-                
-                // Build table rows with reversed history (newest first in table)
+
                 const reversedHistory = [...sortedHistory].reverse();
-                
-                // Helper to shorten model name for display
+
                 const shortModelName = (model) => {
                     if (!model) return 'N/A';
-                    // Extract just the model name after the last /
                     const parts = model.split('/');
                     return parts[parts.length - 1] || model;
                 };
-                
+
                 const tableRows = reversedHistory.map((h, i, arr) => {
                     const prev = arr[i + 1];
-                    const prefillTrend = prev ? (h.prefill?.tokens_per_second > prev.prefill?.tokens_per_second ? '↑' : h.prefill?.tokens_per_second < prev.prefill?.tokens_per_second ? '↓' : '') : '';
-                    const cachedTrend = prev ? (h.cached?.tokens_per_second > prev.cached?.tokens_per_second ? '↑' : h.cached?.tokens_per_second < prev.cached?.tokens_per_second ? '↓' : '') : '';
-                    const decodeTrend = prev ? (h.decode?.tokens_per_second > prev.decode?.tokens_per_second ? '↑' : h.decode?.tokens_per_second < prev.decode?.tokens_per_second ? '↓' : '') : '';
-                    const prefillClass = prefillTrend === '↑' ? 'trend-up' : prefillTrend === '↓' ? 'trend-down' : '';
-                    const cachedClass = cachedTrend === '↑' ? 'trend-up' : cachedTrend === '↓' ? 'trend-down' : '';
-                    const decodeClass = decodeTrend === '↑' ? 'trend-up' : decodeTrend === '↓' ? 'trend-down' : '';
-                    
+                    const prefillTrend = prev ? (h.prefill?.tokens_per_second > prev.prefill?.tokens_per_second ? '&uarr;' : h.prefill?.tokens_per_second < prev.prefill?.tokens_per_second ? '&darr;' : '') : '';
+                    const cachedTrend = prev ? (h.cached?.tokens_per_second > prev.cached?.tokens_per_second ? '&uarr;' : h.cached?.tokens_per_second < prev.cached?.tokens_per_second ? '&darr;' : '') : '';
+                    const decodeTrend = prev ? (h.decode?.tokens_per_second > prev.decode?.tokens_per_second ? '&uarr;' : h.decode?.tokens_per_second < prev.decode?.tokens_per_second ? '&darr;' : '') : '';
+                    const prefillClass = prefillTrend.includes('uarr') ? 'trend-up' : prefillTrend.includes('darr') ? 'trend-down' : '';
+                    const cachedClass = cachedTrend.includes('uarr') ? 'trend-up' : cachedTrend.includes('darr') ? 'trend-down' : '';
+                    const decodeClass = decodeTrend.includes('uarr') ? 'trend-up' : decodeTrend.includes('darr') ? 'trend-down' : '';
+
                     const costDisplay = `$${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     const cachedCostDisplay = `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
                     const decodeCostDisplay = `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    
+
                     return `<tr>
                         <td><span class="version-badge">${h.version || 'N/A'}</span></td>
                         <td title="${h.model || 'N/A'}">${shortModelName(h.model)}</td>
@@ -488,44 +786,43 @@
                         <td>${decodeCostDisplay}</td>
                     </tr>`;
                 }).join('');
-                
-                // Create comparison data for v0.2.0 vs v0.3.0
+
                 const v020 = sortedHistory.find(h => h.version === '0.2.0');
                 const v030 = sortedHistory.find(h => h.version === '0.3.0');
-                
+
                 historySection.innerHTML = `
                     <div class="card">
-                        <h2>📈 Prefill Performance: Out-of-the-box Prefill vs Cached Prefill</h2>
+                        <h2>Prefill Performance: Out-of-the-box Prefill vs Cached Prefill</h2>
                         <div class="chart-container">
                             <canvas id="historyChart"></canvas>
                         </div>
                     </div>
-                    
+
                     ${v020 && v030 ? `
                     <div class="card">
-                        <h2>⏱️ Time to First Token (TTFT) Comparison</h2>
+                        <h2>Time to First Token (TTFT) Comparison</h2>
                         <div class="chart-container">
                             <canvas id="ttftChart"></canvas>
                         </div>
                     </div>
-                    
+
                     <div class="card">
-                        <h2>🔄 Time Per Output Token (TPOT) Comparison</h2>
+                        <h2>Time Per Output Token (TPOT) Comparison</h2>
                         <div class="chart-container">
                             <canvas id="tpotChart"></canvas>
                         </div>
                     </div>
-                    
+
                     <div class="card">
-                        <h2>⚡ Inter-Token Latency (ITL) Comparison</h2>
+                        <h2>Inter-Token Latency (ITL) Comparison</h2>
                         <div class="chart-container">
                             <canvas id="itlChart"></canvas>
                         </div>
                     </div>
                     ` : ''}
-                    
+
                     <div class="card">
-                        <h2>📜 Release History</h2>
+                        <h2>Release History</h2>
                         <div class="history-table">
                             <table>
                                 <thead>
@@ -547,12 +844,12 @@
                             </table>
                         </div>
                         <a href="benchmark-history.json" class="json-link">
-                            📄 View Full History JSON
+                            View Full History JSON
                         </a>
                     </div>
                 `;
-                
-                // Create chart
+
+                // Prefill vs Cached chart
                 const ctx = document.getElementById('historyChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'line',
@@ -600,10 +897,9 @@
                         }
                     }
                 });
-                
-                // Create separate comparison charts if both versions exist
+
+                // Latency comparison charts
                 if (v020 && v030) {
-                    // TTFT Comparison Chart
                     const ttftCtx = document.getElementById('ttftChart').getContext('2d');
                     const ttftMetrics = ['Mean TTFT', 'Median TTFT', 'P99 TTFT'];
                     const v020TTFT = [
@@ -616,7 +912,7 @@
                         v030.decode.latency.median_ttft_ms,
                         v030.decode.latency.p99_ttft_ms
                     ];
-                    
+
                     new Chart(ttftCtx, {
                         type: 'bar',
                         data: {
@@ -666,7 +962,7 @@
                                     grid: { color: '#334155' }
                                 },
                                 y: {
-                                    ticks: { 
+                                    ticks: {
                                         color: '#94a3b8',
                                         callback: function(value) {
                                             return value.toFixed(0) + ' ms';
@@ -678,8 +974,7 @@
                             }
                         }
                     });
-                    
-                    // TPOT Comparison Chart
+
                     const tpotCtx = document.getElementById('tpotChart').getContext('2d');
                     const tpotMetrics = ['Mean TPOT', 'Median TPOT', 'P99 TPOT'];
                     const v020TPOT = [
@@ -692,7 +987,7 @@
                         v030.decode.latency.median_tpot_ms,
                         v030.decode.latency.p99_tpot_ms
                     ];
-                    
+
                     new Chart(tpotCtx, {
                         type: 'bar',
                         data: {
@@ -742,7 +1037,7 @@
                                     grid: { color: '#334155' }
                                 },
                                 y: {
-                                    ticks: { 
+                                    ticks: {
                                         color: '#94a3b8',
                                         callback: function(value) {
                                             return value.toFixed(0) + ' ms';
@@ -754,8 +1049,7 @@
                             }
                         }
                     });
-                    
-                    // ITL Comparison Chart
+
                     const itlCtx = document.getElementById('itlChart').getContext('2d');
                     const itlMetrics = ['Mean ITL', 'Median ITL', 'P99 ITL'];
                     const v020ITL = [
@@ -768,7 +1062,7 @@
                         v030.decode.latency.median_itl_ms || 0,
                         v030.decode.latency.p99_itl_ms || 0
                     ];
-                    
+
                     new Chart(itlCtx, {
                         type: 'bar',
                         data: {
@@ -818,7 +1112,7 @@
                                     grid: { color: '#334155' }
                                 },
                                 y: {
-                                    ticks: { 
+                                    ticks: {
                                         color: '#94a3b8',
                                         callback: function(value) {
                                             return value.toFixed(0) + ' ms';
@@ -831,13 +1125,14 @@
                         }
                     });
                 }
-                
+
             } catch (error) {
-                // No history yet, that's okay
                 historySection.innerHTML = '';
             }
         }
-        
+
+        // Load hero chart first, then the rest
+        loadThroughputInteractivity();
         loadResults();
         loadHistory();
     </script>
