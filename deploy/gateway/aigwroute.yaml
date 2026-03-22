@@ -71,3 +71,17 @@ spec:
       name: llm-d-inferencepool-qwen3-14b
     timeouts:
       request: 300s
+
+  # ── gpt-oss-120gb (PP=2 across spark-01 + spark-02) ─────────────────────
+  # Replace "org/gpt-oss-120gb" with the actual HuggingFace model ID.
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: org/gpt-oss-120gb
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: llm-d-inferencepool-gpt-oss
+    timeouts:
+      request: 600s     # longer timeout for 120B model inference

@@ -36,7 +36,7 @@ The conventional approach is to build a proxy service that handles all of this. 
 | Auth, rate limits, token billing | **Kuadrant** | Policy-as-CRD: API key validation, per-tenant request quotas, per-tenant token budgets |
 | Inference scheduling | **llm-d** | GPU-aware pod selection based on KV-cache pressure, prefix-cache locality, and queue depth |
 
-The control plane is Kubernetes itself. Every policy — who can call what, how much they can use, and how requests are routed — is expressed in version-controlled YAML.
+The control plane is Kubernetes itself. Access policies, rate limits, and routing rules are all expressed in version-controlled YAML.
 
 ---
 
@@ -46,7 +46,7 @@ A standard OpenAI-compatible API call flows through seven stages before and afte
 
 1. **Envoy Gateway** receives the request and triggers two policy checks — authentication and rate limiting — both defined as CRDs attached to the Gateway resource.
 
-2. **Authorino** validates the API key by looking up a Kubernetes Secret, then extracts the caller's tier (free, pro, or enterprise) and tenant ID from the Secret's annotations. This identity context flows through the entire pipeline.
+2. **Authorino** (Kuadrant's auth component) validates the API key by looking up a Kubernetes Secret, then extracts the caller's tier (free, pro, or enterprise) and tenant ID from the Secret's annotations. This identity context flows through the entire pipeline — it is what makes per-tenant rate limiting and token billing possible in later stages. Envoy Gateway has built-in API key authentication, but it only validates the key. It does not extract tenant metadata or pass identity context downstream. Without that context, every tenant looks the same to the rate limiter.
 
 3. **Limitador** checks per-tenant request counters stored in Redis against tier-based quotas. Exceeding the limit returns a standard `429 Too Many Requests`. The entire rate limit policy is a single Kubernetes resource.
 
@@ -79,28 +79,13 @@ Round-robin load balancing wastes GPU cycles. llm-d's inference-aware scheduling
 Every custom service is a service that can fail, that needs on-call coverage, and that drifts from its documentation. When authentication, billing, and routing are Kubernetes CRDs, they share the same operational model as every other resource in the cluster. The infrastructure team already knows how to manage, monitor, and audit them.
 
 ### Declarative policy is auditable and governable
-Every quota, every access rule, every rate limit lives in version-controlled YAML. Changing a free-tier token budget from 50,000 to 75,000 tokens per day is a three-character git commit that security, finance, and compliance teams can review in a pull request. There is no admin console to screenshot, no database row to query.
+Access policies, rate limits, and routing rules are all expressed in version-controlled YAML. Changing a free-tier token budget from 50,000 to 75,000 tokens per day is a two-character git commit that security, finance, and compliance teams can review in a pull request. There is no admin console to screenshot, no database row to query.
 
 ### Standards-based architecture preserves optionality
 The stack is built on the Kubernetes Gateway API — the successor to Ingress and the emerging standard for traffic management. Envoy Gateway implements it. Kuadrant attaches policies to it. llm-d extends it with the InferencePool CRD. This means the policy layer and inference scheduling are portable — the data plane can be swapped without rewriting policies.
 
 ### Build vs. buy is the wrong framing
 The real question is: *what should your team's job be?* If the answer is model quality, latency optimization, and cost management — not API gateway development — then composing proven open-source projects with strong governance is the higher-leverage choice.
-
----
-
-## Production Numbers
-
-Running on three NVIDIA DGX Spark nodes (one ARM64 CPU controller, two GB10 GPU workers):
-
-| Metric | Value |
-|--------|-------|
-| Prefill throughput | 3,203 tokens/sec |
-| Decode throughput | 520 tokens/sec |
-| Cost per 1M input tokens | $0.006 |
-| Cost per 1M output tokens | $0.037 |
-
-Two models served simultaneously: Llama 3.1 8B Instruct at 80% GPU utilization and Nemotron VL 12B (vision-language, FP8 quantized) at 90% GPU utilization. Text-to-speech runs alongside the LLM on a shared node. The entire platform fits on hardware that sits on a desk.
 
 ---
 

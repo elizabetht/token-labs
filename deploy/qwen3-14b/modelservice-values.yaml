@@ -1,4 +1,4 @@
-# llm-d-modelservice values — Nemotron-Llama 8B on spark-01
+# llm-d-modelservice values — Qwen3-14B NVFP4 on spark-01
 #
 # NOTE: spark-01 has ONE GB10 GPU (nvidia.com/gpu.count=1, sharing-strategy=none).
 # The spellingbee namespace may also be using this GPU. Scale down spellingbee
@@ -9,17 +9,17 @@
 # tensor_parallelism -> decode.parallelism.tensor, extraArgs -> decode.containers[].args
 
 modelArtifacts:
-  name: "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
+  name: "nvidia/Qwen3-14B-NVFP4"
   # Labels used by the InferencePool matchLabels selector
   labels:
     llm-d.ai/inference-serving: "true"
-    llm-d.ai/model: llama-3-1-8b
+    llm-d.ai/model: qwen-3-14b
 
 decode:
   volumes:
   - name: model-cache
     persistentVolumeClaim:
-      claimName: model-cache-nemotron-8b
+      claimName: model-cache-qwen3-14b
   replicas: 1
   parallelism:
     tensor: 1
@@ -84,12 +84,12 @@ decode:
       timeoutSeconds: 5
     livenessProbe:
       httpGet:
-        path: /v1/models  
+        path: /v1/models
         port: 8000
       periodSeconds: 30
       failureThreshold: 5
       timeoutSeconds: 10
-    # vLLM engine arguments for Nemotron-Llama 8B (BF16, fits in 72GB GB10 GPU)
+    # vLLM engine arguments for Qwen3-14B NVFP4
     args:
     - "--dtype=bfloat16"
     - "--gpu-memory-utilization=0.4"

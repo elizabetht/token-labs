@@ -1,12 +1,13 @@
-# InferencePool + EPP values — Nemotron VL 12B FP8
+# InferencePool + EPP values — Qwen3-14B NVFP4
 #
-# matchLabels must match the pods created by the llm-d-modelservice-nemotron-vl release.
+# The EPP (Endpoint Picker) is the inference-aware ext_proc sidecar from upstream GAIE.
+# matchLabels must match the pods created by the llm-d-modelservice release.
 
 inferencePool:
   modelServers:
     matchLabels:
       llm-d.ai/inference-serving: "true"
-      llm-d.ai/model: nemotron-vl-12b
+      llm-d.ai/model: qwen-3-14b
   modelServerType: vllm
 
 inferenceExtension:
@@ -30,13 +31,12 @@ inferenceExtension:
             - amd64
   monitoring:
     interval: "10s"
-    # Prometheus ServiceMonitor will be created when enabled for EPP metrics collection
     secret:
       name: inference-scheduling-gateway-sa-metrics-reader-secret
     prometheus:
       enabled: true
       auth:
-        # To allow unauthenticated /metrics access (e.g., for debugging with curl), set to false
         enabled: true
+
 provider:
   name: none

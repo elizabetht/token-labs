@@ -1,0 +1,14 @@
+# PVC for Nemotron-Llama 8B model cache on spark-01
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-nemotron-8b
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 20Gi    # Nemotron-Llama 8B BF16 ~16 GB + headroom

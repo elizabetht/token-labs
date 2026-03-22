@@ -1,0 +1,197 @@
+# LeaderWorkerSet — gpt-oss-120gb with PP=2 across 2 DGX Sparks
+#
+# Architecture:
+#   spark-01 (leader): Ray head + vLLM API server, layers 0–N/2
+#   spark-02 (worker): Ray worker, layers N/2–N
+#   Communication: NCCL over RoCE RDMA (ConnectX-7, 200 Gb/s)
+#
+# Prerequisites:
+#   1. Install LWS controller:
+#      kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/latest/download/manifests.yaml
+#   2. Disable GPU time-slicing on both nodes:
+#      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
+#      kubectl label node spark-02 nvidia.com/gpu.sharing-strategy=none --overwrite
+#   3. Create PVCs:
+#      kubectl apply -f deploy/gpt-oss/model-cache-pvcs.yaml
+#   4. Create HF token secret (if model is gated):
+#      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
+#
+# Replace "org/gpt-oss-120gb" with the actual HuggingFace model ID.
+
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: gpt-oss-120gb
+  namespace: token-labs
+  labels:
+    app: gpt-oss-120gb
+spec:
+  replicas: 1
+  leaderWorkerTemplate:
+    size: 2                                    # 1 leader + 1 worker
+    restartPolicy: RecreateGroupOnPodRestart   # restart entire group if any pod fails
+    leaderTemplate:
+      metadata:
+        labels:
+          app: gpt-oss-120gb
+          role: leader
+          llm-d.ai/inference-serving: "true"
+          llm-d.ai/model: gpt-oss-120gb
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-01
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0
+          ports:
+          - containerPort: 8000
+            name: vllm
+          - containerPort: 6379
+            name: ray-head
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 96Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          # NCCL over RoCE RDMA configuration
+          - name: NCCL_IB_DISABLE
+            value: "0"
+          - name: NCCL_NET
+            value: "IB"
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: "INFO"
+          # Ray head configuration
+          - name: RAY_CLUSTER_SIZE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['leaderworkerset.sigs.k8s.io/size']
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          # Leader: start Ray head, wait for worker, then serve
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            ray start --head --port=6379 --num-gpus=1 --block &
+            # Wait for all Ray workers to join
+            until [ "$(ray status 2>/dev/null | grep -c 'GPU')" -ge "$RAY_CLUSTER_SIZE" ]; do
+              echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
+              sleep 5
+            done
+            echo "All workers joined. Starting vLLM with PP=2..."
+            python -m vllm.entrypoints.openai.api_server \
+              --model org/gpt-oss-120gb \
+              --dtype bfloat16 \
+              --pipeline-parallel-size 2 \
+              --gpu-memory-utilization 0.85 \
+              --trust-remote-code \
+              --host 0.0.0.0 \
+              --port 8000 \
+              --download-dir /model-cache/huggingface/hub
+          startupProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 80    # 60s + 80x15s = up to 21 min (large model download + load)
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-gpt-oss-spark-01
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi        # shared memory for NCCL/Ray
+    workerTemplate:
+      metadata:
+        labels:
+          app: gpt-oss-120gb
+          role: worker
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-02
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 96Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          # NCCL over RoCE RDMA configuration
+          - name: NCCL_IB_DISABLE
+            value: "0"
+          - name: NCCL_NET
+            value: "IB"
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: "INFO"
+          # LWS injects LWS_LEADER_ADDRESS automatically
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          # Worker: join Ray cluster on leader, then block
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
+            ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --block
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-gpt-oss-spark-02
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

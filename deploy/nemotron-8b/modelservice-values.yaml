@@ -9,17 +9,17 @@
 # tensor_parallelism -> decode.parallelism.tensor, extraArgs -> decode.containers[].args
 
 modelArtifacts:
-  name: "nvidia/Qwen3-14B-NVFP4"
+  name: "nvidia/Llama-3.1-Nemotron-Nano-8B-v1"
   # Labels used by the InferencePool matchLabels selector
   labels:
     llm-d.ai/inference-serving: "true"
-    llm-d.ai/model: qwen-3-14b
+    llm-d.ai/model: llama-3-1-8b
 
 decode:
   volumes:
   - name: model-cache
     persistentVolumeClaim:
-      claimName: model-cache-qwen3-14b
+      claimName: model-cache-nemotron-8b
   replicas: 1
   parallelism:
     tensor: 1
@@ -84,7 +84,7 @@ decode:
       timeoutSeconds: 5
     livenessProbe:
       httpGet:
-        path: /v1/models  
+        path: /v1/models
         port: 8000
       periodSeconds: 30
       failureThreshold: 5
