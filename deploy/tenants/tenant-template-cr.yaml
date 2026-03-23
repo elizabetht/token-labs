@@ -1,0 +1,30 @@
+# Template for creating new tenants via the Tenant CRD.
+#
+# Usage:
+#   1. Copy this file and rename: tenant-<company>.yaml
+#   2. Set metadata.name to a unique slug for the company (lowercase, hyphens only)
+#   3. Set spec.tier to the tenant's service tier (free | pro | enterprise)
+#   4. Set spec.company and spec.email
+#   5. Optionally enable automatic key rotation via spec.keyRotationPolicy
+#   6. Apply: kubectl apply -f tenant-<company>.yaml
+#
+# The tenant-operator will:
+#   - Generate a cryptographically random API key
+#   - Create an Authorino-annotated Secret in kuadrant-system automatically
+#   - Update the Secret whenever spec.tier changes
+#   - Optionally rotate the key according to spec.keyRotationPolicy
+#
+# You can then distribute the API key to the tenant by reading the Secret:
+#   kubectl get secret tenant-<name> -n kuadrant-system -o jsonpath='{.data.api_key}' | base64 -d
+apiVersion: tokenlabs.io/v1alpha1
+kind: Tenant
+metadata:
+  name: COMPANY-NAME        # lowercase slug, e.g. acme-corp
+spec:
+  tier: pro                 # free | pro | enterprise
+  company: "Company Name"
+  email: admin@company.com
+  # Optional: enable automatic key rotation
+  # keyRotationPolicy:
+  #   enabled: true
+  #   intervalDays: 90

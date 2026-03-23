@@ -1,0 +1,12 @@
+# Demo tenant: pro tier
+# This Tenant CR replaces the raw tenant-pro-demo.yaml Secret.
+# The tenant-operator will generate an API key automatically and
+# create the corresponding Authorino-annotated Secret in kuadrant-system.
+apiVersion: tokenlabs.io/v1alpha1
+kind: Tenant
+metadata:
+  name: pro-demo
+spec:
+  tier: pro
+  company: "Demo Pro User"
+  email: demo-pro@example.com
