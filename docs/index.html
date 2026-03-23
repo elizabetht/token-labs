@@ -594,32 +594,14 @@
 const DEFAULT_API_BASE = "https://api.tokenlabs.run";
 
 const MODEL_ENRICHMENT = {
-  "nvidia/Llama-3.1-Nemotron-Nano-8B-v1": {
-    displayName:"Nemotron-Llama 8B",
-    org:"NVIDIA", avatar:"\uD83E\uDD16", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
-    precision:"BF16", quantization:"None (full precision)", license:"Llama 3.1 Community", params:"8B",
-    inputPricePerM:0.006, cachedInputPricePerM:0.0, outputPricePerM:0.037,
-    description:"NVIDIA\'s Nemotron-Nano 8B \u2014 an instruction-tuned Llama 3.1 8B variant optimised for reasoning and STEM tasks. Runs in full BF16 on spark-01.",
-    tags:["base","instruction","8B"], tagColors:["tag-green","tag-blue","tag-teal"], filter:"base",
-  },
-  "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8": {
-    displayName:"Nemotron VL 12B FP8",
-    org:"NVIDIA", avatar:"\uD83D\uDDBC\uFE0F", avatarBg:"rgba(139,92,246,0.15)", avatarColor:"#a78bfa",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
-    precision:"FP8", quantization:"FP8 (ModelOpt)", license:"NVIDIA Open Model", params:"12B",
-    inputPricePerM:0.012, cachedInputPricePerM:0.0, outputPricePerM:0.06,
-    description:"NVIDIA\'s Nemotron-Nano 12B vision-language model with FP8 quantization. Accepts image + text inputs. Runs on spark-02.",
-    tags:["quantized","vision","FP8","12B"], tagColors:["tag-purple","tag-orange","tag-blue","tag-teal"], filter:"quantized",
-  },
-  "nvidia/Qwen-3-14B-NVFP4": {
-    displayName:"Qwen3 14B NVFP4",
-    org:"NVIDIA/Qwen", avatar:"\uD83E\uDDE0", avatarBg:"rgba(59,130,246,0.15)", avatarColor:"#60a5fa",
-    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10", gpuVram:"128 GB unified",
-    precision:"FP4", quantization:"NVFP4 (ModelOpt)", license:"Qwen License", params:"14B",
-    inputPricePerM:0.018, cachedInputPricePerM:0.0, outputPricePerM:0.08,
-    description:"Qwen3 14B with NVIDIA FP4 quantization for efficient inference on DGX Spark.",
-    tags:["quantized","reasoning","FP4","14B"], tagColors:["tag-blue","tag-orange","tag-purple","tag-teal"], filter:"quantized",
+  "openai/gpt-oss-120b": {
+    displayName:"GPT-OSS 120B",
+    org:"OpenAI", avatar:"\u26A1", avatarBg:"rgba(118,185,0,0.15)", avatarColor:"#76b900",
+    context:"128K tokens", gpuType:"NVIDIA DGX Spark GB10 \u00d7 2", gpuVram:"256 GB unified (PP=2)",
+    precision:"BF16", quantization:"None (full precision)", license:"Apache 2.0", params:"120B",
+    inputPricePerM:0.0, cachedInputPricePerM:0.0, outputPricePerM:0.0,
+    description:"GPT-OSS 120B served with pipeline parallelism across 2 DGX Sparks (spark-01 \u2192 spark-02) via NCCL/RoCE RDMA. PP=2, BF16.",
+    tags:["base","120B","PP=2"], tagColors:["tag-green","tag-teal","tag-blue"], filter:"base",
   },
 };
 

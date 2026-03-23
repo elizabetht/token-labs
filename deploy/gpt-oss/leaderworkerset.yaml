@@ -16,7 +16,6 @@
 #   4. Create HF token secret (if model is gated):
 #      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
 #
-# Replace "org/gpt-oss-120gb" with the actual HuggingFace model ID.
 
 apiVersion: leaderworkerset.x-k8s.io/v1
 kind: LeaderWorkerSet
@@ -67,15 +66,21 @@ spec:
             value: "1"
           - name: HF_HOME
             value: "/model-cache/huggingface"
-          # NCCL over RoCE RDMA configuration
+          # NCCL — using socket transport for initial bring-up; re-enable IB once stable
           - name: NCCL_IB_DISABLE
-            value: "0"
-          - name: NCCL_NET
-            value: "IB"
-          - name: NCCL_IB_GID_INDEX
-            value: "3"
+            value: "1"
           - name: NCCL_DEBUG
             value: "INFO"
+          # Force NCCL to bind on eth0 only. Without this, NCCL probes all
+          # interfaces including Calico's 169.254.1.1 link-local gateway, which
+          # is not routable across nodes and causes a collective-init deadlock
+          # during the memory-profiling forward pass (GPUs stall at 0% util).
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          # Cross-node P2P via shared memory / NVLink is unavailable between
+          # spark-01 and spark-02; disable to prevent NCCL from attempting it.
+          - name: NCCL_P2P_DISABLE
+            value: "1"
           # Ray head configuration
           - name: RAY_CLUSTER_SIZE
             valueFrom:
@@ -92,15 +97,16 @@ spec:
           - |
             ray start --head --port=6379 --num-gpus=1 --block &
             # Wait for all Ray workers to join
-            until [ "$(ray status 2>/dev/null | grep -c 'GPU')" -ge "$RAY_CLUSTER_SIZE" ]; do
+            until [ "$(ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
               echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
               sleep 5
             done
             echo "All workers joined. Starting vLLM with PP=2..."
             python -m vllm.entrypoints.openai.api_server \
-              --model org/gpt-oss-120gb \
+              --model openai/gpt-oss-120b \
               --dtype bfloat16 \
               --pipeline-parallel-size 2 \
+              --distributed-executor-backend ray \
               --gpu-memory-utilization 0.85 \
               --trust-remote-code \
               --host 0.0.0.0 \
@@ -112,7 +118,7 @@ spec:
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 80    # 60s + 80x15s = up to 21 min (large model download + load)
+            failureThreshold: 400   # 60s + 400x15s = up to ~101 min (model download + load)
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
@@ -166,15 +172,16 @@ spec:
             value: "1"
           - name: HF_HOME
             value: "/model-cache/huggingface"
-          # NCCL over RoCE RDMA configuration
+          # NCCL — socket transport for initial bring-up
           - name: NCCL_IB_DISABLE
-            value: "0"
-          - name: NCCL_NET
-            value: "IB"
-          - name: NCCL_IB_GID_INDEX
-            value: "3"
+            value: "1"
           - name: NCCL_DEBUG
             value: "INFO"
+          # Force NCCL to bind on eth0 only (same fix as leader — see above).
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          - name: NCCL_P2P_DISABLE
+            value: "1"
           # LWS injects LWS_LEADER_ADDRESS automatically
           volumeMounts:
           - name: model-cache
