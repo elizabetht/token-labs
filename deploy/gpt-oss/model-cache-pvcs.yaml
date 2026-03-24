@@ -17,7 +17,7 @@ spec:
   storageClassName: longhorn-model-cache
   resources:
     requests:
-      storage: 150Gi   # 120 GB BF16 weights + HF hub temp files during download
+      storage: 300Gi   # 120 GB BF16 weights + HF hub temp files during download
 ---
 # --- spark-02: gpt-oss-120gb cache (worker) ---
 apiVersion: v1
@@ -32,4 +32,4 @@ spec:
   storageClassName: longhorn-model-cache
   resources:
     requests:
-      storage: 150Gi   # 120 GB BF16 weights + HF hub temp files during download
+      storage: 300Gi   # 120 GB BF16 weights + HF hub temp files during download

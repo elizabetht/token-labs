@@ -95,6 +95,8 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
+            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
+            sleep 1
             ray start --head --port=6379 --num-gpus=1 --block &
             # Wait for all Ray workers to join
             until [ "$(ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
@@ -192,6 +194,8 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
+            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
+            sleep 1
             echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
             ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --block
         volumes:

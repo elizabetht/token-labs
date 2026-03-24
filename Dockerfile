@@ -42,6 +42,17 @@ ENV TORCH_USE_CUDA_DSA=0
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install vllm --extra-index-url https://wheels.vllm.ai/0.13.0/cu130 --extra-index-url https://download.pytorch.org/whl/cu130
 
+# Pre-cache HarmonyGptOss vocab (identical to o200k_base — confirmed same SHA256)
+RUN mkdir -p /opt/tiktoken-cache && \
+    wget -q "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken" \
+         -O /opt/tiktoken-cache/HarmonyGptOss.tiktoken && \
+    cp /opt/tiktoken-cache/HarmonyGptOss.tiktoken \
+       "/opt/tiktoken-cache/446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d" && \
+    echo "446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d  /opt/tiktoken-cache/HarmonyGptOss.tiktoken" | sha256sum -c
+
+ENV TIKTOKEN_RS_CACHE_DIR=/opt/tiktoken-cache
+ENV TIKTOKEN_ENCODINGS_BASE=http://127.0.0.1:18889
+
 # Force reinstall PyTorch with CUDA after vLLM (vLLM pulls in CPU torch)
 RUN /opt/venv/bin/pip install --no-cache-dir --force-reinstall --no-deps torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 
