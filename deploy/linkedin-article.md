@@ -1,94 +1,91 @@
-# Multi-Tenant LLM Inference, Assembled Entirely from Open Source
+# Zero Custom Code Multi-Tenant LLM Inference on DGX Spark
 
-Every enterprise exploring private LLM deployment hits the same inflection point. The model runs. A prototype works. Then someone asks: "How do we give five teams access to this without them stepping on each other?"
+The default path to multi-tenant LLM serving looks something like this: team gets vLLM running on a GPU, demo works, leadership wants five teams on it by next quarter. Suddenly there's a 6-month platform buildout — custom API gateway, billing service, identity provider, GPU-aware load balancer, and 2-3 engineers maintaining all of it. This is a solved problem being re-solved inside every organization that deploys LLMs privately.
 
-That question has historically triggered a 6-month platform buildout — a custom API gateway, a billing service, an identity provider, a GPU-aware load balancer, and a team to maintain all of it. But if the open-source AI revolution means anything, it means this infrastructure shouldn't need to be rebuilt from scratch inside every organization.
-
-> "The question isn't whether to build a multi-tenant inference platform. It's whether anyone should be writing the code for it."
-
-By composing four open-source projects — each backed by CNCF governance — it is possible to stand up a fully multi-tenant LLM inference platform where every policy is a Kubernetes resource. No custom services. No databases. No middleware to maintain. Here is what that looks like in practice, and why it matters for organizations scaling AI infrastructure.
+It doesn't need to be. Four open-source projects — Envoy Gateway, Envoy AI Gateway, Kuadrant, and llm-d — compose into a fully multi-tenant inference platform where every policy is a Kubernetes CRD. No custom services. No databases. No middleware. Zero lines of application code. We built this on two NVIDIA DGX Spark GB10 nodes and a MicroK8s cluster, and it works.
 
 
-## Where complexity actually lives
+## The actual problem
 
-Running LLMs on private infrastructure is straightforward for a single team. Multi-tenancy is where the assumptions break.
+Single-team LLM serving is trivial. Multi-tenancy is where everything breaks.
 
-It requires validating callers and enforcing access controls per model. It demands different throughput guarantees for different teams or business units. It means tracking actual GPU consumption — not just request counts — against departmental budgets. And it means routing requests to the right GPU pod based on real-time memory and compute state, not round-robin.
+You need per-caller auth. Per-tenant rate limits — not just request counts, but actual token consumption against budgets. Model routing that reads the request body and sends traffic to the right GPU pool. And load balancing that isn't round-robin, because round-robin on GPU inference is burning money — it ignores KV-cache pressure entirely and routes to pods that are already memory-saturated.
 
-The conventional response is to build a proxy service that handles all of this. That proxy becomes the most critical — and most fragile — component in the stack. It requires dedicated engineering, on-call coverage, and accumulates technical debt that compounds with every new tenant. It is, in every meaningful sense, a platform nobody intended to build.
+The traditional answer is a proxy service that handles all of this. That proxy becomes the most critical and most fragile thing in the stack. It needs on-call coverage, it accumulates tech debt with every new tenant, and it's a platform nobody set out to build.
 
-The CNCF ecosystem now offers a different path.
-
-
-## Composing the stack
-
-Envoy Gateway provides the L7 proxy layer, implementing the Kubernetes Gateway API standard — the successor to Ingress and the emerging foundation for traffic management. Envoy AI Gateway sits behind it, parsing model names from OpenAI-compatible request bodies and routing to the correct backend. No custom body-parsing router required.
-
-Kuadrant handles the policy layer: API key validation, per-tenant request quotas, and per-tenant token budgets — all expressed as Kubernetes CRDs. And llm-d provides GPU-aware inference scheduling, selecting pods based on KV-cache pressure, prefix-cache locality, and queue depth rather than naive load distribution.
-
-> "Access policies, rate limits, routing rules — every piece of configuration that would normally live in a custom service lives in version-controlled YAML instead."
-
-The control plane is Kubernetes itself. Four projects, zero custom code.
+There's a better way now.
 
 
-## The request path
+## The stack
 
-A standard OpenAI-compatible API call flows through seven stages before and after GPU execution. Understanding this path explains why each project exists and why removing any one of them would force custom code back into the stack.
+Envoy Gateway is the L7 proxy, implementing the Kubernetes Gateway API. Envoy AI Gateway sits behind it as an ext_proc filter — it reads the `"model"` field from the OpenAI-compatible request body, sets a routing header, and directs traffic to the right InferencePool backend. No custom body parser.
 
-Envoy Gateway receives the request and triggers two policy checks — authentication and rate limiting — both defined as CRDs attached to the Gateway resource. Authorino, Kuadrant's auth component, validates the API key by looking up a Kubernetes Secret, then extracts the caller's tier and tenant ID from the Secret's annotations. This identity context flows through the entire pipeline — it is what makes per-tenant rate limiting and token billing possible in later stages. Envoy Gateway has built-in API key authentication, but it only validates the key. It does not extract tenant metadata or pass identity context downstream. Without that context, every tenant looks the same to the rate limiter.
+Kuadrant does the policy layer. Its Authorino component validates API keys stored as Kubernetes Secrets and extracts tenant metadata (tier, user-id) from Secret annotations. Its Limitador component enforces per-tenant request quotas and — critically — per-tenant token budgets by parsing `usage.total_tokens` from the response body. A free tier gets 50k tokens/day. A pro tier gets 200k. The entire policy is one CRD.
 
-Limitador then checks per-tenant request counters stored in Redis against tier-based quotas. Exceeding the limit returns a standard 429. The entire rate limit policy is a single Kubernetes resource.
+llm-d provides inference-aware scheduling. Its Endpoint Picker (EPP) runs as a second ext_proc filter and scores every vLLM pod on three signals before routing: KV-cache memory utilization, prefix-cache hit potential, and in-flight queue depth. This is materially better than least-connections. Prefix-cache routing alone can halve effective compute cost on RAG workloads with stable system prompts.
 
-From there, Envoy AI Gateway parses the model field from the JSON request body, sets a routing header, and directs the request to the correct model backend. llm-d's Endpoint Picker scores every available GPU pod on three signals — KV-cache memory utilization, prefix-cache hit potential, and in-flight queue depth — then selects the optimal pod. Prefix-cache routing alone can halve effective compute cost on repetitive workloads like system prompts and RAG pipelines.
-
-vLLM executes inference on the selected GPU and returns a response with token usage metadata. On the way back, Kuadrant's response filter reads the total token count from the response body and counts it against the tenant's token budget. Daily and per-minute token quotas per tier are defined in a single CRD — no billing service required.
+Four projects, zero custom code. The control plane is Kubernetes.
 
 
-## Tenant onboarding as a kubectl apply
+## Request path, end to end
 
-Onboarding a new tenant is a single command that creates a Kubernetes Secret with the API key and tier annotation. The key is live immediately — no restart, no configuration reload, no ticket to a platform team.
+A single API call touches 7 stages:
 
-Changing a tenant's tier is an annotation update. Revoking access is deleting the Secret. The identity store is Kubernetes itself. This matters for organizations where provisioning speed directly affects time-to-value for internal AI adoption — and where the alternative is a weeks-long procurement cycle through a central platform team.
+1. Envoy Gateway receives the request. Kuadrant's AuthPolicy triggers Authorino, which validates the API key by looking up a Kubernetes Secret, extracts the tenant's tier from its annotations, and passes that identity context downstream. This is the critical detail — Envoy Gateway has built-in API key auth, but it only validates the key. It doesn't extract tenant metadata. Without metadata, every tenant looks identical to the rate limiter.
 
+2. Limitador checks per-tenant request counters against tier-based quotas. Exceeds the limit, returns 429. One CRD.
 
-## Why this architecture matters
+3. Envoy AI Gateway's ext_proc parses the `"model"` field from the JSON body, sets `x-ai-eg-model` header.
 
-GPU costs are the largest line item in any inference deployment, and routing intelligence directly reduces that spend. Round-robin load balancing wastes GPU cycles. llm-d's inference-aware scheduling keeps KV-cache utilization balanced, reuses prefix computations across similar requests, and avoids routing to memory-pressured pods. The result is measurably higher throughput from the same hardware.
+4. AIGatewayRoute matches on that header and routes to the correct InferencePool — Llama 3.1 8B on spark-01 or Nemotron VL 12B on spark-02.
 
-But the operational surface area may be the more important consideration. Every custom service is a service that can fail, that needs on-call coverage, and that drifts from its documentation. When authentication, billing, and routing are Kubernetes CRDs, they share the same operational model as every other resource in the cluster. The infrastructure team already knows how to manage, monitor, and audit them.
+5. llm-d EPP scores all vLLM pods in the pool and picks the one with the best combination of KV-cache headroom, prefix-cache hit potential, and queue depth.
 
-> "Changing a free-tier token budget from 50,000 to 75,000 tokens per day is a two-character git commit that security, finance, and compliance teams can review in a pull request."
+6. vLLM executes inference on the DGX Spark GB10 GPU. Returns the response with token usage metadata.
 
-The stack is built on the Kubernetes Gateway API. Envoy Gateway implements it. Kuadrant attaches policies to it. llm-d extends it with the InferencePool CRD. This means the policy layer and inference scheduling are portable — the data plane can be swapped without rewriting policies. Standards-based architecture preserves optionality in a landscape that is moving fast.
+7. On the way back, Kuadrant's TokenRateLimitPolicy reads `usage.total_tokens` from the response body and counts it against the tenant's daily token budget via Limitador. No billing microservice.
 
-
-## What was deliberately not built
-
-No custom API gateway service. No identity database. No billing or metering microservice. No response-parsing middleware. No custom load balancer logic. No configuration reload pipelines.
-
-Each of these would have been the default answer three years ago. The CNCF ecosystem and the Kubernetes Gateway API have made them unnecessary for this class of workload. The real question isn't build versus buy — it's *what should the team's job be?* If the answer is model quality, latency optimization, and cost management, then composing proven open-source projects with strong governance is the higher-leverage choice.
+Remove any one of these projects and custom code has to fill the gap. That's the point.
 
 
-## Trade-offs worth naming
+## Tenant onboarding is kubectl apply
 
-### CRD composition ceiling
-Per-tenant auth, rate limiting, token billing, and model routing work cleanly. Multi-model shared budgets, OAuth/OIDC for human users, and intra-tenant RBAC all require coordinating multiple CRDs — achievable, but no longer single-resource operations.
+Adding a new tenant is creating a Kubernetes Secret with an API key and a tier annotation. It's live immediately — no restart, no config reload, no ticket to a platform team.
 
-### OpenAI-compatible routing only
-Envoy AI Gateway routes by model name on OpenAI-compatible APIs. Heterogeneous provider environments (Anthropic, OpenAI, local endpoints) require custom routing today.
+Changing a tier is an annotation update. Revoking access is `kubectl delete secret`. Bumping a free-tier token budget from 50,000 to 75,000 tokens/day is a 2-character edit in a YAML file that goes through normal git review.
 
-### Streaming token billing
-Kuadrant's WASM response filter works for non-streaming responses. Streaming SSE complicates body inspection — a failed or bypassed filter means silent undercounting, not a hard failure.
+There is no identity database. Kubernetes is the identity store.
 
-### Redis as quota state
-Limitador fails open by default. A Redis outage means requests pass but budgets go unenforced. Production deployments need Redis Sentinel or Cluster.
 
-### Prefix-cache savings are workload-dependent
-High impact for RAG pipelines with stable system prompts, marginal for varied inputs.
+## Why this matters: GPU cost
 
-These are trade-offs, not limitations — and naming them upfront is what lets teams adopt with confidence.
+GPUs are the largest line item in any inference deployment, and routing intelligence directly reduces spend. Round-robin wastes GPU cycles by sending requests to pods with saturated KV-cache. llm-d keeps utilization balanced, reuses prefix computations across similar prompts, and avoids memory-pressured pods. Same hardware, measurably higher throughput.
 
-What can I write for what interests about LiteLLM given my work on tokenlabs?
+The operational angle is just as important. Every custom service is a service that can fail, needs on-call, and drifts from its docs. When auth, billing, and routing are CRDs, they share the same operational model as everything else in the cluster. The infra team already knows how to manage them.
+
+The entire stack is built on the Kubernetes Gateway API standard. Envoy Gateway implements it. Kuadrant attaches policies to it. llm-d extends it with InferencePool. The data plane is swappable without rewriting policies. That portability matters in a landscape changing this fast.
+
+
+## What wasn't built
+
+No custom API gateway. No identity database. No billing service. No response-parsing middleware. No custom load balancer. No config reload pipelines.
+
+Three years ago, every one of those was the default answer. The CNCF ecosystem made them unnecessary for this workload class.
+
+
+## Where it breaks down
+
+**CRD composition ceiling.** Per-tenant auth, rate limiting, token billing, and model routing all work as single-resource operations. Multi-model shared budgets, OAuth/OIDC for human users, and intra-tenant RBAC require coordinating multiple CRDs. Achievable, but the complexity jumps.
+
+**OpenAI-compatible only.** Envoy AI Gateway routes by model name on OpenAI-compatible APIs. If you need Anthropic, Google, and local endpoints behind the same gateway, you're writing custom routing today.
+
+**Streaming breaks token billing.** Kuadrant's WASM response filter parses the full response body. Streaming SSE makes that difficult — a failed filter means silent token undercounting, not a hard failure. This is the biggest gap for production chat workloads.
+
+**Redis is the weak link for quotas.** Limitador fails open by default. Redis goes down, requests pass through and budgets go unenforced. Production needs Redis Sentinel or Cluster. Non-negotiable.
+
+**Prefix-cache savings are workload-dependent.** High for RAG pipelines with repeated system prompts. Marginal for diverse, unique inputs. Don't assume the numbers generalize.
+
+
 ## Architecture overview
 
 ```
@@ -110,12 +107,10 @@ Response path:
   └── Kuadrant WASM shim — parses usage.total_tokens → Limitador token quota
 ```
 
-The full source, deployment scripts, and benchmark data are available at [github.com/elizabetht/token-labs](https://github.com/elizabetht/token-labs).
+Full source, deployment scripts, and benchmark data: [github.com/elizabetht/token-labs](https://github.com/elizabetht/token-labs).
 
 ---
 
-Open-source AI doesn't stop at the model weights. The infrastructure to serve, secure, and meter those models needs to be open too — and the building blocks are already here. The patterns to solve multi-tenant inference exist across the organizations running AI at scale. They belong upstream, in the open, where they can compound.
+Open-source AI infrastructure doesn't stop at model weights. The serving, security, and metering layers need to be open too. The building blocks are here. The patterns exist across the organizations running inference at scale. They belong upstream, in the open, where they compound.
 
 *Built on NVIDIA DGX Spark with MicroK8s, Envoy AI Gateway, Envoy Gateway, Kuadrant, llm-d, and vLLM.*
-
-*Organizations evaluating private LLM inference infrastructure are welcome to connect.*

@@ -21,6 +21,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Alias Docker to microk8s.docker
+        run: |
+          sudo snap alias microk8s.docker docker
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
