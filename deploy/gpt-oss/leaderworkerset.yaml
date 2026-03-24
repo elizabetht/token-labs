@@ -46,7 +46,7 @@ spec:
           effect: NoSchedule
         containers:
         - name: vllm
-          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.5.0
           ports:
           - containerPort: 8000
             name: vllm
@@ -159,7 +159,7 @@ spec:
           effect: NoSchedule
         containers:
         - name: vllm
-          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.5.0
           resources:
             requests:
               cpu: "8"
