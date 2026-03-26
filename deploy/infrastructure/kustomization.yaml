@@ -4,3 +4,4 @@ resources:
   - sources
   - controllers
   - metallb-config.yaml
+  - longhorn-config.yaml

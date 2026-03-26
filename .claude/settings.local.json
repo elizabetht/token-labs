@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(gh api:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(ls:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(gh pr view:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(gh auth:*)",
+      "WebFetch(domain:llm-d.ai)",
+      "WebFetch(domain:developers.redhat.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:wilsonwu.me)",
+      "WebFetch(domain:engineering.fb.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:forums.developer.nvidia.com)",
+      "WebFetch(domain:*)",
+      "Bash(kubectl get:*)"
+    ]
+  }
+}
