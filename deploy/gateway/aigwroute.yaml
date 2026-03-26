@@ -11,7 +11,6 @@
 #
 # InferencePool backendRefs:
 #   llm-d-inferencepool              → spark-01  (Nemotron-Llama 8B)
-#   llm-d-inferencepool-nemotron-vl  → spark-02  (Nemotron VL 12B FP8)
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -43,19 +42,6 @@ spec:
     - group: inference.networking.k8s.io
       kind: InferencePool
       name: llm-d-inferencepool
-    timeouts:
-      request: 300s
-
-  # ── Nemotron VL 12B FP8 ───────────────────────────────────────────────────
-  - matches:
-    - headers:
-      - type: Exact
-        name: x-ai-eg-model
-        value: nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8
-    backendRefs:
-    - group: inference.networking.k8s.io
-      kind: InferencePool
-      name: llm-d-inferencepool-nemotron-vl
     timeouts:
       request: 300s
 

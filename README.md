@@ -22,11 +22,8 @@ Client (Authorization: Bearer <api-key>)
 │  ├─ AI Gateway ext_proc                   ③ Model routing  │
 │  │   reads "model" → sets x-ai-eg-model header              │
 │  ├─ AIGatewayRoute → InferencePool                           │
-│  │   ├─ model=Llama-3.1-8B     → token-labs-pool (spark-01) │
-│  │   └─ model=Nemotron-VL-12B  → nemotron-vl-pool (spark-02)│
-│  ├─ llm-d EPP ext_proc                    ④ Inference sched │
-│  │                                                           │
-│  └─ /v1/audio/speech ──► Magpie TTS        ⑤ Text-to-speech │
+│  │   └─ model=Llama-3.1-8B     → token-labs-pool (spark-01) │
+│  └─ llm-d EPP ext_proc                    ④ Inference sched │
 ├──────────────────────────────────────────────────────────────┤
 │  vLLM / TTS Workers                                          │
 │  └─ Response with usage.total_tokens (LLMs)                  │
@@ -57,7 +54,6 @@ This produces better tail latency and higher throughput than round-robin or leas
 
 **[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GB10 GPUs. Served via the `ghcr.io/llm-d/llm-d-cuda:v0.5.0` container image. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves two models:
 - **Llama 3.1 8B Instruct** (spark-01) — general-purpose chat model
-- **Nemotron VL 12B FP8** (spark-02) — NVIDIA vision-language model with FP8 quantization, supports image+text inputs
 
 ### Infrastructure
 
@@ -70,7 +66,7 @@ This produces better tail latency and higher throughput than round-robin or leas
 │  │  (CPU, ARM64)   │   │  (GB10 GPU)    │   │  (GB10 GPU)    │       │
 │  │                 │   │                │   │                │       │
 │  │  Envoy GW       │   │  vLLM:         │   │  vLLM:         │       │
-│  │  Kuadrant       │   │  Llama 3.1 8B  │   │  Nemotron VL   │       │
+│  │  Kuadrant       │   │  Llama 3.1 8B  │   │                │       │
 │  │  llm-d EPPs     │   │  Magpie TTS    │   │  12B FP8       │       │
 │  └────────────────┘   └────────────────┘   └────────────────┘       │
 └──────────────────────────────────────────────────────────────────────┘
@@ -262,9 +258,7 @@ kubectl get kuadrant -n kuadrant-system  # status should show Ready
 |-------|---------|----------------|
 | `llm-d-infra` v1.3.6 | `llm-d-infra` | CRDs and shared infrastructure. Gateway creation is disabled (`gateway.create: false`) since we manage the Gateway resource separately via Envoy Gateway. |
 | `inferencepool` v1.3.0 | `llm-d-inferencepool` | EPP for Llama 3.1 8B — the ext_proc server that performs inference-aware routing with `kvCacheAware` and `queueDepthAware` scoring. |
-| `inferencepool` v1.3.0 | `llm-d-inferencepool-nemotron-vl` | EPP for Nemotron VL 12B — separate EPP instance for the vision-language model pool. |
 | `llm-d-modelservice` v0.4.5 | `llm-d-modelservice` | vLLM worker for Llama 3.1 8B Instruct. 1 decode replica on spark-01. |
-| `llm-d-modelservice` v0.4.5 | `llm-d-modelservice-nemotron-vl` | vLLM worker for Nemotron VL 12B FP8. 1 decode replica on spark-02 with `--trust-remote-code --quantization=modelopt`. |
 
 ```bash
 # Set your HuggingFace token first
@@ -371,7 +365,6 @@ curl -s http://localhost:8080/v1/chat/completions \
     "max_tokens": 200
   }' | jq
 
-# Vision-language (Nemotron VL 12B)
 curl -s http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer tlabs_pro_demo_key_change_me" \
   -H "Content-Type: application/json" \

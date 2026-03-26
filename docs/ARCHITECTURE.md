@@ -28,10 +28,8 @@ All configuration is declarative Kubernetes CRDs — no FastAPI, no custom gatew
 │  │  (CPU, ARM64)   │  │  (GB10 GPU)    │  │  (GB10 GPU)    │        │
 │  │                 │  │  ARM64         │  │  ARM64         │        │
 │  │  • Envoy GW     │  │  • vLLM pod    │  │  • vLLM pod    │        │
-│  │  • Kuadrant     │  │    Llama 3.1   │  │    Nemotron VL │        │
-│  │  • llm-d EPPs   │  │    8B Instruct │  │    12B FP8     │        │
-│  │                 │  │  • Magpie TTS  │  │              │        │
-│  │                 │  │    (GPU, 357M) │  │              │        │
+│  │  • Kuadrant     │  │    Llama 3.1   │  │                │        │
+│  │  • llm-d EPPs   │  │    8B Instruct │  │                │        │
 │  └────────────────┘  └────────────────┘  └────────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -97,7 +95,7 @@ Client receives response
 
 3. **Model Routing (AI Gateway)** — The Envoy AI Gateway controller runs as an ext_proc extension. It reads the `"model"` field from the JSON request body and sets the `x-ai-eg-model` header on the request.
 
-4. **AIGatewayRoute Matching** — The AIGatewayRoute rules match on the `x-ai-eg-model` header to route the request to the correct InferencePool backend (e.g., Llama → `token-labs-pool`, Nemotron → `nemotron-vl-pool`).
+4. **AIGatewayRoute Matching** — The AIGatewayRoute rules match on the `x-ai-eg-model` header to route the request to the correct InferencePool backend.
 
 5. **Inference Scheduling** — llm-d's EPP (Endpoint Picker) receives the request via Envoy's `ext_proc` filter. It inspects KV-cache hit rates, queue depths, and LoRA adapter availability across vLLM pods, then selects the optimal backend.
 
@@ -196,11 +194,8 @@ type: Opaque
 | llm-d | v0.5.0 | 5-release helmfile |
 | llm-d-infra | v1.3.6 | InferencePool CRDs + Gateway |
 | InferencePool (Llama) | v1.3.0 | EPP for Llama pool |
-| InferencePool (Nemotron VL) | v1.3.0 | EPP for Nemotron VL pool |
 | llm-d-modelservice (Llama) | v0.4.5 | vLLM Llama 3.1 8B on spark-01 |
-| llm-d-modelservice (Nemotron VL) | v0.4.5 | vLLM Nemotron VL 12B FP8 on spark-02 |
 | vLLM image | v0.5.0 | `ghcr.io/llm-d/llm-d-cuda:v0.5.0` |
-| Magpie TTS | 357M | Custom container on spark-01 (GPU) |
 | Gateway API Inference Extension | v1.3.0 | CRD manifests |
 
 ### Models Served
@@ -208,7 +203,6 @@ type: Opaque
 | Model | Type | Node | Pool | GPU Memory |
 |---|---|---|---|---|
 | `meta-llama/Llama-3.1-8B-Instruct` | Text LLM | spark-01 | `token-labs-pool` | ~16 GB |
-| `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` | Vision-Language | spark-02 | `nemotron-vl-pool` | ~13 GB |
 
 ---
 
@@ -266,16 +260,15 @@ type: Opaque
                           │  │  └───────────────────────────────┘ ││
                           │  └─────────────────────────────────────┘│
                           │                                         │
-                          │    ┌──────────────┐  ┌──────────────┐   │
-                          │    │ token-labs-   │  │ nemotron-vl- │   │
-                          │    │ pool (Llama)  │  │ pool (VL)    │   │
-                          │    │ ┌──────────┐  │  │ ┌──────────┐ │   │
-                          │    │ │ vLLM     │  │  │ │ vLLM     │ │   │
-                          │    │ │ spark-01 │  │  │ │ spark-02 │ │   │
-                          │    │ │ Llama 8B │  │  │ │Nemotron  │ │   │
-                          │    │ └──────────┘  │  │ │VL 12B FP8│ │   │
-                          │    └──────────────┘  │ └──────────┘ │   │
-                          │                      └──────────────┘   │
+                          │    ┌──────────────┐                     │
+                          │    │ token-labs-   │                     │
+                          │    │ pool (Llama)  │                     │
+                          │    │ ┌──────────┐  │                     │
+                          │    │ │ vLLM     │  │                     │
+                          │    │ │ spark-01 │  │                     │
+                          │    │ │ Llama 8B │  │                     │
+                          │    │ └──────────┘  │                     │
+                          │    └──────────────┘                     │
                           │                                         │
                           │    ┌──────────────────────────────┐     │
                           │    │  Magpie TTS (spark-01/GPU)    │     │
@@ -304,6 +297,4 @@ type: Opaque
 
 6. **Multi-model routing via Envoy AI Gateway** — Each LLM model gets its own InferencePool + EPP. The AI Gateway controller runs as an ext_proc extension, reads the `"model"` field from the request body, and sets the `x-ai-eg-model` header. The `AIGatewayRoute` CRD matches on this header to route to the correct InferencePool backend. Token usage is tracked via `llmRequestCosts` (InputToken, OutputToken, TotalToken) for per-request cost accounting.
 
-7. **TTS as a separate service** — Magpie TTS uses NeMo (not vLLM), so it runs as a standalone FastAPI service behind the same Gateway. It runs on GPU on spark-01 (shared with Llama) for faster inference. It shares the same Kuadrant auth/rate-limiting policies via its own HTTPRoute.
-
-8. **GPU allocation: Llama + TTS on spark-01, Nemotron VL on spark-02** — Llama 3.1 8B runs at 80% GPU utilization on spark-01, leaving room for Magpie TTS (~700 MB). Nemotron VL 12B FP8 (~13 GB) uses spark-02 at 90% utilization.
+7. **GPU allocation** — Llama 3.1 8B runs on spark-01. spark-02 is available for additional models.

@@ -64,36 +64,6 @@ releases:
             maxSurge: 0
             maxUnavailable: 1
 
-  # ── Nemotron VL 12B FP8 (spark-02) ────────────────────────────────────────
-  # PVC: kubectl apply -f deploy/nemotron-vl-12b/model-cache-pvc.yaml
-  - name: llm-d-inferencepool-nemotron-vl
-    namespace: token-labs
-    chart: gaie/inferencepool
-    version: v1.3.0
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../nemotron-vl-12b/inferencepool-values.yaml
-
-  - name: llm-d-modelservice-nemotron-vl
-    namespace: token-labs
-    chart: llm-d-modelservice/llm-d-modelservice
-    version: v0.4.5
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../nemotron-vl-12b/modelservice-values.yaml
-    strategicMergePatches:
-    - apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: llm-d-modelservice-nemotron-vl-decode
-      spec:
-        strategy:
-          rollingUpdate:
-            maxSurge: 0
-            maxUnavailable: 1
-
   # ── Qwen3 14B NVFP4 (spark-01) ────────────────────────────────────────────
   # PVC: kubectl apply -f deploy/qwen3-14b/model-cache-pvc.yaml
   - name: llm-d-inferencepool-qwen3-14b

@@ -48,14 +48,10 @@ deploy/
 │   ├── namespace.yaml
 │   ├── gateway.yaml
 │   └── aigatewayroute.yaml
-├── llm-d/               # llm-d helmfile + values (5 releases)
+├── llm-d/               # llm-d helmfile + values
 │   ├── helmfile.yaml.gotmpl
 │   └── values/
-│       ├── infra.yaml
-│       ├── inferencepool.yaml
-│       ├── inferencepool-nemotron-vl.yaml
-│       ├── modelservice.yaml
-│       └── modelservice-nemotron-vl.yaml
+│       └── infra.yaml
 ├── policies/            # Kuadrant policies
 │   ├── kuadrant.yaml
 │   ├── auth-policy.yaml
@@ -96,25 +92,4 @@ curl -H "Host: inference.token-labs.local" \
        "max_tokens": 100
      }'
 
-# Test Nemotron VL 12B (vision-language)
-curl -H "Host: inference.token-labs.local" \
-     -H "Authorization: APIKEY tlabs_free_demo_key" \
-     -H "Content-Type: application/json" \
-     -X POST http://<GATEWAY_IP>/v1/chat/completions \
-     -d '{
-       "model": "nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8",
-       "messages": [{"role": "user", "content": "Describe this image."}],
-       "max_tokens": 100
-     }'
-
-# Test Magpie TTS (text-to-speech)
-curl -H "Host: inference.token-labs.local" \
-     -H "Authorization: APIKEY tlabs_free_demo_key" \
-     -H "Content-Type: application/json" \
-     -X POST http://<GATEWAY_IP>/v1/audio/speech \
-     -d '{
-       "input": "Welcome to Token Labs.",
-       "voice": "aria",
-       "language": "en"
-     }' --output speech.wav
 ```
