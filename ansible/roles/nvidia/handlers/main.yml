@@ -1,9 +1,0 @@
----
-# Handlers for nvidia role
-
-- name: restart containerd
-  systemd:
-    name: containerd
-    state: restarted
-    daemon_reload: true
-  become: true
