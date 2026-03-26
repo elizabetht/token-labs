@@ -1,12 +1,16 @@
 ---
+# Handlers for bootstrap role
+
 - name: restart containerd
   systemd:
     name: containerd
     state: restarted
     daemon_reload: true
+  become: true
 
 - name: restart kubelet
   systemd:
     name: kubelet
     state: restarted
     daemon_reload: true
+  become: true

@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Infrastructure layer - operators managed by Flux
+  - infrastructure
+  # Additional cluster resources can be added here
+  # - cluster
+  # - gateway
+  # - llm-d
+  # - policies
+  # - tenants

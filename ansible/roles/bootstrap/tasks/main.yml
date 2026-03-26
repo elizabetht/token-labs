@@ -1,104 +1,158 @@
 ---
-# ── Kernel modules ─────────────────────────────────────────────────────────────
-- name: Load required kernel modules now
-  community.general.modprobe:
-    name: "{{ item }}"
-    state: present
-  loop: "{{ kernel_modules }}"
+# Bootstrap role - OS-level prerequisites before Kubernetes installation
 
-- name: Persist kernel modules across reboots
-  copy:
-    dest: /etc/modules-load.d/kubernetes.conf
-    content: "{{ kernel_modules | join('\n') }}\n"
-    mode: "0644"
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+  become: true
 
-# ── sysctl ─────────────────────────────────────────────────────────────────────
-- name: Apply sysctl params
-  sysctl:
-    name: "{{ item.key }}"
-    value: "{{ item.value }}"
-    sysctl_set: true
-    state: present
-    reload: true
-  loop: "{{ sysctl_params | dict2items }}"
-
-# ── Swap ───────────────────────────────────────────────────────────────────────
-- name: Disable swap immediately
-  command: swapoff -a
+- name: Disable swap
+  shell: |
+    swapoff -a
+    sed -i '/ swap / s/^/#/' /etc/fstab
+  become: true
   changed_when: false
 
-- name: Remove swap entries from /etc/fstab
-  replace:
-    path: /etc/fstab
-    regexp: '^([^#].*\s+swap\s+.*)$'
-    replace: '# \1'
+- name: Load kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - overlay
+    - br_netfilter
 
-# ── containerd ─────────────────────────────────────────────────────────────────
-- name: Install containerd
+- name: Persist kernel modules
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+  become: true
+
+- name: Configure sysctl for Kubernetes
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    reload: true
+  become: true
+  loop:
+    - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+    - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+
+- name: Install prerequisites
   apt:
-    name: "containerd={{ containerd_version }}"
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - software-properties-common
     state: present
     update_cache: true
+  become: true
+
+- name: Add containerd GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  become: true
+
+- name: Add containerd repository
+  apt_repository:
+    repo: "deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+  become: true
+
+- name: Install containerd
+  apt:
+    name: "containerd.io={{ containerd_version }}-1"
+    state: present
+    update_cache: true
+  become: true
 
 - name: Create containerd config directory
   file:
     path: /etc/containerd
     state: directory
-    mode: "0755"
+  become: true
 
 - name: Generate default containerd config
-  command: containerd config default
-  register: containerd_default_config
-  changed_when: false
+  shell: containerd config default > /etc/containerd/config.toml
+  args:
+    creates: /etc/containerd/config.toml
+  become: true
 
-- name: Write containerd config (SystemdCgroup=true)
-  copy:
-    dest: /etc/containerd/config.toml
-    content: "{{ containerd_default_config.stdout | regex_replace('SystemdCgroup = false', 'SystemdCgroup = true') }}"
-    mode: "0644"
+- name: Configure containerd to use systemd cgroup driver
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^\s+SystemdCgroup\s*='
+    line: '            SystemdCgroup = true'
+    insertafter: '^\s+\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc\.options\]'
+  become: true
   notify: restart containerd
 
 - name: Enable and start containerd
   systemd:
     name: containerd
-    enabled: true
     state: started
+    enabled: true
+    daemon_reload: true
+  become: true
 
-# ── Kubernetes packages ────────────────────────────────────────────────────────
-- name: Add Kubernetes apt key
-  get_url:
-    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/Release.key
-    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
-    mode: "0644"
-
-- name: Add Kubernetes apt repository
-  apt_repository:
-    repo: >-
-      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc]
-      https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/ /
-    filename: kubernetes
+- name: Add Kubernetes GPG key
+  apt_key:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key
     state: present
+  become: true
 
-- name: Install kubeadm, kubelet, kubectl
+- name: Add Kubernetes repository
+  apt_repository:
+    repo: "deb https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/ /"
+    state: present
+    filename: kubernetes
+  become: true
+
+- name: Install kubeadm, kubelet, and kubectl
   apt:
     name:
-      - kubeadm
-      - kubelet
-      - kubectl
+      - "kubelet={{ k8s_package_version }}"
+      - "kubeadm={{ k8s_package_version }}"
+      - "kubectl={{ k8s_package_version }}"
     state: present
     update_cache: true
+  become: true
 
-- name: Pin kubeadm, kubelet, kubectl versions
+- name: Hold Kubernetes packages
   dpkg_selections:
     name: "{{ item }}"
     selection: hold
+  become: true
   loop:
-    - kubeadm
     - kubelet
+    - kubeadm
     - kubectl
 
-- name: Enable and start kubelet
+- name: Create kubelet systemd drop-in directory
+  file:
+    path: /etc/systemd/system/kubelet.service.d
+    state: directory
+  become: true
+
+- name: Configure kubelet extra args
+  template:
+    src: kubelet-extra-args.conf.j2
+    dest: /etc/systemd/system/kubelet.service.d/20-extra-args.conf
+  become: true
+  notify: restart kubelet
+
+- name: Enable kubelet
   systemd:
     name: kubelet
     enabled: true
-    state: started
+    daemon_reload: true
+  become: true

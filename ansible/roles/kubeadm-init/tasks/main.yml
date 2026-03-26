@@ -1,59 +1,115 @@
 ---
-- name: Check if cluster is already initialised
+# kubeadm-init role - Initialize Kubernetes control plane
+
+- name: Check if Kubernetes is already initialized
   stat:
-    path: "{{ kubeconfig_path }}"
-  register: kubeconfig_stat
+    path: /etc/kubernetes/admin.conf
+  register: k8s_admin_conf
+  become: true
 
-# ── kubeadm init ───────────────────────────────────────────────────────────────
-- name: Initialise control-plane
-  command: >
-    kubeadm init
-    --pod-network-cidr={{ pod_cidr }}
-    --service-cidr={{ service_cidr }}
-    --kubernetes-version={{ kubernetes_version }}
-    --cri-socket=unix:///run/containerd/containerd.sock
-  when: not kubeconfig_stat.stat.exists
-  register: kubeadm_init_output
+- name: Initialize Kubernetes cluster
+  shell: |
+    kubeadm init \
+      --pod-network-cidr={{ k8s_pod_network_cidr }} \
+      --service-cidr={{ k8s_service_cidr }} \
+      --apiserver-advertise-address={{ ansible_host }} \
+      --node-name={{ inventory_hostname }}
+  become: true
+  when: not k8s_admin_conf.stat.exists
+  register: kubeadm_init_result
 
-- name: Create .kube directory for ansible_user
+- name: Create .kube directory for root
+  file:
+    path: /root/.kube
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy admin.conf to root's kubeconfig
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: '0600'
+  become: true
+
+- name: Create .kube directory for ansible user
   file:
     path: "/home/{{ ansible_user }}/.kube"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-    mode: "0755"
+    mode: '0755'
+  become: true
 
-- name: Copy admin.conf to user kubeconfig
+- name: Copy admin.conf to ansible user's kubeconfig
   copy:
-    src: "{{ kubeconfig_path }}"
+    src: /etc/kubernetes/admin.conf
     dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-    mode: "0600"
-    remote_src: true
+    mode: '0600'
+  become: true
 
-# ── CNI: Flannel ───────────────────────────────────────────────────────────────
+- name: Wait for Kubernetes API to be ready
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 6443
+    timeout: 300
+  become: false
+
 - name: Install Flannel CNI
-  command: kubectl apply -f {{ flannel_manifest_url }}
-  become_user: "{{ ansible_user }}"
+  shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
   environment:
-    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true
+  when: k8s_cni == "flannel" and not k8s_admin_conf.stat.exists
 
-- name: Wait for control-plane node to be Ready
-  command: >
-    kubectl wait node/{{ inventory_hostname }}
-    --for=condition=Ready
-    --timeout=5m
-  become_user: "{{ ansible_user }}"
-  environment:
-    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+- name: Install Cilium CNI
+  block:
+    - name: Download Cilium CLI
+      get_url:
+        url: https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+        dest: /tmp/cilium-cli.tar.gz
 
-# ── Generate join command for workers ──────────────────────────────────────────
-- name: Generate kubeadm join command
-  command: kubeadm token create --print-join-command
-  register: join_command_raw
+    - name: Extract Cilium CLI
+      unarchive:
+        src: /tmp/cilium-cli.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+
+    - name: Install Cilium
+      shell: cilium install
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true
+  when: k8s_cni == "cilium" and not k8s_admin_conf.stat.exists
+
+- name: Generate join command
+  shell: kubeadm token create --print-join-command
+  register: join_command_result
+  become: true
   changed_when: false
 
-- name: Expose join command as a fact for worker play
-  set_fact:
-    kubeadm_join_command: "{{ join_command_raw.stdout }}"
+- name: Save join command to file
+  copy:
+    content: "{{ join_command_result.stdout }}"
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0755'
+  become: true
+
+- name: Fetch join command to controller
+  fetch:
+    src: /tmp/kubeadm_join_command.sh
+    dest: /tmp/kubeadm_join_command.sh
+    flat: true
+  become: true
+
+- name: Remove taint from control plane (allow scheduling pods on control plane)
+  shell: kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/control-plane:NoSchedule- || true
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true
+  changed_when: false
+  when: groups['workers'] | length == 0

@@ -1,25 +1,55 @@
 ---
-# Full cluster bootstrap playbook.
-# Run order:
-#   1. bootstrap  — OS prereqs, containerd, kubeadm/kubelet/kubectl
-#   2. nvidia     — NVIDIA Container Toolkit, containerd runtime config
-#   3. kubeadm    — init control-plane, install CNI, join workers
+# Main playbook for DGX Spark cluster setup
+# Usage: ansible-playbook -i inventory/hosts.yml site.yml
 
 - name: Bootstrap all nodes
-  hosts: cluster
-  become: true
+  hosts: k8s_cluster
+  gather_facts: true
   roles:
     - bootstrap
+
+- name: Configure NVIDIA runtime on GPU worker nodes
+  hosts: workers
+  gather_facts: false
+  roles:
     - nvidia
 
-- name: Initialise control-plane
+- name: Initialize Kubernetes control plane
   hosts: control_plane
-  become: true
+  gather_facts: false
   roles:
     - kubeadm-init
 
 - name: Join worker nodes
   hosts: workers
-  become: true
+  gather_facts: false
+  serial: 1
   roles:
     - kubeadm-join
+
+- name: Verify cluster setup
+  hosts: control_plane
+  gather_facts: false
+  tasks:
+    - name: Wait for all nodes to be ready
+      shell: kubectl get nodes --no-headers | grep -c Ready
+      register: ready_nodes
+      until: ready_nodes.stdout | int == groups['k8s_cluster'] | length
+      retries: 30
+      delay: 10
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      become: true
+      changed_when: false
+
+    - name: Display cluster nodes
+      shell: kubectl get nodes -o wide
+      register: cluster_nodes
+      environment:
+        KUBECONFIG: /etc/kubernetes/admin.conf
+      become: true
+      changed_when: false
+
+    - name: Show cluster nodes
+      debug:
+        var: cluster_nodes.stdout_lines

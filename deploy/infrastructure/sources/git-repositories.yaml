@@ -1,0 +1,42 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: gateway-api
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  url: https://github.com/kubernetes-sigs/gateway-api
+  ref:
+    tag: v1.4.1
+  ignore: |
+    /*
+    !/config/crd/standard
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: gateway-api-inference-extension
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  url: https://github.com/kubernetes-sigs/gateway-api-inference-extension
+  ref:
+    tag: v1.3.0
+  ignore: |
+    /*
+    !/config/crd
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: envoy-ai-gateway
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  url: https://github.com/envoyproxy/ai-gateway
+  ref:
+    tag: v0.5.0
+  ignore: |
+    /*
+    !/deploy/crd

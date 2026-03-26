@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - sources
   - controllers
+  - metallb-config.yaml
