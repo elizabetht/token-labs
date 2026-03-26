@@ -1,0 +1,27 @@
+---
+# kubeadm-join role - Join worker nodes to Kubernetes cluster
+
+- name: Check if node is already joined
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: k8s_kubelet_conf
+  become: true
+
+- name: Copy join command from controller
+  copy:
+    src: /tmp/kubeadm_join_command.sh
+    dest: /tmp/kubeadm_join_command.sh
+    mode: '0755'
+  become: true
+  when: not k8s_kubelet_conf.stat.exists
+
+- name: Join node to cluster
+  shell: /tmp/kubeadm_join_command.sh
+  become: true
+  when: not k8s_kubelet_conf.stat.exists
+  register: kubeadm_join_result
+
+- name: Display join result
+  debug:
+    var: kubeadm_join_result.stdout_lines
+  when: kubeadm_join_result is defined and kubeadm_join_result.changed
