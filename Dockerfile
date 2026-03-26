@@ -42,6 +42,10 @@ ENV TORCH_USE_CUDA_DSA=0
 RUN --mount=type=cache,target=/root/.cache/pip \
     /opt/venv/bin/pip install vllm --extra-index-url https://wheels.vllm.ai/0.13.0/cu130 --extra-index-url https://download.pytorch.org/whl/cu130
 
+# Install Ray explicitly — the cu130 vLLM wheel omits it, but PP=2 over Ray requires it
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install "ray[default]>=2.9,!=2.10.0"
+
 # Pre-cache HarmonyGptOss vocab (identical to o200k_base — confirmed same SHA256)
 RUN mkdir -p /opt/tiktoken-cache && \
     wget -q "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken" \

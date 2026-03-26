@@ -412,6 +412,7 @@ grafana:
     type: ClusterIP
     sessionAffinity: ""
   sidecar:
+    skipTlsVerify: true
     dashboards:
       enabled: true
       searchNamespace: ALL
