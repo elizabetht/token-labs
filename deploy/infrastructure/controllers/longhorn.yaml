@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longhorn-system
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: longhorn
+      version: "1.7.x"
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+        namespace: flux-system
+      interval: 5m
+  targetNamespace: longhorn-system
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    defaultSettings:
+      defaultReplicaCount: 2
+      defaultDataPath: /var/lib/longhorn
+      defaultDataLocality: best-effort
+    persistence:
+      defaultClass: true
+      defaultClassReplicaCount: 2
+    csi:
+      kubeletRootDir: /var/lib/kubelet
+    longhornUI:
+      replicas: 1
