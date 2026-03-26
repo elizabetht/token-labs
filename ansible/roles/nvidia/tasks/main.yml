@@ -1,0 +1,40 @@
+---
+# ── NVIDIA Container Toolkit ───────────────────────────────────────────────────
+- name: Add NVIDIA Container Toolkit apt key
+  get_url:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    dest: /etc/apt/keyrings/nvidia-container-toolkit-keyring.asc
+    mode: "0644"
+
+- name: Add NVIDIA Container Toolkit apt repository
+  get_url:
+    url: https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list
+    dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    mode: "0644"
+
+- name: Install nvidia-container-toolkit
+  apt:
+    name: "nvidia-container-toolkit{{ '=' + nvidia_container_toolkit_version if nvidia_container_toolkit_version != '*' else '' }}"
+    state: present
+    update_cache: true
+
+# ── Configure containerd to use NVIDIA runtime ─────────────────────────────────
+- name: Configure NVIDIA runtime for containerd
+  command: >
+    nvidia-ctk runtime configure
+    --runtime=containerd
+    --set-as-default
+  notify: restart containerd
+
+- name: Flush handlers (restart containerd before validation)
+  meta: flush_handlers
+
+# ── Validate ───────────────────────────────────────────────────────────────────
+- name: Verify nvidia-smi works on the host
+  command: nvidia-smi --query-gpu=name --format=csv,noheader
+  register: nvidia_smi_output
+  changed_when: false
+
+- name: Print detected GPUs
+  debug:
+    msg: "GPUs detected: {{ nvidia_smi_output.stdout_lines }}"

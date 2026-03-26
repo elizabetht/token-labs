@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nvidia-gpu-operator
+  namespace: flux-system
+spec:
+  interval: 1h
+  targetNamespace: gpu-operator
+  chart:
+    spec:
+      chart: gpu-operator
+      version: "v25.*"
+      sourceRef:
+        kind: HelmRepository
+        name: nvidia-gpu-operator
+        namespace: flux-system
+      interval: 12h
+  values:
+    # The NVIDIA driver is already installed on DGX Spark nodes — skip the
+    # driver component so the Operator doesn't try to replace it.
+    driver:
+      enabled: false
+
+    # Use the classic device plugin (DRA is blocked on GB10 — see
+    # deploy/infrastructure/nvidia-dra-driver/README.md).
+    devicePlugin:
+      enabled: true
+
+    # DCGM exporter exposes per-GPU metrics scraped by Prometheus.
+    dcgmExporter:
+      enabled: true
+
+    # MIG is not used on GB10 (unified memory architecture).
+    mig:
+      strategy: none
+
+    toolkit:
+      enabled: true

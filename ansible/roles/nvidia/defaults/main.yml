@@ -1,0 +1,6 @@
+---
+# nvidia-container-toolkit package version (pin to avoid surprise upgrades)
+nvidia_container_toolkit_version: "*"
+
+# containerd runtime socket path
+containerd_socket: /run/containerd/containerd.sock

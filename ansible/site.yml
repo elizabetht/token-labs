@@ -1,0 +1,25 @@
+---
+# Full cluster bootstrap playbook.
+# Run order:
+#   1. bootstrap  — OS prereqs, containerd, kubeadm/kubelet/kubectl
+#   2. nvidia     — NVIDIA Container Toolkit, containerd runtime config
+#   3. kubeadm    — init control-plane, install CNI, join workers
+
+- name: Bootstrap all nodes
+  hosts: cluster
+  become: true
+  roles:
+    - bootstrap
+    - nvidia
+
+- name: Initialise control-plane
+  hosts: control_plane
+  become: true
+  roles:
+    - kubeadm-init
+
+- name: Join worker nodes
+  hosts: workers
+  become: true
+  roles:
+    - kubeadm-join

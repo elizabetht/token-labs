@@ -1,0 +1,59 @@
+---
+- name: Check if cluster is already initialised
+  stat:
+    path: "{{ kubeconfig_path }}"
+  register: kubeconfig_stat
+
+# ── kubeadm init ───────────────────────────────────────────────────────────────
+- name: Initialise control-plane
+  command: >
+    kubeadm init
+    --pod-network-cidr={{ pod_cidr }}
+    --service-cidr={{ service_cidr }}
+    --kubernetes-version={{ kubernetes_version }}
+    --cri-socket=unix:///run/containerd/containerd.sock
+  when: not kubeconfig_stat.stat.exists
+  register: kubeadm_init_output
+
+- name: Create .kube directory for ansible_user
+  file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Copy admin.conf to user kubeconfig
+  copy:
+    src: "{{ kubeconfig_path }}"
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+    remote_src: true
+
+# ── CNI: Flannel ───────────────────────────────────────────────────────────────
+- name: Install Flannel CNI
+  command: kubectl apply -f {{ flannel_manifest_url }}
+  become_user: "{{ ansible_user }}"
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Wait for control-plane node to be Ready
+  command: >
+    kubectl wait node/{{ inventory_hostname }}
+    --for=condition=Ready
+    --timeout=5m
+  become_user: "{{ ansible_user }}"
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+# ── Generate join command for workers ──────────────────────────────────────────
+- name: Generate kubeadm join command
+  command: kubeadm token create --print-join-command
+  register: join_command_raw
+  changed_when: false
+
+- name: Expose join command as a fact for worker play
+  set_fact:
+    kubeadm_join_command: "{{ join_command_raw.stdout }}"

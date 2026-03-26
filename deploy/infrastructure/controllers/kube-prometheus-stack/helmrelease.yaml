@@ -1,0 +1,68 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: flux-system
+spec:
+  interval: 1h
+  targetNamespace: llm-d-monitoring
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # Pin to v62.x for compatibility with the Prometheus operator shipped
+      # with llm-d (Prometheus v2.54.1). Bump to latest once operator ≥ v0.76.
+      version: "62.7.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      interval: 12h
+  values:
+    # Watch all namespaces so DCGM, Limitador, and llm-d metrics are scraped.
+    prometheus:
+      prometheusSpec:
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: longhorn-model-cache
+              resources:
+                requests:
+                  storage: 50Gi
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+
+    grafana:
+      enabled: true
+      defaultDashboardsEnabled: true
+      # Grafana dashboards for llm-d are loaded via the load-llm-d-dashboards.sh
+      # script (deploy/monitoring/scripts/) or via a ConfigMap sidecar.
+      sidecar:
+        dashboards:
+          enabled: true
+          label: grafana_dashboard
+          searchNamespace: ALL
+
+    # Avoid conflicts with any pre-existing node-exporter DaemonSets.
+    nodeExporter:
+      enabled: true
+
+    # DCGM exporter runs as part of the NVIDIA GPU Operator; register
+    # its ServiceMonitor here so Prometheus scrapes GPU metrics.
+    additionalServiceMonitors:
+      - name: dcgm-exporter
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: dcgm-exporter
+        namespaceSelector:
+          any: true
+        endpoints:
+          - port: metrics
+            interval: 15s

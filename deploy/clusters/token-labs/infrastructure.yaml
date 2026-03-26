@@ -1,0 +1,83 @@
+# Flux Kustomization — reconciles all infrastructure sources and controllers.
+# Flux reads this file after `flux bootstrap` populates deploy/flux-system/.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-sources
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/infrastructure/sources
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  wait: true
+  timeout: 2m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infrastructure-controllers
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/infrastructure/controllers
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infrastructure-sources
+  wait: true
+  timeout: 30m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: gateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/gateway
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infrastructure-controllers
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: policies
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/policies
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: gateway
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tenants
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deploy/tenants
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: policies
+  # Tenant secrets are SOPS-encrypted; provide the age key to Flux.
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

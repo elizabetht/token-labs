@@ -1,0 +1,104 @@
+---
+# ── Kernel modules ─────────────────────────────────────────────────────────────
+- name: Load required kernel modules now
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kernel_modules }}"
+
+- name: Persist kernel modules across reboots
+  copy:
+    dest: /etc/modules-load.d/kubernetes.conf
+    content: "{{ kernel_modules | join('\n') }}\n"
+    mode: "0644"
+
+# ── sysctl ─────────────────────────────────────────────────────────────────────
+- name: Apply sysctl params
+  sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ sysctl_params | dict2items }}"
+
+# ── Swap ───────────────────────────────────────────────────────────────────────
+- name: Disable swap immediately
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap entries from /etc/fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\s+swap\s+.*)$'
+    replace: '# \1'
+
+# ── containerd ─────────────────────────────────────────────────────────────────
+- name: Install containerd
+  apt:
+    name: "containerd={{ containerd_version }}"
+    state: present
+    update_cache: true
+
+- name: Create containerd config directory
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: Generate default containerd config
+  command: containerd config default
+  register: containerd_default_config
+  changed_when: false
+
+- name: Write containerd config (SystemdCgroup=true)
+  copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ containerd_default_config.stdout | regex_replace('SystemdCgroup = false', 'SystemdCgroup = true') }}"
+    mode: "0644"
+  notify: restart containerd
+
+- name: Enable and start containerd
+  systemd:
+    name: containerd
+    enabled: true
+    state: started
+
+# ── Kubernetes packages ────────────────────────────────────────────────────────
+- name: Add Kubernetes apt key
+  get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: "0644"
+
+- name: Add Kubernetes apt repository
+  apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc]
+      https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/ /
+    filename: kubernetes
+    state: present
+
+- name: Install kubeadm, kubelet, kubectl
+  apt:
+    name:
+      - kubeadm
+      - kubelet
+      - kubectl
+    state: present
+    update_cache: true
+
+- name: Pin kubeadm, kubelet, kubectl versions
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubeadm
+    - kubelet
+    - kubectl
+
+- name: Enable and start kubelet
+  systemd:
+    name: kubelet
+    enabled: true
+    state: started

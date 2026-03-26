@@ -1,0 +1,14 @@
+---
+kubernetes_version: "1.32"
+containerd_version: "1.7.*"
+
+# Kernel modules required by Kubernetes networking
+kernel_modules:
+  - overlay
+  - br_netfilter
+
+# sysctl parameters required by Kubernetes
+sysctl_params:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1

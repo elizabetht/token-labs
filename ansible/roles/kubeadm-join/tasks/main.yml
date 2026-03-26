@@ -1,0 +1,21 @@
+---
+- name: Check if node is already joined
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf_stat
+
+- name: Join worker to cluster
+  command: "{{ hostvars[groups['control_plane'][0]]['kubeadm_join_command'] }} --cri-socket=unix:///run/containerd/containerd.sock"
+  when: not kubelet_conf_stat.stat.exists
+
+- name: Wait for this worker to appear in node list
+  command: >
+    kubectl get node {{ inventory_hostname }}
+  delegate_to: "{{ groups['control_plane'][0] }}"
+  become_user: "{{ ansible_user }}"
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  register: node_check
+  retries: 20
+  delay: 15
+  until: node_check.rc == 0

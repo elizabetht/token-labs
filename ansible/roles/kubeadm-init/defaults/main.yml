@@ -1,0 +1,10 @@
+---
+pod_cidr: "10.244.0.0/16"
+service_cidr: "10.96.0.0/12"
+kubernetes_version: "1.32"
+
+# CNI: flannel manifest URL (pinned version)
+flannel_manifest_url: "https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml"
+
+# kubeconfig path on the control-plane node
+kubeconfig_path: /etc/kubernetes/admin.conf
