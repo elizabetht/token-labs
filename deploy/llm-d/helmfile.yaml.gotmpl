@@ -34,65 +34,18 @@ releases:
     values:
     - values/infra.yaml
 
-  # ── Nemotron-Llama 8B (spark-01) ──────────────────────────────────────────
-  # PVC: kubectl apply -f deploy/nemotron-8b/model-cache-pvc.yaml
-  - name: llm-d-inferencepool
+  # ── Qwen3.5-397B-A17B-NVFP4 PP=2 (spark-01 + spark-02, LeaderWorkerSet) ────
+  # PVCs:  kubectl apply -f deploy/qwen35-397b/model-cache-pvcs.yaml
+  # LWS:   kubectl apply -f deploy/qwen35-397b/leaderworkerset.yaml
+  # This release only creates the InferencePool + EPP for routing.
+  - name: llm-d-inferencepool-qwen35-397b
     namespace: token-labs
     chart: gaie/inferencepool
     version: v1.3.0
     needs:
     - token-labs/llm-d-infra
     values:
-    - ../nemotron-8b/inferencepool-values.yaml
-
-  - name: llm-d-modelservice
-    namespace: token-labs
-    chart: llm-d-modelservice/llm-d-modelservice
-    version: v0.4.5
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../nemotron-8b/modelservice-values.yaml
-    strategicMergePatches:
-    - apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: llm-d-modelservice-decode
-      spec:
-        strategy:
-          rollingUpdate:
-            maxSurge: 0
-            maxUnavailable: 1
-
-  # ── Qwen3 14B NVFP4 (spark-01) ────────────────────────────────────────────
-  # PVC: kubectl apply -f deploy/qwen3-14b/model-cache-pvc.yaml
-  - name: llm-d-inferencepool-qwen3-14b
-    namespace: token-labs
-    chart: gaie/inferencepool
-    version: v1.3.0
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../qwen3-14b/inferencepool-values.yaml
-
-  - name: llm-d-modelservice-qwen3-14b
-    namespace: token-labs
-    chart: llm-d-modelservice/llm-d-modelservice
-    version: v0.4.5
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../qwen3-14b/modelservice-values.yaml
-    strategicMergePatches:
-    - apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: llm-d-modelservice-qwen3-14b-decode
-      spec:
-        strategy:
-          rollingUpdate:
-            maxSurge: 0
-            maxUnavailable: 1
+    - ../qwen35-397b/inferencepool-values.yaml
 
   # ── gpt-oss-120gb PP=2 (spark-01 + spark-02, LeaderWorkerSet) ─────────────
   # PVCs: kubectl apply -f deploy/gpt-oss/model-cache-pvcs.yaml

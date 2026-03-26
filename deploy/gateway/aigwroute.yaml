@@ -10,7 +10,7 @@
 # No ConfigMaps, no ext_proc sidecar — EAG handles body parsing natively.
 #
 # InferencePool backendRefs:
-#   llm-d-inferencepool              → spark-01  (Nemotron-Llama 8B)
+#   llm-d-inferencepool-qwen35-397b  → spark-01+02  (Qwen3.5-397B-A17B-NVFP4 PP=2)
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -32,31 +32,18 @@ spec:
     kind: Gateway
     group: gateway.networking.k8s.io
   rules:
-  # ── Nemotron-Llama 8B ─────────────────────────────────────────────────────
+  # ── Qwen3.5-397B-A17B-NVFP4 (PP=2 across spark-01 + spark-02) ──────────────
   - matches:
     - headers:
       - type: Exact
         name: x-ai-eg-model
-        value: nvidia/Llama-3.1-Nemotron-Nano-8B-v1
+        value: nvidia/Qwen3.5-397B-A17B-NVFP4
     backendRefs:
     - group: inference.networking.k8s.io
       kind: InferencePool
-      name: llm-d-inferencepool
+      name: llm-d-inferencepool-qwen35-397b
     timeouts:
-      request: 300s
-
-  # ── Qwen3 14B NVFP4 ─────────────────────────────────────────────────────
-  - matches:
-    - headers:
-      - type: Exact
-        name: x-ai-eg-model
-        value: nvidia/Qwen3-14B-NVFP4
-    backendRefs:
-    - group: inference.networking.k8s.io
-      kind: InferencePool
-      name: llm-d-inferencepool-qwen3-14b
-    timeouts:
-      request: 300s
+      request: 600s     # longer timeout for 397B model inference
 
   # ── gpt-oss-120gb (PP=2 across spark-01 + spark-02) ─────────────────────
   # Replace "org/gpt-oss-120gb" with the actual HuggingFace model ID.

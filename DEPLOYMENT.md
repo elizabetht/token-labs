@@ -177,7 +177,7 @@ token-labs/
    - MIG (Multi-Instance GPU) support
 
 2. **Multi-Model Inference**
-   - LLaMA 3.1-8B, Nemotron-VL-12B, Qwen3-14B
+   - Qwen3.5-397B-A17B-NVFP4 (PP=2 across spark-01 + spark-02)
    - vLLM workers with KV cache optimization
    - Inference-aware scheduling via llm-d EPP
 

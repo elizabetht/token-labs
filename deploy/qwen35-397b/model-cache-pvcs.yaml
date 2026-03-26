@@ -1,0 +1,33 @@
+# PVCs for Qwen3.5-397B-A17B-NVFP4 model cache — one per node
+#
+# PP=2 requires each node to hold the full checkpoint on disk.
+# vLLM downloads all weights, then loads only its pipeline stage into GPU.
+# NVFP4 weights: ~200 GB + HF hub temp files during download → 280 GB per node.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen35-397b-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 280Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen35-397b-spark-02
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 280Gi

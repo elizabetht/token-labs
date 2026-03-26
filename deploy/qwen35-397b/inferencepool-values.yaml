@@ -1,13 +1,13 @@
-# InferencePool + EPP values — Qwen3-14B NVFP4
+# InferencePool + EPP values — Qwen3.5-397B-A17B-NVFP4 (PP=2, LeaderWorkerSet)
 #
-# The EPP (Endpoint Picker) is the inference-aware ext_proc sidecar from upstream GAIE.
-# matchLabels must match the pods created by the llm-d-modelservice release.
+# matchLabels select only the LEADER pod (which serves the vLLM API).
+# The worker pod participates via Ray/NCCL but is not directly routable.
 
 inferencePool:
   modelServers:
     matchLabels:
       llm-d.ai/inference-serving: "true"
-      llm-d.ai/model: qwen-3-14b
+      llm-d.ai/model: qwen35-397b
   modelServerType: vllm
 
 inferenceExtension:

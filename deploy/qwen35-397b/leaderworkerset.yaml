@@ -1,0 +1,198 @@
+# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks
+#
+# Architecture:
+#   spark-01 (leader): Ray head + vLLM API server, pipeline layers 0–N/2
+#   spark-02 (worker): Ray worker, pipeline layers N/2–N
+#   Communication: NCCL over ethernet (eth0)
+#
+# Model: nvidia/Qwen3.5-397B-A17B-NVFP4
+#   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
+#   - PP=2: ~100 GB per node, fits in 128 GB GB10 HBM
+#
+# Prerequisites:
+#   1. Install LWS controller:
+#      kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/latest/download/manifests.yaml
+#   2. Disable GPU time-slicing on both nodes:
+#      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
+#      kubectl label node spark-02 nvidia.com/gpu.sharing-strategy=none --overwrite
+#   3. Create PVCs:
+#      kubectl apply -f deploy/qwen35-397b/model-cache-pvcs.yaml
+#   4. Create HF token secret if model requires auth:
+#      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
+
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: qwen35-397b
+  namespace: token-labs
+  labels:
+    app: qwen35-397b
+spec:
+  replicas: 1
+  leaderWorkerTemplate:
+    size: 2                                    # 1 leader + 1 worker
+    restartPolicy: RecreateGroupOnPodRestart
+    leaderTemplate:
+      metadata:
+        labels:
+          app: qwen35-397b
+          role: leader
+          llm-d.ai/inference-serving: "true"
+          llm-d.ai/model: qwen35-397b
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-01
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.6.0
+          ports:
+          - containerPort: 8000
+            name: vllm
+          - containerPort: 6379
+            name: ray-head
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 96Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          - name: NCCL_IB_DISABLE
+            value: "1"
+          - name: NCCL_DEBUG
+            value: "INFO"
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          - name: NCCL_P2P_DISABLE
+            value: "1"
+          - name: RAY_CLUSTER_SIZE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['leaderworkerset.sigs.k8s.io/size']
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
+            sleep 1
+            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --block &
+            until [ "$(/opt/venv/bin/ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
+              echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
+              sleep 5
+            done
+            echo "All workers joined. Starting vLLM with PP=2..."
+            python -m vllm.entrypoints.openai.api_server \
+              --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
+              --quantization modelopt \
+              --dtype bfloat16 \
+              --pipeline-parallel-size 2 \
+              --distributed-executor-backend ray \
+              --gpu-memory-utilization 0.90 \
+              --trust-remote-code \
+              --host 0.0.0.0 \
+              --port 8000 \
+              --download-dir /model-cache/huggingface/hub
+          startupProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 480   # 60s + 480x15s = up to ~121 min (large model download + load)
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-qwen35-397b-spark-01
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+    workerTemplate:
+      metadata:
+        labels:
+          app: qwen35-397b
+          role: worker
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-02
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/token-labs/vllm-serve:v0.6.0
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 96Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          - name: NCCL_IB_DISABLE
+            value: "1"
+          - name: NCCL_DEBUG
+            value: "INFO"
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          - name: NCCL_P2P_DISABLE
+            value: "1"
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
+            sleep 1
+            echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
+            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --block
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-qwen35-397b-spark-02
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
