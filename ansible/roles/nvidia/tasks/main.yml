@@ -1,0 +1,71 @@
+---
+# NVIDIA role - Install NVIDIA Container Toolkit and configure containerd
+
+- name: Add NVIDIA Container Toolkit GPG key
+  apt_key:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    state: present
+  become: true
+
+- name: Get NVIDIA Container Toolkit repository
+  shell: curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' > /tmp/nvidia-container-toolkit.list
+  changed_when: false
+  become: true
+
+- name: Add NVIDIA Container Toolkit repository
+  copy:
+    src: /tmp/nvidia-container-toolkit.list
+    dest: /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    remote_src: true
+  become: true
+
+- name: Install NVIDIA Container Toolkit
+  apt:
+    name: nvidia-container-toolkit={{ nvidia_container_toolkit_version }}-1
+    state: present
+    update_cache: true
+  become: true
+
+- name: Configure containerd to use nvidia runtime
+  shell: nvidia-ctk runtime configure --runtime=containerd
+  become: true
+  notify: restart containerd
+
+- name: Set nvidia runtime as default in containerd config
+  lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^\s+default_runtime_name\s*='
+    line: '    default_runtime_name = "nvidia"'
+    insertafter: '^\s+\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\]'
+  become: true
+  notify: restart containerd
+
+- name: Flush handlers to restart containerd
+  meta: flush_handlers
+
+- name: Wait for containerd to be ready
+  wait_for:
+    timeout: 10
+  delegate_to: localhost
+  become: false
+
+- name: Validate nvidia-smi is available
+  shell: which nvidia-smi
+  register: nvidia_smi_check
+  changed_when: false
+  failed_when: nvidia_smi_check.rc != 0
+  become: true
+
+- name: Test GPU access with container
+  shell: |
+    ctr image pull docker.io/nvidia/cuda:12.3.0-base-ubuntu22.04
+    ctr run --rm --gpus 0 docker.io/nvidia/cuda:12.3.0-base-ubuntu22.04 gpu-test nvidia-smi
+  register: gpu_test_result
+  changed_when: false
+  become: true
+  ignore_errors: true
+
+- name: Display GPU test result
+  debug:
+    var: gpu_test_result.stdout_lines
+  when: gpu_test_result.rc == 0
