@@ -209,7 +209,6 @@ type: Opaque
 |---|---|---|---|---|
 | `meta-llama/Llama-3.1-8B-Instruct` | Text LLM | spark-01 | `token-labs-pool` | ~16 GB |
 | `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` | Vision-Language | spark-02 | `nemotron-vl-pool` | ~13 GB |
-| `nvidia/magpie_tts_multilingual_357m` | Text-to-Speech | spark-01 | N/A (K8s Service) | ~700 MB |
 
 ---
 

@@ -59,8 +59,6 @@ This produces better tail latency and higher throughput than round-robin or leas
 - **Llama 3.1 8B Instruct** (spark-01) — general-purpose chat model
 - **Nemotron VL 12B FP8** (spark-02) — NVIDIA vision-language model with FP8 quantization, supports image+text inputs
 
-**[Magpie TTS](https://huggingface.co/nvidia/magpie_tts_multilingual_357m)** — NVIDIA's multilingual text-to-speech model (357M parameters). Runs on spark-01 (GPU, shared with Llama 3.1 8B). Served via a custom FastAPI wrapper that exposes an OpenAI-compatible `/v1/audio/speech` endpoint. Supports 5 voices and 7 languages (en, es, de, fr, vi, it, zh). Built on the NeMo framework.
-
 ### Infrastructure
 
 ```
@@ -306,26 +304,7 @@ Verify:
 kubectl get aigatewayroute -n token-labs    # AIGatewayRoute listed
 ```
 
-### Step 6: Deploy Magpie TTS
-
-Magpie TTS is deployed as a standalone service (not through llm-d) because it uses the NeMo framework, not vLLM:
-
-```bash
-kubectl apply -f deploy/magpie-tts/
-```
-
-What it deploys:
-- A Deployment running the FastAPI TTS wrapper on spark-01 (GPU-accelerated, shared with Llama)
-- A Service exposing port 8000
-- An HTTPRoute mapping `/v1/audio/speech` through the same Gateway
-
-Verify:
-```bash
-kubectl get pods -n token-labs -l app=magpie-tts  # 1 pod running
-kubectl get httproute -n token-labs               # magpie-tts-route listed
-```
-
-### Step 7: Apply Gateway, routes, and policies
+### Step 6: Apply Gateway, routes, and policies
 
 This step creates the actual networking and policy resources that wire everything together:
 
@@ -474,12 +453,8 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 │   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
 │   │   ├── helmfile.yaml.gotmpl
 │   │   └── values/
-│   ├── magpie-tts/           # Magpie TTS deployment + HTTPRoute
 │   ├── policies/             # Kuadrant AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy
 │   ├── tenants/              # Tenant API key Secrets (template + demos)
-│   └── monitoring/           # Prometheus ServiceMonitors
-├── services/
-│   └── magpie-tts/           # FastAPI TTS wrapper (server.py, Dockerfile)
 ├── docs/
 │   ├── ARCHITECTURE.md       # Full architecture deep-dive
 │   ├── index.html            # Live demo page

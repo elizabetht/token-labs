@@ -151,9 +151,6 @@ token-labs/
 │       ├── 04-deploy-llm-d.sh
 │       └── 05-deploy-services.sh
 │
-├── services/                  # Custom services
-│   └── magpie-tts/           # FastAPI TTS wrapper
-│
 └── README.md                  # This file
 ```
 

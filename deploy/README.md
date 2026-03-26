@@ -25,10 +25,7 @@
 # 5. Deploy AI Gateway Route (model-based routing to InferencePool)
 ./deploy/scripts/05-deploy-ai-gateway-route.sh
 
-# 6. Deploy Magpie TTS (text-to-speech service)
-kubectl apply -f deploy/magpie-tts/
-
-# 7. Apply Gateway and Kuadrant policies
+# 6. Apply Gateway and Kuadrant policies
 kubectl apply -f deploy/gateway/gateway.yaml
 kubectl apply -f deploy/gateway/namespace.yaml
 kubectl apply -f deploy/policies/
@@ -59,9 +56,6 @@ deploy/
 │       ├── inferencepool-nemotron-vl.yaml
 │       ├── modelservice.yaml
 │       └── modelservice-nemotron-vl.yaml
-├── magpie-tts/          # Magpie TTS deployment
-│   ├── deployment.yaml
-│   └── httproute.yaml
 ├── policies/            # Kuadrant policies
 │   ├── kuadrant.yaml
 │   ├── auth-policy.yaml
