@@ -53,6 +53,8 @@ spec:
         - name: vllm
           image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
           imagePullPolicy: Always
+          securityContext:
+            privileged: true
           ports:
           - containerPort: 8000
             name: vllm
@@ -96,6 +98,7 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
+            sync && echo 3 > /proc/sys/vm/drop_caches
             /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --object-store-memory=5368709120 --block &
             until [ "$(/opt/venv/bin/ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
               echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
