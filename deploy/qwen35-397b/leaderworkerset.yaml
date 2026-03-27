@@ -31,7 +31,7 @@ spec:
   replicas: 1
   leaderWorkerTemplate:
     size: 2                                    # 1 leader + 1 worker
-    restartPolicy: RecreateGroupOnPodRestart
+    restartPolicy: None
     leaderTemplate:
       metadata:
         labels:
@@ -47,9 +47,12 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        imagePullSecrets:
+        - name: ghcr-pull-secret
         containers:
         - name: vllm
-          image: ghcr.io/elizabetht/inference-images/vllm-serve:v0.0.1
+          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+          imagePullPolicy: Always
           ports:
           - containerPort: 8000
             name: vllm
@@ -62,7 +65,7 @@ spec:
               nvidia.com/gpu: "1"
             limits:
               cpu: "12"
-              memory: 96Gi
+              memory: 120Gi
               nvidia.com/gpu: "1"
           env:
           - name: FLASHINFER_DISABLE_VERSION_CHECK
@@ -77,6 +80,8 @@ spec:
             value: "eth0"
           - name: NCCL_P2P_DISABLE
             value: "1"
+          - name: RAY_memory_monitor_refresh_ms
+            value: "0"
           - name: RAY_CLUSTER_SIZE
             valueFrom:
               fieldRef:
@@ -89,9 +94,7 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
-            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
-            sleep 1
-            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --block &
+            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --object-store-memory=5368709120 --block &
             until [ "$(/opt/venv/bin/ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
               echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
               sleep 5
@@ -103,8 +106,10 @@ spec:
               --dtype bfloat16 \
               --pipeline-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.90 \
+              --gpu-memory-utilization 0.85 \
               --trust-remote-code \
+              --enable-auto-tool-choice \
+              --tool-call-parser qwen3_coder \
               --host 0.0.0.0 \
               --port 8000 \
               --download-dir /model-cache/huggingface/hub
@@ -151,9 +156,12 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        imagePullSecrets:
+        - name: ghcr-pull-secret
         containers:
         - name: vllm
-          image: ghcr.io/elizabetht/inference-images/vllm-serve:v0.0.1
+          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+          imagePullPolicy: Always
           resources:
             requests:
               cpu: "8"
@@ -161,7 +169,7 @@ spec:
               nvidia.com/gpu: "1"
             limits:
               cpu: "12"
-              memory: 96Gi
+              memory: 120Gi
               nvidia.com/gpu: "1"
           env:
           - name: FLASHINFER_DISABLE_VERSION_CHECK
@@ -176,6 +184,8 @@ spec:
             value: "eth0"
           - name: NCCL_P2P_DISABLE
             value: "1"
+          - name: RAY_memory_monitor_refresh_ms
+            value: "0"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -187,7 +197,7 @@ spec:
             python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
             sleep 1
             echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
-            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --block
+            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=5368709120 --block
         volumes:
         - name: model-cache
           persistentVolumeClaim:
