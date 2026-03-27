@@ -1,13 +1,15 @@
-# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks
+# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with TP=2 across 2 DGX Sparks
 #
 # Architecture:
-#   spark-01 (leader): Ray head + vLLM API server, pipeline layers 0–N/2
-#   spark-02 (worker): Ray worker, pipeline layers N/2–N
-#   Communication: NCCL over ethernet (eth0)
+#   spark-01 (leader): Ray head + vLLM API server, TP rank 0 (half weights)
+#   spark-02 (worker): Ray worker, TP rank 1 (half weights)
+#   Communication: NCCL AllReduce over 100 GbE (192.168.100.x via pod overlay)
 #
 # Model: nvidia/Qwen3.5-397B-A17B-NVFP4
 #   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
-#   - PP=2: ~100 GB per node, fits in 128 GB GB10 HBM
+#   - TP=2: ~50 GB weights per node (sharded), fits in 128 GB GB10 HBM
+#   - PP=2 rejected: rank 1 requires 110 GB (weights + BF16 lm_head), exceeds
+#     CUDA-visible free (~107.5 GB) on GB10 unified memory after runtime overhead
 #
 # Prerequisites:
 #   1. Install LWS controller:
@@ -106,23 +108,21 @@ spec:
             done
             echo "All workers joined. Dropping page cache before vLLM..."
             sync && echo 3 > /proc/sys/vm/drop_caches
-            echo "Starting vLLM with PP=2..."
+            echo "Starting vLLM with TP=2 (100G cross-node via Ray)..."
             python -m vllm.entrypoints.openai.api_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
               --quantization modelopt \
               --dtype bfloat16 \
-              --pipeline-parallel-size 2 \
+              --tensor-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.895 \
+              --gpu-memory-utilization 0.65 \
               --enforce-eager \
               --trust-remote-code \
               --enable-auto-tool-choice \
               --tool-call-parser qwen3_coder \
               --host 0.0.0.0 \
               --port 8000 \
-              --download-dir /model-cache/huggingface/hub \
-              --num-gpu-blocks-override 200 \
-              --max-model-len 3072
+              --download-dir /model-cache/huggingface/hub
           startupProbe:
             httpGet:
               path: /v1/models
