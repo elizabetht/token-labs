@@ -82,6 +82,8 @@ spec:
             value: "1"
           - name: RAY_memory_monitor_refresh_ms
             value: "0"
+          - name: PYTORCH_ALLOC_CONF
+            value: "expandable_segments:True"
           - name: RAY_CLUSTER_SIZE
             valueFrom:
               fieldRef:
@@ -106,7 +108,7 @@ spec:
               --dtype bfloat16 \
               --pipeline-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.85 \
+              --gpu-memory-utilization 0.93 \
               --trust-remote-code \
               --enable-auto-tool-choice \
               --tool-call-parser qwen3_coder \
@@ -186,6 +188,8 @@ spec:
             value: "1"
           - name: RAY_memory_monitor_refresh_ms
             value: "0"
+          - name: PYTORCH_ALLOC_CONF
+            value: "expandable_segments:True"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
