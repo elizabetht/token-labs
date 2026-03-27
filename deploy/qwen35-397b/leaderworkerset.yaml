@@ -108,7 +108,8 @@ spec:
               --dtype bfloat16 \
               --pipeline-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.93 \
+              --gpu-memory-utilization 0.92 \
+              --enforce-eager \
               --trust-remote-code \
               --enable-auto-tool-choice \
               --tool-call-parser qwen3_coder \
