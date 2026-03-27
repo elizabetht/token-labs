@@ -99,7 +99,7 @@ spec:
           args:
           - |
             sync && echo 3 > /proc/sys/vm/drop_caches
-            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --object-store-memory=5368709120 --block &
+            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --object-store-memory=524288000 --block &
             until [ "$(/opt/venv/bin/ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
               echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
               sleep 5
@@ -111,7 +111,7 @@ spec:
               --dtype bfloat16 \
               --pipeline-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.92 \
+              --gpu-memory-utilization 0.91 \
               --enforce-eager \
               --trust-remote-code \
               --enable-auto-tool-choice \
@@ -205,7 +205,7 @@ spec:
             python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
             sleep 1
             echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
-            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=5368709120 --block
+            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=524288000 --block
         volumes:
         - name: model-cache
           persistentVolumeClaim:
