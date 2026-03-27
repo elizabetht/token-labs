@@ -1,15 +1,16 @@
-# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with TP=2 across 2 DGX Sparks
+# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks
 #
 # Architecture:
-#   spark-01 (leader): Ray head + vLLM API server, TP rank 0 (half weights)
-#   spark-02 (worker): Ray worker, TP rank 1 (half weights)
-#   Communication: NCCL AllReduce over 100 GbE (192.168.100.x via pod overlay)
+#   spark-01 (leader): Ray head + vLLM API server, pipeline layers 0–N/2
+#   spark-02 (worker): Ray worker, pipeline layers N/2–N
+#   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
 #
 # Model: nvidia/Qwen3.5-397B-A17B-NVFP4
 #   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
-#   - TP=2: ~50 GB weights per node (sharded), fits in 128 GB GB10 HBM
-#   - PP=2 rejected: rank 1 requires 110 GB (weights + BF16 lm_head), exceeds
-#     CUDA-visible free (~107.5 GB) on GB10 unified memory after runtime overhead
+#   - PP=2: rank 1 needs ~110 GB (layers + BF16 lm_head); requires 8 GB swap on
+#     spark-02 so OS can page Ray (~7 GB anon) to NVMe, freeing DRAM for CUDA
+#   - TP=2 rejected: modelopt NVFP4 lacks TP weight sharding; each rank loads
+#     full model (~108 GB) instead of half, causing OOM
 #
 # Prerequisites:
 #   1. Install LWS controller:
@@ -108,14 +109,14 @@ spec:
             done
             echo "All workers joined. Dropping page cache before vLLM..."
             sync && echo 3 > /proc/sys/vm/drop_caches
-            echo "Starting vLLM with TP=2 (100G cross-node via Ray)..."
+            echo "Starting vLLM with PP=2..."
             python -m vllm.entrypoints.openai.api_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
               --quantization modelopt \
               --dtype bfloat16 \
-              --tensor-parallel-size 2 \
+              --pipeline-parallel-size 2 \
               --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.65 \
+              --gpu-memory-utilization 0.895 \
               --enforce-eager \
               --trust-remote-code \
               --enable-auto-tool-choice \
