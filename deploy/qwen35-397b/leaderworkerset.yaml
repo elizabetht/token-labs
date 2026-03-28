@@ -1,16 +1,18 @@
-# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks
+# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with TP=2 across 2 DGX Sparks
 #
 # Architecture:
-#   spark-01 (leader): Ray head + vLLM API server, pipeline layers 0–N/2
-#   spark-02 (worker): Ray worker, pipeline layers N/2–N
+#   spark-01 (leader): SGLang HTTP server, TP rank 0, layers 0–N/2
+#   spark-02 (worker): SGLang TP rank 1, layers N/2–N
 #   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
+#   Distributed init: torch.distributed via --dist-init-addr leader_ip:20000
 #
 # Model: nvidia/Qwen3.5-397B-A17B-NVFP4
 #   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
-#   - PP=2: rank 1 needs ~110 GB (layers + BF16 lm_head); requires 8 GB swap on
-#     spark-02 so OS can page Ray (~7 GB anon) to NVMe, freeing DRAM for CUDA
-#   - TP=2 rejected: modelopt NVFP4 lacks TP weight sharding; each rank loads
-#     full model (~108 GB) instead of half, causing OOM
+#   - TP=2: each rank loads ~100 GB (proper NVFP4 TP weight sharding in SGLang)
+#   - vLLM PP=2 was attempted but profiling pass OOMs: vLLM allocates a test tensor
+#     of gpu_memory_utilization × total_GPU_memory (0.85 × 125 GB = 106 GB) on top
+#     of loaded weights (~110 GB rank 1), exceeding the 125 GB physical DRAM.
+#     SGLang does not have this profiling preallocation step.
 #
 # Prerequisites:
 #   1. Install LWS controller:
@@ -50,19 +52,17 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
-        imagePullSecrets:
-        - name: ghcr-pull-secret
         containers:
-        - name: vllm
-          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
-          imagePullPolicy: Always
+        - name: sglang
+          image: lmsysorg/sglang:v0.5.9
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           ports:
           - containerPort: 8000
-            name: vllm
-          - containerPort: 6379
-            name: ray-head
+            name: http
+          - containerPort: 20000
+            name: dist-init
           resources:
             requests:
               cpu: "8"
@@ -73,26 +73,22 @@ spec:
               memory: 130Gi
               nvidia.com/gpu: "1"
           env:
-          - name: FLASHINFER_DISABLE_VERSION_CHECK
-            value: "1"
           - name: HF_HOME
             value: "/model-cache/huggingface"
           - name: NCCL_IB_DISABLE
             value: "1"
-          - name: NCCL_DEBUG
-            value: "INFO"
           - name: NCCL_SOCKET_IFNAME
             value: "eth0"
           - name: NCCL_P2P_DISABLE
             value: "1"
-          - name: RAY_memory_monitor_refresh_ms
+          - name: NCCL_DEBUG
+            value: "WARN"
+          - name: SGLANG_ENABLE_JIT_DEEPGEMM
             value: "0"
-          - name: PYTORCH_ALLOC_CONF
-            value: "expandable_segments:True"
-          - name: RAY_CLUSTER_SIZE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.annotations['leaderworkerset.sigs.k8s.io/size']
+          - name: SGLANG_DISABLE_CUDNN_CHECK
+            value: "1"
+          - name: SGLANG_SET_CPU_AFFINITY
+            value: "true"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -101,8 +97,8 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
-            # Enable swap for this container: cgroup v2 sets memory.swap.max=0 by default,
-            # preventing swap even when the host has swap space. Fix from privileged container.
+            set -e
+            # Enable swap: cgroup v2 sets memory.swap.max=0 by default
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
               echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
@@ -110,59 +106,45 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            # Pre-download model to PVC before starting Ray/vLLM to avoid
-            # simultaneous download+load page cache pressure causing OOMKill.
-            MODEL_MARKER="/model-cache/huggingface/hub/.model_ready"
-            if [ ! -f "$MODEL_MARKER" ]; then
-              echo "Pre-downloading model to leader PVC (this runs once)..."
-              python3 -c "from huggingface_hub import snapshot_download; snapshot_download('nvidia/Qwen3.5-397B-A17B-NVFP4', cache_dir='/model-cache/huggingface/hub'); open('/model-cache/huggingface/hub/.model_ready','w').close(); print('Done')" \
-                && sync && echo 3 > /proc/sys/vm/drop_caches && echo "Page cache cleared post-download"
-            else
-              echo "Model already cached, skipping download"
-            fi
-            /opt/venv/bin/ray start --head --port=6379 --num-gpus=1 --object-store-memory=524288000 --include-dashboard=false --block &
-            until [ "$(/opt/venv/bin/ray status 2>/dev/null | awk '/GPU/{split($1,a,"/"); c=int(a[2])} END{print c+0}')" -ge "$RAY_CLUSTER_SIZE" ]; do
-              echo "Waiting for $RAY_CLUSTER_SIZE GPUs (Ray workers)..."
-              sleep 5
-            done
-            echo "All workers joined. Dropping page cache before vLLM..."
-            sync && echo 3 > /proc/sys/vm/drop_caches
-            echo "Starting vLLM with PP=2..."
-            python -m vllm.entrypoints.openai.api_server \
+            # Ensure transformers v5 for Qwen3.5 NVFP4 support
+            pip install -q "transformers>=5.0.0" 2>&1 | tail -1
+            LEADER_IP=$(hostname -i | awk '{print $1}')
+            echo "Leader IP: $LEADER_IP"
+            echo "Starting SGLang TP=2 rank 0 (leader)..."
+            python3 -m sglang.launch_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
-              --quantization modelopt \
-              --dtype bfloat16 \
-              --pipeline-parallel-size 2 \
-              --distributed-executor-backend ray \
-              --gpu-memory-utilization 0.85 \
-              --enforce-eager \
-              --trust-remote-code \
-              --enable-auto-tool-choice \
-              --tool-call-parser qwen3_coder \
+              --quantization modelopt_fp4 \
+              --tensor-parallel-size 2 \
+              --nnodes 2 \
+              --node-rank 0 \
+              --dist-init-addr ${LEADER_IP}:20000 \
               --host 0.0.0.0 \
               --port 8000 \
+              --trust-remote-code \
               --download-dir /model-cache/huggingface/hub \
-              --num-gpu-blocks-override 64 \
-              --max-num-seqs 4 \
-              --max-model-len 4096
+              --mem-fraction-static 0.80 \
+              --max-running-requests 4 \
+              --context-length 4096 \
+              --attention-backend triton \
+              --disable-cuda-graph
           startupProbe:
             httpGet:
-              path: /v1/models
+              path: /health
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 480   # 60s + 480x15s = up to ~121 min (large model download + load)
+            failureThreshold: 480   # up to ~121 min for model load
             timeoutSeconds: 10
           readinessProbe:
             httpGet:
-              path: /v1/models
+              path: /health
               port: 8000
             periodSeconds: 15
             failureThreshold: 3
             timeoutSeconds: 5
           livenessProbe:
             httpGet:
-              path: /v1/models
+              path: /health
               port: 8000
             periodSeconds: 30
             failureThreshold: 5
@@ -188,12 +170,10 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
-        imagePullSecrets:
-        - name: ghcr-pull-secret
         containers:
-        - name: vllm
-          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
-          imagePullPolicy: Always
+        - name: sglang
+          image: lmsysorg/sglang:v0.5.9
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           resources:
@@ -206,22 +186,22 @@ spec:
               memory: 130Gi
               nvidia.com/gpu: "1"
           env:
-          - name: FLASHINFER_DISABLE_VERSION_CHECK
-            value: "1"
           - name: HF_HOME
             value: "/model-cache/huggingface"
           - name: NCCL_IB_DISABLE
             value: "1"
-          - name: NCCL_DEBUG
-            value: "INFO"
           - name: NCCL_SOCKET_IFNAME
             value: "eth0"
           - name: NCCL_P2P_DISABLE
             value: "1"
-          - name: RAY_memory_monitor_refresh_ms
+          - name: NCCL_DEBUG
+            value: "WARN"
+          - name: SGLANG_ENABLE_JIT_DEEPGEMM
             value: "0"
-          - name: PYTORCH_ALLOC_CONF
-            value: "expandable_segments:True"
+          - name: SGLANG_DISABLE_CUDNN_CHECK
+            value: "1"
+          - name: SGLANG_SET_CPU_AFFINITY
+            value: "true"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -230,7 +210,8 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
           - |
-            # Enable swap for this container (same as leader — cgroup v2 sets swap.max=0)
+            set -e
+            # Enable swap: cgroup v2 sets memory.swap.max=0 by default
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
               echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
@@ -238,21 +219,22 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            # Pre-download model to worker PVC (rank 1 loads from this PVC)
-            MODEL_MARKER="/model-cache/huggingface/hub/.model_ready"
-            if [ ! -f "$MODEL_MARKER" ]; then
-              echo "Pre-downloading model to worker PVC (this runs once)..."
-              python3 -c "from huggingface_hub import snapshot_download; snapshot_download('nvidia/Qwen3.5-397B-A17B-NVFP4', cache_dir='/model-cache/huggingface/hub'); open('/model-cache/huggingface/hub/.model_ready','w').close(); print('Done')" \
-                && sync && echo 3 > /proc/sys/vm/drop_caches && echo "Page cache cleared post-download"
-            else
-              echo "Model already cached, skipping download"
-            fi
-            python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
-            echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
-            until /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=524288000 --block; do
-              echo "Ray head not ready, retrying in 10s..."
-              sleep 10
-            done
+            # Ensure transformers v5 for Qwen3.5 NVFP4 support
+            pip install -q "transformers>=5.0.0" 2>&1 | tail -1
+            echo "Starting SGLang TP=2 rank 1 (worker), connecting to $LWS_LEADER_ADDRESS:20000..."
+            python3 -m sglang.launch_server \
+              --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
+              --quantization modelopt_fp4 \
+              --tensor-parallel-size 2 \
+              --nnodes 2 \
+              --node-rank 1 \
+              --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
+              --trust-remote-code \
+              --download-dir /model-cache/huggingface/hub \
+              --mem-fraction-static 0.80 \
+              --context-length 4096 \
+              --attention-backend triton \
+              --disable-cuda-graph
         volumes:
         - name: model-cache
           persistentVolumeClaim:
