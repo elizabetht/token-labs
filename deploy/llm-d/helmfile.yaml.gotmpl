@@ -47,6 +47,19 @@ releases:
     values:
     - ../qwen35-397b/inferencepool-values.yaml
 
+  # ── GLM-4.7-NVFP4 PP=2 (spark-01 + spark-02, LeaderWorkerSet) ────────────
+  # PVCs: kubectl apply -f deploy/glm-4.7/model-cache-pvcs.yaml
+  # LWS:  kubectl apply -f deploy/glm-4.7/leaderworkerset.yaml
+  # This release only creates the InferencePool + EPP for routing.
+  - name: llm-d-inferencepool-glm-4-7
+    namespace: token-labs
+    chart: gaie/inferencepool
+    version: v1.3.0
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - ../glm-4.7/inferencepool-values.yaml
+
   # ── gpt-oss-120gb PP=2 (spark-01 + spark-02, LeaderWorkerSet) ─────────────
   # PVCs: kubectl apply -f deploy/gpt-oss/model-cache-pvcs.yaml
   # LWS:  kubectl apply -f deploy/gpt-oss/leaderworkerset.yaml

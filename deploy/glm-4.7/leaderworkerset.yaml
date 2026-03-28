@@ -1,4 +1,4 @@
-# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks (agentic)
+# LeaderWorkerSet — nvidia/GLM-4.7-NVFP4 with PP=2 across 2 DGX Sparks (agentic)
 #
 # Architecture:
 #   spark-01 (leader): SGLang HTTP server, PP rank 0, layers 0–N/2
@@ -6,14 +6,11 @@
 #   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
 #   Distributed init: torch.distributed via --dist-init-addr leader_ip:20000
 #
-# Model: nvidia/Qwen3.5-397B-A17B-NVFP4
-#   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
-#   - PP=2: each rank loads ~100 GB of layer weights (first/second half of layers)
-#   - Pipeline parallelism: activations passed between stages; no all-reduce per layer
-#   - vLLM PP=2 was attempted but profiling pass OOMs: vLLM allocates a test tensor
-#     of gpu_memory_utilization × total_GPU_memory (0.85 × 125 GB = 106 GB) on top
-#     of loaded weights (~110 GB rank 1), exceeding the 125 GB physical DRAM.
-#     SGLang does not have this profiling preallocation step.
+# Model: nvidia/GLM-4.7-NVFP4
+#   - 358B total params, selective NVFP4 (linear ops only; embeddings/norms stay BF16)
+#   - Effective weight footprint: ~206 GB (170 GB FP4 + 36 GB BF16)
+#   - PP=2 with mem-fraction-static 0.80: ~20 GB KV headroom — keep context short
+#   - Tool-call and reasoning parsers enabled (glm47/glm45)
 #
 # Prerequisites:
 #   1. Install LWS controller:
@@ -22,17 +19,17 @@
 #      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
 #      kubectl label node spark-02 nvidia.com/gpu.sharing-strategy=none --overwrite
 #   3. Create PVCs:
-#      kubectl apply -f deploy/qwen35-397b/model-cache-pvcs.yaml
+#      kubectl apply -f deploy/glm-4.7/model-cache-pvcs.yaml
 #   4. Create HF token secret if model requires auth:
 #      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
 
 apiVersion: leaderworkerset.x-k8s.io/v1
 kind: LeaderWorkerSet
 metadata:
-  name: qwen35-397b
+  name: glm-4-7
   namespace: token-labs
   labels:
-    app: qwen35-397b
+    app: glm-4-7
 spec:
   replicas: 1
   leaderWorkerTemplate:
@@ -41,10 +38,10 @@ spec:
     leaderTemplate:
       metadata:
         labels:
-          app: qwen35-397b
+          app: glm-4-7
           role: leader
           llm-d.ai/inference-serving: "true"
-          llm-d.ai/model: qwen35-397b
+          llm-d.ai/model: glm-4-7
       spec:
         runtimeClassName: nvidia
         nodeSelector:
@@ -99,7 +96,6 @@ spec:
           args:
           - |
             set -e
-            # Enable swap: cgroup v2 sets memory.swap.max=0 by default
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
               echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
@@ -111,23 +107,21 @@ spec:
             echo "Leader IP: $LEADER_IP"
             echo "Starting SGLang PP=2 rank 0 (leader)..."
             python3 -m sglang.launch_server \
-              --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
-              --quantization modelopt_fp4 \
+              --model nvidia/GLM-4.7-NVFP4 \
               --pp-size 2 \
+              --quantization modelopt_fp4 \
+              --tool-call-parser glm47 \
+              --reasoning-parser glm45 \
+              --trust-remote-code \
+              --chunked-prefill-size 131072 \
+              --mem-fraction-static 0.80 \
               --nnodes 2 \
               --node-rank 0 \
               --dist-init-addr ${LEADER_IP}:20000 \
               --host 0.0.0.0 \
               --port 8000 \
-              --trust-remote-code \
-              --download-dir /model-cache/huggingface/hub \
-              --mem-fraction-static 0.80 \
               --max-running-requests 4 \
-              --context-length 32768 \
-              --kv-cache-dtype fp8 \
-              --chunked-prefill-size 131072 \
-              --attention-backend triton \
-              --disable-cuda-graph
+              --download-dir /model-cache/huggingface/hub
           startupProbe:
             httpGet:
               path: /health
@@ -153,7 +147,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen35-397b-spark-01
+            claimName: model-cache-glm-4-7-spark-01
         - name: shm
           emptyDir:
             medium: Memory
@@ -161,7 +155,7 @@ spec:
     workerTemplate:
       metadata:
         labels:
-          app: qwen35-397b
+          app: glm-4-7
           role: worker
       spec:
         runtimeClassName: nvidia
@@ -212,7 +206,6 @@ spec:
           args:
           - |
             set -e
-            # Enable swap: cgroup v2 sets memory.swap.max=0 by default
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
               echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
@@ -220,26 +213,24 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            echo "Starting SGLang PP=2 rank 1 (worker), connecting to $LWS_LEADER_ADDRESS:20000..."
+            echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
             python3 -m sglang.launch_server \
-              --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
-              --quantization modelopt_fp4 \
+              --model nvidia/GLM-4.7-NVFP4 \
               --pp-size 2 \
+              --quantization modelopt_fp4 \
+              --tool-call-parser glm47 \
+              --reasoning-parser glm45 \
+              --trust-remote-code \
+              --chunked-prefill-size 131072 \
+              --mem-fraction-static 0.80 \
               --nnodes 2 \
               --node-rank 1 \
               --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
-              --trust-remote-code \
-              --download-dir /model-cache/huggingface/hub \
-              --mem-fraction-static 0.80 \
-              --context-length 32768 \
-              --kv-cache-dtype fp8 \
-              --chunked-prefill-size 131072 \
-              --attention-backend triton \
-              --disable-cuda-graph
+              --download-dir /model-cache/huggingface/hub
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen35-397b-spark-02
+            claimName: model-cache-glm-4-7-spark-02
         - name: shm
           emptyDir:
             medium: Memory

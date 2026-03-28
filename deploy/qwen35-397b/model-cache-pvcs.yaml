@@ -3,6 +3,9 @@
 # PP=2 requires each node to hold the full checkpoint on disk.
 # vLLM downloads all weights, then loads only its pipeline stage into GPU.
 # NVFP4 weights: ~200 GB + HF hub temp files during download → 280 GB per node.
+#
+# volumeName pins each PVC to the specific pre-existing PV that holds the
+# already-downloaded model data (Retain policy preserved the backing volume).
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -14,6 +17,7 @@ metadata:
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: longhorn-model-cache
+  volumeName: pvc-f0254def-51f5-44ea-a837-3a4a431b5920
   resources:
     requests:
       storage: 280Gi
@@ -28,6 +32,7 @@ metadata:
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: longhorn-model-cache
+  volumeName: pvc-c9326b06-debc-4f81-9c37-9b4d00fbf07f
   resources:
     requests:
       storage: 280Gi
