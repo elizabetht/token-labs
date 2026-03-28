@@ -106,8 +106,6 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            # Ensure transformers v5 for Qwen3.5 NVFP4 support
-            pip install -q "transformers>=5.0.0" 2>&1 | tail -1
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
             echo "Starting SGLang TP=2 rank 0 (leader)..."
@@ -219,8 +217,6 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            # Ensure transformers v5 for Qwen3.5 NVFP4 support
-            pip install -q "transformers>=5.0.0" 2>&1 | tail -1
             echo "Starting SGLang TP=2 rank 1 (worker), connecting to $LWS_LEADER_ADDRESS:20000..."
             python3 -m sglang.launch_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
