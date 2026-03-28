@@ -70,7 +70,7 @@ spec:
               nvidia.com/gpu: "1"
             limits:
               cpu: "12"
-              memory: 126Gi
+              memory: 130Gi
               nvidia.com/gpu: "1"
           env:
           - name: FLASHINFER_DISABLE_VERSION_CHECK
@@ -105,8 +105,8 @@ spec:
             # preventing swap even when the host has swap space. Fix from privileged container.
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
-              echo $((8*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
-                && echo "Container swap enabled (8GiB)" \
+              echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
+                && echo "Container swap enabled (32GiB)" \
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
@@ -202,7 +202,7 @@ spec:
               nvidia.com/gpu: "1"
             limits:
               cpu: "12"
-              memory: 126Gi
+              memory: 130Gi
               nvidia.com/gpu: "1"
           env:
           - name: FLASHINFER_DISABLE_VERSION_CHECK
@@ -232,8 +232,8 @@ spec:
             # Enable swap for this container (same as leader — cgroup v2 sets swap.max=0)
             CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
             if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
-              echo $((8*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
-                && echo "Worker container swap enabled (8GiB)" \
+              echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
+                && echo "Worker container swap enabled (32GiB)" \
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
