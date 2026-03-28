@@ -202,7 +202,7 @@ spec:
               nvidia.com/gpu: "1"
             limits:
               cpu: "12"
-              memory: 120Gi
+              memory: 126Gi
               nvidia.com/gpu: "1"
           env:
           - name: FLASHINFER_DISABLE_VERSION_CHECK
