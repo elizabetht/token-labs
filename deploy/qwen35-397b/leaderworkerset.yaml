@@ -248,7 +248,10 @@ spec:
             fi
             python3 -m http.server 18889 --directory /opt/tiktoken-cache 2>/dev/null &
             echo "Connecting to Ray head at $LWS_LEADER_ADDRESS:6379..."
-            /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=524288000 --block
+            until /opt/venv/bin/ray start --address=$LWS_LEADER_ADDRESS:6379 --num-gpus=1 --object-store-memory=524288000 --block; do
+              echo "Ray head not ready, retrying in 10s..."
+              sleep 10
+            done
         volumes:
         - name: model-cache
           persistentVolumeClaim:
