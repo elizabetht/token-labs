@@ -143,6 +143,7 @@ spec:
               --port 8000 \
               --download-dir /model-cache/huggingface/hub \
               --num-gpu-blocks-override 64 \
+              --max-num-seqs 4 \
               --max-model-len 4096
           startupProbe:
             httpGet:
