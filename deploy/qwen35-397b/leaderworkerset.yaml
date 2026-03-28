@@ -1,14 +1,15 @@
-# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with TP=2 across 2 DGX Sparks
+# LeaderWorkerSet — nvidia/Qwen3.5-397B-A17B-NVFP4 with PP=2 across 2 DGX Sparks
 #
 # Architecture:
-#   spark-01 (leader): SGLang HTTP server, TP rank 0, layers 0–N/2
-#   spark-02 (worker): SGLang TP rank 1, layers N/2–N
+#   spark-01 (leader): SGLang HTTP server, PP rank 0, layers 0–N/2
+#   spark-02 (worker): SGLang PP rank 1, layers N/2–N
 #   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
 #   Distributed init: torch.distributed via --dist-init-addr leader_ip:20000
 #
 # Model: nvidia/Qwen3.5-397B-A17B-NVFP4
 #   - 397B total params, 17B active (MoE), NVFP4 quantization (~200 GB weights)
-#   - TP=2: each rank loads ~100 GB (proper NVFP4 TP weight sharding in SGLang)
+#   - PP=2: each rank loads ~100 GB of layer weights (first/second half of layers)
+#   - Pipeline parallelism: activations passed between stages; no all-reduce per layer
 #   - vLLM PP=2 was attempted but profiling pass OOMs: vLLM allocates a test tensor
 #     of gpu_memory_utilization × total_GPU_memory (0.85 × 125 GB = 106 GB) on top
 #     of loaded weights (~110 GB rank 1), exceeding the 125 GB physical DRAM.
@@ -89,6 +90,10 @@ spec:
             value: "1"
           - name: SGLANG_SET_CPU_AFFINITY
             value: "true"
+          - name: HF_HUB_OFFLINE
+            value: "1"
+          - name: TRANSFORMERS_OFFLINE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -108,11 +113,11 @@ spec:
             sync && echo 3 > /proc/sys/vm/drop_caches
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
-            echo "Starting SGLang TP=2 rank 0 (leader)..."
+            echo "Starting SGLang PP=2 rank 0 (leader)..."
             python3 -m sglang.launch_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
               --quantization modelopt_fp4 \
-              --tensor-parallel-size 2 \
+              --pp-size 2 \
               --nnodes 2 \
               --node-rank 0 \
               --dist-init-addr ${LEADER_IP}:20000 \
@@ -200,6 +205,10 @@ spec:
             value: "1"
           - name: SGLANG_SET_CPU_AFFINITY
             value: "true"
+          - name: HF_HUB_OFFLINE
+            value: "1"
+          - name: TRANSFORMERS_OFFLINE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -217,11 +226,11 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches
-            echo "Starting SGLang TP=2 rank 1 (worker), connecting to $LWS_LEADER_ADDRESS:20000..."
+            echo "Starting SGLang PP=2 rank 1 (worker), connecting to $LWS_LEADER_ADDRESS:20000..."
             python3 -m sglang.launch_server \
               --model nvidia/Qwen3.5-397B-A17B-NVFP4 \
               --quantization modelopt_fp4 \
-              --tensor-parallel-size 2 \
+              --pp-size 2 \
               --nnodes 2 \
               --node-rank 1 \
               --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
