@@ -1,0 +1,32 @@
+# PVCs for Qwen/Qwen3-Coder-Next model cache — one per node
+#
+# PP=2 requires each node to hold the full checkpoint on disk.
+# Weights + HF hub temp files during download → 300 GB per node.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen3-coder-next-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 300Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen3-coder-next-spark-02
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 300Gi

@@ -1,4 +1,4 @@
-# LeaderWorkerSet — nvidia/GLM-4.7-NVFP4 with PP=2 across 2 DGX Sparks (agentic)
+# LeaderWorkerSet — Qwen/Qwen3-Coder-Next with PP=2 across 2 DGX Sparks
 #
 # Architecture:
 #   spark-01 (leader): SGLang HTTP server, PP rank 0, layers 0–N/2
@@ -6,11 +6,11 @@
 #   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
 #   Distributed init: torch.distributed via --dist-init-addr leader_ip:20000
 #
-# Model: nvidia/GLM-4.7-NVFP4
-#   - 358B total params, selective NVFP4 (linear ops only; embeddings/norms stay BF16)
-#   - Effective weight footprint: ~206 GB (170 GB FP4 + 36 GB BF16)
-#   - PP=2 with mem-fraction-static 0.80: ~20 GB KV headroom — keep context short
-#   - Tool-call and reasoning parsers enabled (glm47/glm45)
+# Model: Qwen/Qwen3-Coder-Next
+#   - Large coder model with thinking/reasoning support
+#   - PP=2: each rank loads ~half the weights into 125 GB GPU DRAM
+#   - Tool-call and reasoning parsers enabled (qwen25/qwen3)
+#   - 128K context length optimized for long-context code tasks
 #
 # Prerequisites:
 #   1. Install LWS controller:
@@ -19,17 +19,17 @@
 #      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
 #      kubectl label node spark-02 nvidia.com/gpu.sharing-strategy=none --overwrite
 #   3. Create PVCs:
-#      kubectl apply -f deploy/glm-4.7/model-cache-pvcs.yaml
+#      kubectl apply -f deploy/qwen3-coder-next/model-cache-pvcs.yaml
 #   4. Create HF token secret if model requires auth:
 #      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
 
 apiVersion: leaderworkerset.x-k8s.io/v1
 kind: LeaderWorkerSet
 metadata:
-  name: glm-4-7
+  name: qwen3-coder-next
   namespace: token-labs
   labels:
-    app: glm-4-7
+    app: qwen3-coder-next
 spec:
   replicas: 1
   leaderWorkerTemplate:
@@ -38,10 +38,10 @@ spec:
     leaderTemplate:
       metadata:
         labels:
-          app: glm-4-7
+          app: qwen3-coder-next
           role: leader
           llm-d.ai/inference-serving: "true"
-          llm-d.ai/model: glm-4-7
+          llm-d.ai/model: qwen3-coder-next
       spec:
         runtimeClassName: nvidia
         nodeSelector:
@@ -106,12 +106,10 @@ spec:
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
             echo "Starting SGLang PP=2 rank 0 (leader)..."
-            python3 -m sglang.launch_server \
-              --model nvidia/GLM-4.7-NVFP4 \
+            python -m sglang.launch_server \
+              --model Qwen/Qwen3-Coder-Next \
               --pp-size 2 \
-              --quantization modelopt_fp4 \
-              --tool-call-parser glm47 \
-              --reasoning-parser glm45 \
+              --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
               --mem-fraction-static 0.80 \
@@ -121,6 +119,8 @@ spec:
               --host 0.0.0.0 \
               --port 8000 \
               --max-running-requests 4 \
+              --context-length 131072 \
+              --kv-cache-dtype fp8 \
               --dist-timeout 7200 \
               --download-dir /model-cache/huggingface/hub
           startupProbe:
@@ -148,7 +148,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-glm-4-7-spark-01
+            claimName: model-cache-qwen3-coder-next-spark-01
         - name: shm
           emptyDir:
             medium: Memory
@@ -156,7 +156,7 @@ spec:
     workerTemplate:
       metadata:
         labels:
-          app: glm-4-7
+          app: qwen3-coder-next
           role: worker
       spec:
         runtimeClassName: nvidia
@@ -215,24 +215,24 @@ spec:
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
             echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
-            python3 -m sglang.launch_server \
-              --model nvidia/GLM-4.7-NVFP4 \
+            python -m sglang.launch_server \
+              --model Qwen/Qwen3-Coder-Next \
               --pp-size 2 \
-              --quantization modelopt_fp4 \
-              --tool-call-parser glm47 \
-              --reasoning-parser glm45 \
+              --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
               --mem-fraction-static 0.80 \
               --nnodes 2 \
               --node-rank 1 \
               --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
+              --context-length 131072 \
+              --kv-cache-dtype fp8 \
               --dist-timeout 7200 \
               --download-dir /model-cache/huggingface/hub
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-glm-4-7-spark-02
+            claimName: model-cache-qwen3-coder-next-spark-02
         - name: shm
           emptyDir:
             medium: Memory
