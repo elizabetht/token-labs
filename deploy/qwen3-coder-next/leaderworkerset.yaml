@@ -108,7 +108,7 @@ spec:
             echo "Starting SGLang PP=2 rank 0 (leader)..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --pp-size 2 \
+              --tp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -120,7 +120,7 @@ spec:
               --port 8000 \
               --max-running-requests 4 \
               --context-length 131072 \
-              --kv-cache-dtype fp8 \
+              --kv-cache-dtype fp8_e4m3 \
               --dist-timeout 7200 \
               --download-dir /model-cache/huggingface/hub
           startupProbe:
@@ -217,7 +217,7 @@ spec:
             echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --pp-size 2 \
+              --tp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -226,7 +226,7 @@ spec:
               --node-rank 1 \
               --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
               --context-length 131072 \
-              --kv-cache-dtype fp8 \
+              --kv-cache-dtype fp8_e4m3 \
               --dist-timeout 7200 \
               --download-dir /model-cache/huggingface/hub
         volumes:
