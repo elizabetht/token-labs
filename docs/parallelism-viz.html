@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Parallelism Strategies</title>
+<style>
+  :root {
+    --bg:            #0a0a0a;
+    --bg-elevated:   #111111;
+    --bg-card:       #1a1a1a;
+    --border:        #262626;
+    --border-bright: #404040;
+    --accent:        #76b900;
+    --blue:          #3b82f6;
+    --purple:        #8b5cf6;
+    --indigo:        #6366f1;
+    --gold:          #f59e0b;
+    --orange:        #f97316;
+    --emerald:       #10b981;
+    --cyan:          #06b6d4;
+    --yellow:        #facc15;
+    --danger:        #ef4444;
+    --text:          #f5f5f5;
+    --text-secondary:#a3a3a3;
+    --text-muted:    #737373;
+    --radius:        10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 32px 16px 56px;
+  }
+  .container { max-width: 980px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  header p  { color: var(--text-secondary); margin-top: 6px; font-size: 13px; line-height: 1.65; max-width: 680px; }
+
+  /* strategy tabs */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  nav { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  nav button {
+    background: none; border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer; font-size: 13px; font-weight: 500;
+    padding: 8px 18px 10px; margin-bottom: -1px;
+    transition: color .15s, border-color .15s; letter-spacing: .3px;
+  }
+  nav button:hover { color: var(--text-secondary); }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  .flow-toggle {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 14px;
+    cursor: pointer; font-size: 12px; color: var(--text-secondary);
+    transition: border-color .15s, color .15s;
+    user-select: none;
+  }
+  .flow-toggle:hover { border-color: var(--border-bright); color: var(--text); }
+  .flow-toggle.on { border-color: var(--accent); color: var(--accent); }
+  .flow-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-muted); transition: background .15s;
+  }
+  .flow-toggle.on .flow-dot { background: var(--accent); }
+
+  /* viz card */
+  .viz-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .svg-wrap { padding: 20px 12px 12px; background: var(--bg-elevated); }
+  svg { display: block; width: 100%; height: auto; }
+
+  /* flow section */
+  .flow-section {
+    border-top: 1px solid var(--border);
+    background: #0d0d0d;
+    padding: 16px 12px;
+    display: none;
+  }
+  .flow-section.visible { display: block; }
+  .flow-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--text-muted); margin-bottom: 12px; padding-left: 4px; }
+
+  /* legend */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 20px;
+    padding: 14px 20px; border-top: 1px solid var(--border);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-secondary); }
+  .legend-swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+  /* caption */
+  .caption {
+    padding: 18px 22px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 28px;
+  }
+  .caption-main { grid-column: 1 / -1; }
+  .caption-main p { color: var(--text-secondary); line-height: 1.7; font-size: 13px; }
+  .caption-main strong { color: var(--text); }
+  .stat .label { color: var(--text-muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .7px; margin-bottom: 3px; }
+  .stat .value { font-size: 13px; font-weight: 500; }
+  .warn-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+    border-radius: 6px; color: #fca5a5; font-size: 11px; font-weight: 500;
+    padding: 4px 10px; margin-top: 10px;
+  }
+
+  @keyframes dash-flow     { to { stroke-dashoffset: -24; } }
+  @keyframes dash-flow-rev { to { stroke-dashoffset:  24; } }
+  @keyframes token-travel  { 0% { opacity:0 } 5% { opacity:1 } 90% { opacity:1 } 100% { opacity:0 } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>LLM Parallelism Strategies</h1>
+  <p>How model weights and layers are distributed across 2 devices — and how a single inference request traverses each strategy. Model: 8-layer transformer with MoE FFN (4 experts/layer).</p>
+</header>
+
+<div class="toolbar">
+  <nav id="tabs">
+    <button class="active" data-key="dp" onclick="switchTab('dp')">Data (DP=2)</button>
+    <button data-key="tp" onclick="switchTab('tp')">Tensor (TP=2)</button>
+    <button data-key="pp" onclick="switchTab('pp')">Pipeline (PP=2)</button>
+    <button data-key="ep" onclick="switchTab('ep')">Expert (EP=2)</button>
+  </nav>
+  <div class="flow-toggle" id="flowToggle" onclick="toggleFlow()">
+    <div class="flow-dot"></div>
+    Animate request flow
+  </div>
+</div>
+
+<div class="viz-card">
+  <div class="svg-wrap">
+    <svg id="viz" viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ah-fwd"   markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#facc15"/></marker>
+        <marker id="ah-rev"   markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><polygon points="8 0,0 3,8 6" fill="#facc15"/></marker>
+        <marker id="ah-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#76b900"/></marker>
+        <marker id="ah-green-rev" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><polygon points="8 0,0 3,8 6" fill="#76b900"/></marker>
+        <marker id="ah-white" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#fff"/></marker>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- request flow diagram -->
+  <div class="flow-section" id="flowSection">
+    <h3>Request traversal — forward pass</h3>
+    <svg id="flowViz" viewBox="0 0 900 120" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <div id="legend" class="legend"></div>
+  <div id="caption" class="caption"></div>
+</div>
+
+</div><!-- .container -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// Layout constants
+// ═══════════════════════════════════════════════════════════════════
+const W=900, H=380;
+const GW=200, GH=320, GY=30;
+const G0X=60, G1X=640, MX=W/2;
+const BH=17, BG=3, BMT=44, BXI=10;
+const AW=GW-20;
+
+const C = {
+  blue:'#3b82f6', blue2:'#2563eb',
+  purple:'#8b5cf6', indigo:'#6366f1',
+  amber:'#f59e0b', orange:'#f97316',
+  emerald:'#10b981', cyan:'#06b6d4',
+  yellow:'#facc15', green:'#76b900',
+  text:'#f5f5f5', muted:'#a3a3a3', dim:'#737373',
+  border:'#262626',
+};
+
+const NS='http://www.w3.org/2000/svg';
+function el(tag, a, txt) {
+  const e=document.createElementNS(NS,tag);
+  for(const[k,v] of Object.entries(a||{})) e.setAttribute(k,v);
+  if(txt!==undefined) e.textContent=txt;
+  return e;
+}
+function rect(x,y,w,h,fill,rx=4,ex={}) {
+  return el('rect',{x,y,width:w,height:h,fill,rx,...ex});
+}
+function txt(x,y,s,fill=C.text,fs=10,anchor='middle',ex={}) {
+  return el('text',{x,y,fill,'font-size':fs,'text-anchor':anchor,
+    'dominant-baseline':'central','font-family':'system-ui,sans-serif',...ex},s);
+}
+function layerY(i) { return GY+BMT+i*(BH*2+BG*2+2); }
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU box
+// ═══════════════════════════════════════════════════════════════════
+function drawGPU(svg, x, y, label, sub) {
+  const g=el('g');
+  g.appendChild(rect(x,y,GW,GH,'#141414',8,{stroke:C.border,'stroke-width':1.5}));
+  g.appendChild(txt(x+GW/2, y+16, label, C.text, 12,'middle',{'font-weight':'600'}));
+  if(sub) g.appendChild(txt(x+GW/2, y+30, sub, C.dim, 10));
+  svg.appendChild(g);
+}
+
+function drawBlock(svg,x,y,w,h,fill,label) {
+  svg.appendChild(rect(x,y,w,h,fill,3));
+  if(label) svg.appendChild(txt(x+w/2,y+h/2,label,C.text,9));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Communication arrows (dashed traveling)
+// ═══════════════════════════════════════════════════════════════════
+function commArrow(svg,x1,y1,x2,y2,label,color='#facc15',rev=false,delay=0,dur=1.3) {
+  const pid=`p${Math.random().toString(36).slice(2,8)}`;
+  const g=el('g');
+  g.appendChild(el('line',{x1,y1,x2,y2,stroke:color,'stroke-width':2,
+    'stroke-dasharray':'8 6','stroke-dashoffset':0,
+    style:`animation:${rev?'dash-flow-rev':'dash-flow'} ${dur}s linear ${delay}s infinite`,
+    'marker-end':rev?undefined:`url(#ah-fwd)`,
+    'marker-start':rev?`url(#ah-rev)`:undefined}));
+  const path=el('path',{d:`M${x1},${y1} L${x2},${y2}`,fill:'none',stroke:'none',id:pid});
+  g.appendChild(path);
+  const dot=el('circle',{r:5,fill:color,opacity:.9});
+  const am=el('animateMotion',{dur:`${dur}s`,repeatCount:'indefinite',begin:`${delay}s`,
+    keyPoints:rev?'1;0':'0;1',keyTimes:'0;1',calcMode:'linear'});
+  const mp=el('mpath'); mp.setAttributeNS('http://www.w3.org/1999/xlink','href',`#${pid}`);
+  am.appendChild(mp); dot.appendChild(am); g.appendChild(dot);
+  if(label) g.appendChild(txt((x1+x2)/2,(y1+y2)/2-11,label,color,10,'middle',{'font-weight':'500'}));
+  svg.appendChild(g);
+}
+function biArrow(svg,x1,y1,x2,y2,label,color='#facc15',dur=1.5) {
+  commArrow(svg,x1,y1,x2,y2,null,color,false,0,dur);
+  commArrow(svg,x1,y1,x2,y2,null,color,true,dur/2,dur);
+  if(label) svg.appendChild(txt((x1+x2)/2,Math.min(y1,y2)-12,label,color,10,'middle',{'font-weight':'500'}));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Request flow token (bright glowing dot traveling a path)
+// ═══════════════════════════════════════════════════════════════════
+function flowToken(svg, pts, dur=3.5, delay=0, color='#ffffff') {
+  const d = pts.map((p,i)=>(i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(' ');
+  const pid=`fp${Math.random().toString(36).slice(2,8)}`;
+  const path=el('path',{d,fill:'none',stroke:'none',id:pid});
+  svg.appendChild(path);
+  const dot=el('circle',{r:6,fill:color,opacity:1,filter:'url(#glow)',
+    style:`animation:token-travel ${dur}s ease-in-out ${delay}s infinite`});
+  const am=el('animateMotion',{dur:`${dur}s`,repeatCount:'indefinite',begin:`${delay}s`,
+    keyTimes:'0;1',calcMode:'linear'});
+  const mp=el('mpath'); mp.setAttributeNS('http://www.w3.org/1999/xlink','href',`#${pid}`);
+  am.appendChild(mp); dot.appendChild(am); svg.appendChild(dot);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Strategy: DP
+// ═══════════════════════════════════════════════════════════════════
+function renderDP(svg, showFlow) {
+  drawGPU(svg,G0X,GY,'GPU 0','Full model — Batch A');
+  drawGPU(svg,G1X,GY,'GPU 1','Full model — Batch B');
+  for(let i=0;i<8;i++){
+    const y=layerY(i);
+    [G0X,G1X].forEach(gx=>{
+      drawBlock(svg,gx+BXI,y,AW,BH,C.blue,`L${i} · Attn`);
+      drawBlock(svg,gx+BXI,y+BH+2,AW,BH,C.blue2,`L${i} · FFN`);
+    });
+  }
+  const ay=GY+GH/2;
+  const x1=G0X+GW+14, x2=G1X-14;
+  biArrow(svg,x1,ay,x2,ay,'AllReduce gradients  (training only)',C.green,2.2);
+  svg.appendChild(txt(G0X+GW/2,GY+GH+18,'← Batch A',C.muted,11));
+  svg.appendChild(txt(G1X+GW/2,GY+GH+18,'Batch B →',C.muted,11));
+
+  if(showFlow) {
+    // token travels down GPU 0 only (independent)
+    const cx=G0X+GW/2;
+    const pts=[[cx,GY+BMT]];
+    for(let i=0;i<8;i++) pts.push([cx, layerY(i)+BH*2+2]);
+    pts.push([cx,GY+GH]);
+    flowToken(svg,pts,3.0,0,'#ffffff');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Strategy: TP
+// ═══════════════════════════════════════════════════════════════════
+function renderTP(svg, showFlow) {
+  const hw=(AW-4)/2;
+  drawGPU(svg,G0X,GY,'GPU 0','Weight shard 0');
+  drawGPU(svg,G1X,GY,'GPU 1','Weight shard 1');
+  for(let i=0;i<8;i++){
+    const y=layerY(i);
+    [G0X,G1X].forEach((gx,gi)=>{
+      const ac=gi===0?C.purple:'#7c3aed';
+      const fc=gi===0?C.indigo:'#4f46e5';
+      drawBlock(svg,gx+BXI,      y, hw,BH, ac,   `L${i}·Attn[${gi}]`);
+      drawBlock(svg,gx+BXI+hw+4, y, hw,BH,'#4338ca',`L${i}·Attn[${gi}]`);
+      drawBlock(svg,gx+BXI, y+BH+2, AW, BH, fc,  `L${i} · FFN col ${gi}`);
+    });
+    const ay=y+BH+BH/2+2;
+    biArrow(svg,G0X+GW+8,ay,G1X-8,ay,null,C.yellow,0.8+(i%3)*0.1);
+  }
+  svg.appendChild(txt(MX,GY+GH/2-20,'AllReduce activations',C.yellow,10,'middle'));
+  svg.appendChild(txt(MX,GY+GH/2- 8,'(every layer)',C.muted,10,'middle'));
+  const bx=MX-115,by=GY+GH+10;
+  svg.appendChild(rect(bx,by,230,22,'rgba(239,68,68,.1)',5,{stroke:'rgba(239,68,68,.3)','stroke-width':1}));
+  svg.appendChild(txt(MX,by+11,'⚠  Requires NVLink — not viable over 100 GbE','#fca5a5',10,'middle'));
+
+  if(showFlow) {
+    // Token enters GPU 0, after each layer syncs to GPU 1, continues — show it on BOTH GPUs
+    const pts0=[[G0X+GW/2,GY+BMT]];
+    const pts1=[[G1X+GW/2,GY+BMT]];
+    for(let i=0;i<8;i++){
+      pts0.push([G0X+GW/2, layerY(i)+BH*2+2]);
+      pts1.push([G1X+GW/2, layerY(i)+BH*2+2]);
+    }
+    pts0.push([G0X+GW/2,GY+GH]);
+    pts1.push([G1X+GW/2,GY+GH]);
+    flowToken(svg,pts0,3.2,0,'#c4b5fd');
+    flowToken(svg,pts1,3.2,0,'#c4b5fd');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Strategy: PP
+// ═══════════════════════════════════════════════════════════════════
+function renderPP(svg, showFlow) {
+  drawGPU(svg,G0X,GY,'Node 0  (spark-01)','Layers 0–3  (PP rank 0)');
+  drawGPU(svg,G1X,GY,'Node 1  (spark-02)','Layers 4–7  (PP rank 1)');
+  for(let i=0;i<8;i++){
+    const y=layerY(i);
+    if(i<4){
+      drawBlock(svg,G0X+BXI,y,   AW,BH, C.amber,  `L${i} · Attn`);
+      drawBlock(svg,G0X+BXI,y+BH+2,AW,BH,'#d97706',`L${i} · FFN`);
+    } else {
+      drawBlock(svg,G1X+BXI,y,   AW,BH, C.orange, `L${i} · Attn`);
+      drawBlock(svg,G1X+BXI,y+BH+2,AW,BH,'#ea580c',`L${i} · FFN`);
+    }
+  }
+  // activation handoff arrow at stage boundary
+  const by=layerY(4)-10;
+  commArrow(svg,G0X+GW+12,by,G1X-12,by,'Send activations  →  (one transfer / forward pass)',C.yellow,false,0,2.2);
+  svg.appendChild(txt(MX,by+16,'stage boundary',C.dim,10,'middle'));
+  svg.appendChild(txt(G0X+GW/2,GY+GH+18,'← input tokens',C.muted,11));
+  svg.appendChild(txt(G1X+GW/2,GY+GH+18,'output logits →',C.muted,11));
+
+  if(showFlow) {
+    // token: enters node 0, travels layers 0-3, crosses, travels layers 4-7, exits node 1
+    const cx0=G0X+GW/2, cx1=G1X+GW/2;
+    const pts=[
+      [cx0, GY+BMT],
+      ...Array.from({length:4},(_,i)=>[cx0, layerY(i)+BH*2+2]),
+      // cross node boundary
+      [cx1, by],
+      ...Array.from({length:4},(_,i)=>[cx1, layerY(i+4)+BH*2+2]),
+      [cx1, GY+GH],
+    ];
+    flowToken(svg,pts,4.0,0,'#fde68a');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Strategy: EP
+// ═══════════════════════════════════════════════════════════════════
+function renderEP(svg, showFlow) {
+  drawGPU(svg,G0X,GY,'GPU 0','Experts 0 + 1');
+  drawGPU(svg,G1X,GY,'GPU 1','Experts 2 + 3');
+  const eq=(AW-6)/4;
+  for(let i=0;i<8;i++){
+    const y=layerY(i);
+    [G0X,G1X].forEach(gx=>drawBlock(svg,gx+BXI,y,AW,BH,C.blue,`L${i} · Attn  (replicated)`));
+    drawBlock(svg,G0X+BXI,         y+BH+2,eq*2-2,BH,C.emerald,`Exp 0,1`);
+    drawBlock(svg,G0X+BXI+eq*2,    y+BH+2,eq*2-2,BH,'#374151','—');
+    drawBlock(svg,G1X+BXI,         y+BH+2,eq*2-2,BH,'#374151','—');
+    drawBlock(svg,G1X+BXI+eq*2,    y+BH+2,eq*2-2,BH,C.cyan,   `Exp 2,3`);
+  }
+  const y1=GY+GH*.38, y2=GY+GH*.62;
+  commArrow(svg,G0X+GW+12,y1,G1X-12,y1,'All-to-All: dispatch tokens → expert GPU',C.cyan,false,0,1.8);
+  commArrow(svg,G1X-12,y2,G0X+GW+12,y2,'All-to-All: gather results ←',C.emerald,false,0.9,1.8);
+
+  if(showFlow) {
+    // attention: both GPUs together; then tokens route to expert GPU, gather back
+    const cx0=G0X+GW/2, cx1=G1X+GW/2;
+    const pts=[
+      [cx0,GY+BMT],
+      // show token going through each layer's attn on GPU0, then forking to GPU1 for expert, back
+      ...Array.from({length:8},(_,i)=>[cx0, layerY(i)+BH*2+2]),
+      [cx0,GY+GH],
+    ];
+    flowToken(svg,pts,3.5,0,'#6ee7b7');
+    // second token on GPU1 (showing parallel computation)
+    const pts1=[
+      [cx1,GY+BMT],
+      ...Array.from({length:8},(_,i)=>[cx1, layerY(i)+BH*2+2]),
+      [cx1,GY+GH],
+    ];
+    flowToken(svg,pts1,3.5,0.1,'#67e8f9');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Request flow diagram (bottom panel)
+// ═══════════════════════════════════════════════════════════════════
+const FLOW_DIAGRAMS = {
+  dp: {
+    steps: [
+      {x:60,  label:'Input', sub:'Batch A',  color:C.blue},
+      {x:220, label:'GPU 0',  sub:'All 8 layers', color:C.blue},
+      {x:450, label:'(OR)',   sub:'independent',  color:C.dim, small:true},
+      {x:660, label:'GPU 1',  sub:'All 8 layers', color:C.blue},
+      {x:840, label:'Output', sub:'Batch B',  color:C.blue},
+    ],
+    edges:[
+      {from:0,to:1,label:'Batch A',color:C.blue},
+      {from:3,to:4,label:'',color:C.blue},
+    ],
+    note: 'Each GPU processes its batch independently. No communication during inference.'
+  },
+  tp: {
+    steps:[
+      {x:50,  label:'Input',  sub:'tokens',    color:C.purple},
+      {x:200, label:'GPU 0',  sub:'Attn shard + FFN shard', color:C.purple},
+      {x:450, label:'AllReduce', sub:'after every layer', color:C.yellow, small:true},
+      {x:700, label:'GPU 1',  sub:'Attn shard + FFN shard', color:C.indigo},
+      {x:860, label:'Output', sub:'logits',    color:C.purple},
+    ],
+    edges:[
+      {from:0,to:1,label:'',color:C.purple},
+      {from:1,to:2,label:'partial result',color:C.yellow},
+      {from:2,to:3,label:'partial result',color:C.yellow},
+      {from:3,to:4,label:'',color:C.purple},
+    ],
+    note: 'Both GPUs work on every layer simultaneously. AllReduce syncs after each of the 96 layers (192 ops total).'
+  },
+  pp: {
+    steps:[
+      {x:50,  label:'Input',  sub:'tokens',      color:C.amber},
+      {x:210, label:'Node 0', sub:'Layers 0–3',  color:C.amber},
+      {x:450, label:'Activation', sub:'tensor transfer', color:C.yellow, small:true},
+      {x:690, label:'Node 1', sub:'Layers 4–7',  color:C.orange},
+      {x:855, label:'Output', sub:'logits',       color:C.orange},
+    ],
+    edges:[
+      {from:0,to:1,label:'',color:C.amber},
+      {from:1,to:2,label:'→ activation',color:C.yellow},
+      {from:2,to:3,label:'→',color:C.yellow},
+      {from:3,to:4,label:'',color:C.orange},
+    ],
+    note: 'Request flows through Node 0 fully (layers 0–3), then one activation tensor crosses the wire to Node 1 (layers 4–7).'
+  },
+  ep: {
+    steps:[
+      {x:50,  label:'Input',   sub:'tokens',          color:C.blue},
+      {x:180, label:'Attn',    sub:'both GPUs (same)', color:C.blue},
+      {x:360, label:'Router',  sub:'select expert',   color:C.yellow, small:true},
+      {x:530, label:'Expert GPU', sub:'GPU 0 or GPU 1', color:C.emerald},
+      {x:710, label:'All-to-All', sub:'gather results', color:C.cyan, small:true},
+      {x:860, label:'Output',  sub:'next layer',       color:C.blue},
+    ],
+    edges:[
+      {from:0,to:1,label:'',color:C.blue},
+      {from:1,to:2,label:'',color:C.blue},
+      {from:2,to:3,label:'dispatch',color:C.yellow},
+      {from:3,to:4,label:'result',color:C.emerald},
+      {from:4,to:5,label:'gather',color:C.cyan},
+    ],
+    note: 'Per MoE layer: attention on both GPUs → router picks expert → All-to-All dispatches token → expert computes → All-to-All gathers back.'
+  }
+};
+
+function renderFlowDiagram(key) {
+  const fviz=document.getElementById('flowViz');
+  while(fviz.lastChild) fviz.removeChild(fviz.lastChild);
+  fviz.appendChild(rect(0,0,900,120,'#0d0d0d',0));
+
+  const d=FLOW_DIAGRAMS[key];
+  const cy=48, r=22;
+
+  // note text at bottom
+  fviz.appendChild(txt(450,100,d.note,'#737373',10,'middle',{'font-style':'italic'}));
+
+  // draw edges
+  d.edges.forEach(e=>{
+    const from=d.steps[e.from], to=d.steps[e.to];
+    const x1=from.x+(from.small?14:r), x2=to.x-(to.small?14:r);
+    const pid=`fe${Math.random().toString(36).slice(2,8)}`;
+    const path=el('path',{d:`M${x1},${cy} L${x2},${cy}`,fill:'none',stroke:'none',id:pid});
+    fviz.appendChild(path);
+    fviz.appendChild(el('line',{x1,y1:cy,x2,y2:cy,stroke:e.color,'stroke-width':2,
+      'stroke-dasharray':'6 5','stroke-dashoffset':0,
+      style:`animation:dash-flow 1.2s linear infinite`,
+      'marker-end':`url(#ah-fwd)`}));
+    if(e.label) fviz.appendChild(txt((x1+x2)/2,cy-12,e.label,e.color,9,'middle'));
+  });
+
+  // draw nodes
+  d.steps.forEach(s=>{
+    if(s.small){
+      fviz.appendChild(rect(s.x-28,cy-12,56,24,`${s.color}22`,4,{stroke:s.color,'stroke-width':1}));
+      fviz.appendChild(txt(s.x,cy,   s.label, s.color,  9,'middle',{'font-weight':'600'}));
+      fviz.appendChild(txt(s.x,cy+14,s.sub,   s.color, 8,'middle'));
+    } else {
+      fviz.appendChild(el('circle',{cx:s.x,cy,r,fill:`${s.color}22`,stroke:s.color,'stroke-width':1.5}));
+      fviz.appendChild(txt(s.x,cy,   s.label, C.text,   9,'middle',{'font-weight':'600'}));
+      fviz.appendChild(txt(s.x,cy+r+8,s.sub, s.color,  8,'middle'));
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Legend + caption data
+// ═══════════════════════════════════════════════════════════════════
+const LEGENDS = {
+  dp:[
+    {color:C.blue,   label:'Full attention layer (replicated)'},
+    {color:C.blue2,  label:'Full FFN layer (replicated)'},
+    {color:C.green,  label:'AllReduce — gradients (training only)'},
+  ],
+  tp:[
+    {color:C.purple, label:'Attention weight shard (Q/K/V columns)'},
+    {color:C.indigo, label:'FFN weight shard (column-parallel)'},
+    {color:C.yellow, label:'AllReduce — activations (every layer)'},
+  ],
+  pp:[
+    {color:C.amber,  label:'Layers 0–3 (node 0, PP rank 0)'},
+    {color:C.orange, label:'Layers 4–7 (node 1, PP rank 1)'},
+    {color:C.yellow, label:'Activation tensor (one transfer / forward pass)'},
+  ],
+  ep:[
+    {color:C.blue,   label:'Attention layers (replicated, like DP)'},
+    {color:C.emerald,label:'Expert FFN bank — GPU 0 (experts 0+1)'},
+    {color:C.cyan,   label:'Expert FFN bank — GPU 1 (experts 2+3)'},
+    {color:'#374151',label:'Expert slot absent on this GPU'},
+  ],
+};
+
+const CAPTIONS = {
+  dp:{
+    text:`<strong>Data parallelism</strong> runs <em>N full model copies</em>, each processing a different input batch. At inference there is no cross-GPU communication — each GPU produces outputs independently. Scales throughput (requests/sec) but not model size: the full model must fit on one device.`,
+    stats:[
+      {label:'What gets split', value:'Input batch'},
+      {label:'Communication',   value:'None at inference'},
+      {label:'Interconnect',    value:'Any (even GbE)'},
+      {label:'Use when',        value:'Model fits on one GPU; need more throughput'},
+    ]
+  },
+  tp:{
+    text:`<strong>Tensor parallelism</strong> splits each layer's weight matrices across GPUs — attention heads distributed column-wise, FFN weights column- then row-parallel. After each layer, GPUs sync partial results via <em>AllReduce</em>. On 96 layers: 192 AllReduces per forward pass. At ~200 μs/op over GbE, that's ~38 ms of blocking sync per token — before any compute. <strong>GB10 (DGX Spark) is a single-GPU UMA chip: TP&gt;1 within one node is not possible.</strong>`,
+    stats:[
+      {label:'What gets split', value:'Weight matrices (per layer)'},
+      {label:'Communication',   value:'AllReduce after every layer'},
+      {label:'Interconnect',    value:'NVLink/NVSwitch (μs latency required)'},
+      {label:'Use when',        value:'Multi-GPU nodes with fast interconnect'},
+    ],
+    warn:'⚠  Not viable over 100 GbE — ~38 ms sync overhead per token on 96-layer model'
+  },
+  pp:{
+    text:`<strong>Pipeline parallelism</strong> splits the model by layer depth. Each node owns a contiguous block of layers and processes them fully in local GPU memory. The output — the <em>activation tensor</em> encoding the model's internal state — is sent to the next node exactly <strong>once per forward pass</strong>, regardless of how many layers each stage holds. This makes PP viable over 100 GbE where TP is not.`,
+    stats:[
+      {label:'What gets split', value:'Layers (by depth)'},
+      {label:'Communication',   value:'1 activation transfer / forward pass'},
+      {label:'Interconnect',    value:'Any (100 GbE is sufficient)'},
+      {label:'Tradeoff',        value:'Lower concurrency vs TP; no micro-batch benefit'},
+    ]
+  },
+  ep:{
+    text:`<strong>Expert parallelism</strong> targets Mixture-of-Experts models. Non-expert weights (attention, norms, embeddings) are replicated on all GPUs like DP. Expert FFN banks are partitioned. A learned router selects 1–2 experts per token per layer; tokens are dispatched to the GPU holding their expert via <em>All-to-All</em>, computed, then gathered back. With PP=2, experts stay within each pipeline stage — the All-to-All is intra-node and communication cost is effectively free.`,
+    stats:[
+      {label:'What gets split', value:'Expert FFN banks'},
+      {label:'Communication',   value:'All-to-All token dispatch per MoE layer'},
+      {label:'Interconnect',    value:'NVLink preferred; GbE tolerable'},
+      {label:'Use when',        value:'MoE model; combine with PP to keep experts local'},
+    ]
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// Render engine
+// ═══════════════════════════════════════════════════════════════════
+let currentKey='dp', flowOn=false;
+
+function renderStrategy(key) {
+  const svg=document.getElementById('viz');
+  const defs=svg.querySelector('defs');
+  while(svg.lastChild!==defs) svg.removeChild(svg.lastChild);
+  svg.appendChild(rect(0,0,W,H,'#111111',0));
+  ({dp:renderDP,tp:renderTP,pp:renderPP,ep:renderEP})[key](svg, flowOn);
+
+  document.getElementById('legend').innerHTML=
+    LEGENDS[key].map(l=>`<div class="legend-item"><div class="legend-swatch" style="background:${l.color}"></div>${l.label}</div>`).join('');
+
+  const cap=CAPTIONS[key];
+  let html=`<div class="caption-main"><p>${cap.text}</p>`;
+  if(cap.warn) html+=`<div class="warn-badge">${cap.warn}</div>`;
+  html+=`</div>`;
+  cap.stats.forEach(s=>{ html+=`<div class="stat"><div class="label">${s.label}</div><div class="value">${s.value}</div></div>`; });
+  document.getElementById('caption').innerHTML=html;
+
+  if(flowOn) renderFlowDiagram(key);
+}
+
+function switchTab(key) {
+  currentKey=key;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`[data-key="${key}"]`).classList.add('active');
+  renderStrategy(key);
+}
+
+function toggleFlow() {
+  flowOn=!flowOn;
+  const btn=document.getElementById('flowToggle');
+  btn.classList.toggle('on',flowOn);
+  btn.querySelector('.flow-dot').style.background=flowOn?'var(--accent)':'var(--text-muted)';
+  document.getElementById('flowSection').classList.toggle('visible',flowOn);
+  renderStrategy(currentKey);
+}
+
+// init
+renderStrategy('dp');
+</script>
+</body>
+</html>
