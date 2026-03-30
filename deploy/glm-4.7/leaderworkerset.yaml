@@ -87,6 +87,10 @@ spec:
             value: "1"
           - name: SGLANG_SET_CPU_AFFINITY
             value: "true"
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
+          - name: HF_XET_HIGH_PERFORMANCE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -105,7 +109,14 @@ spec:
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
-            echo "Starting SGLang PP=2 rank 0 (leader)..."
+            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with huggingface-cli (retries until complete)..."
+            until huggingface-cli download nvidia/GLM-4.7-NVFP4 \
+              --cache-dir /model-cache/huggingface \
+              --quiet; do
+              echo "Download attempt failed, retrying in 10s..."
+              sleep 10
+            done
+            echo "Download complete. Starting SGLang PP=2 rank 0 (leader)..."
             python3 -m sglang.launch_server \
               --model nvidia/GLM-4.7-NVFP4 \
               --pp-size 2 \
@@ -166,6 +177,9 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
         containers:
         - name: sglang
           image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
@@ -198,6 +212,10 @@ spec:
             value: "1"
           - name: SGLANG_SET_CPU_AFFINITY
             value: "true"
+          - name: HF_HUB_ENABLE_HF_TRANSFER
+            value: "1"
+          - name: HF_XET_HIGH_PERFORMANCE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -214,7 +232,14 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
-            echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
+            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with huggingface-cli (retries until complete)..."
+            until huggingface-cli download nvidia/GLM-4.7-NVFP4 \
+              --cache-dir /model-cache/huggingface \
+              --quiet; do
+              echo "Download attempt failed, retrying in 10s..."
+              sleep 10
+            done
+            echo "Download complete. Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
             python3 -m sglang.launch_server \
               --model nvidia/GLM-4.7-NVFP4 \
               --pp-size 2 \
