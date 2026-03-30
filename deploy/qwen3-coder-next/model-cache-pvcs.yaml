@@ -1,31 +1,16 @@
-# PVCs for Qwen/Qwen3-Coder-Next model cache — one per node
+# PVC for Qwen/Qwen3-Coder-Next model cache — single shared RWX volume
 #
-# PP=2 requires each node to hold the full checkpoint on disk.
-# Weights + HF hub temp files during download → 300 GB per node.
+# TP=2 across spark-01 and spark-02: both nodes read model weights from
+# the same Longhorn RWX volume (served via NFS share-manager).
+# 300 GB covers full checkpoint + HF hub metadata.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: model-cache-qwen3-coder-next-spark-01
+  name: model-cache-qwen3-coder-next-shared
   namespace: token-labs
-  annotations:
-    volume.kubernetes.io/selected-node: spark-01
 spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: longhorn-model-cache
-  resources:
-    requests:
-      storage: 300Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: model-cache-qwen3-coder-next-spark-02
-  namespace: token-labs
-  annotations:
-    volume.kubernetes.io/selected-node: spark-02
-spec:
-  accessModes: [ReadWriteOnce]
+  accessModes: [ReadWriteMany]
   storageClassName: longhorn-model-cache
   resources:
     requests:

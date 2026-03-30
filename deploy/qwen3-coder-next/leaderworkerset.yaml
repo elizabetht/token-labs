@@ -9,7 +9,8 @@
 # Model: Qwen/Qwen3-Coder-Next
 #   - Large coder model with thinking/reasoning support
 #   - PP=2: each rank loads ~half the weights into 125 GB GPU DRAM
-#   - Tool-call and reasoning parsers enabled (qwen25/qwen3)
+#   - Shared RWX PVC: both nodes read weights from same Longhorn NFS volume
+#   - Tool-call and reasoning parsers enabled (qwen3_coder)
 #   - 128K context length optimized for long-context code tasks
 #
 # Prerequisites:
@@ -18,7 +19,7 @@
 #   2. Disable GPU time-slicing on both nodes:
 #      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
 #      kubectl label node spark-02 nvidia.com/gpu.sharing-strategy=none --overwrite
-#   3. Create PVCs:
+#   3. Create shared PVC:
 #      kubectl apply -f deploy/qwen3-coder-next/model-cache-pvcs.yaml
 #   4. Create HF token secret if model requires auth:
 #      kubectl create secret generic hf-token-secret --from-literal=hf-token=hf_xxx -n token-labs
@@ -50,6 +51,20 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 3600
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 3600
         containers:
         - name: sglang
           image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
@@ -108,7 +123,7 @@ spec:
             echo "Starting SGLang PP=2 rank 0 (leader)..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --tp-size 2 \
+              --pp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -148,7 +163,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen3-coder-next-spark-01
+            claimName: model-cache-qwen3-coder-next-shared
         - name: shm
           emptyDir:
             medium: Memory
@@ -166,6 +181,20 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 3600
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 3600
         containers:
         - name: sglang
           image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
@@ -217,7 +246,7 @@ spec:
             echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --tp-size 2 \
+              --pp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -232,7 +261,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen3-coder-next-spark-02
+            claimName: model-cache-qwen3-coder-next-shared
         - name: shm
           emptyDir:
             medium: Memory

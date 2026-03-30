@@ -1,0 +1,226 @@
+# LeaderWorkerSet — Qwen/Qwen3-Coder-Next-FP8 with vllm + Ray distributed
+#
+# Architecture:
+#   spark-01 (leader): Ray head node + vllm server, PP rank 0 (layers 0–N/2)
+#   spark-02 (worker): Ray worker node, PP rank 1 (layers N/2–N)
+#   Communication: NCCL over ethernet (pod overlay, backed by 100 GbE)
+#   Distributed executor: Ray (--distributed-executor-backend ray)
+#
+# Model: Qwen/Qwen3-Coder-Next-FP8
+#   - FP8 quantized weights; fits within 125 GB GPU DRAM per node
+#   - PP=2 across 2 DGX Sparks via Ray
+#   - Tool-call parser: qwen3_coder
+#   - KV cache: fp8, attention backend: flashinfer
+#   - 128K context length
+#
+# Prerequisites: same as leaderworkerset.yaml (LWS controller, PVCs, HF secret)
+
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: qwen3-coder-next-vllm
+  namespace: token-labs
+  labels:
+    app: qwen3-coder-next-vllm
+spec:
+  replicas: 1
+  leaderWorkerTemplate:
+    size: 2                                    # 1 leader + 1 worker
+    restartPolicy: RecreateGroupOnPodRestart
+    leaderTemplate:
+      metadata:
+        labels:
+          app: qwen3-coder-next-vllm
+          role: leader
+          llm-d.ai/inference-serving: "true"
+          llm-d.ai/model: qwen3-coder-next-vllm
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-01
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          ports:
+          - containerPort: 8000
+            name: http
+          - containerPort: 6379
+            name: ray-head
+          - containerPort: 8265
+            name: ray-dashboard
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 250Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: NCCL_IB_DISABLE
+            value: "1"
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          - name: NCCL_P2P_DISABLE
+            value: "1"
+          - name: NCCL_DEBUG
+            value: "WARN"
+          - name: RAY_memory_monitor_refresh_ms
+            value: "0"        # disable Ray OOM killer — pod limits enforce memory bounds
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            set -e
+            LEADER_IP=$(hostname -i | awk '{print $1}')
+            echo "Leader IP: $LEADER_IP"
+
+            # Start Ray head node
+            ray start --head \
+              --port=6379 \
+              --dashboard-host=0.0.0.0 \
+              --block &
+
+            # Wait for Ray head to be ready
+            echo "Waiting for Ray head to initialize..."
+            until ray status 2>/dev/null | grep -q "Active:"; do
+              sleep 2
+            done
+            echo "Ray head ready. Waiting for worker to join..."
+
+            # Wait for the worker node to join the cluster
+            until [ "$(ray status 2>/dev/null | grep -c '1 node_')" -ge 2 ]; do
+              sleep 3
+            done
+            echo "Worker joined Ray cluster. Starting vllm..."
+
+            vllm serve Qwen/Qwen3-Coder-Next-FP8 \
+              --enable-auto-tool-choice \
+              --tool-call-parser qwen3_coder \
+              --gpu-memory-utilization 0.90 \
+              --host 0.0.0.0 \
+              --port 8000 \
+              --kv-cache-dtype fp8 \
+              --load-format auto \
+              --attention-backend flashinfer \
+              --enable-prefix-caching \
+              --max-model-len 131072 \
+              -pp 2 \
+              --distributed-executor-backend ray \
+              --download-dir /model-cache/huggingface/hub \
+              --trust-remote-code
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            failureThreshold: 480   # up to ~121 min for model load + Ray init
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-qwen3-coder-next-spark-01
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+    workerTemplate:
+      metadata:
+        labels:
+          app: qwen3-coder-next-vllm
+          role: worker
+      spec:
+        runtimeClassName: nvidia
+        nodeSelector:
+          kubernetes.io/hostname: spark-02
+        tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+        containers:
+        - name: vllm
+          image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 250Gi
+              nvidia.com/gpu: "1"
+          env:
+          - name: HF_HOME
+            value: "/model-cache/huggingface"
+          - name: FLASHINFER_DISABLE_VERSION_CHECK
+            value: "1"
+          - name: NCCL_IB_DISABLE
+            value: "1"
+          - name: NCCL_SOCKET_IFNAME
+            value: "eth0"
+          - name: NCCL_P2P_DISABLE
+            value: "1"
+          - name: NCCL_DEBUG
+            value: "WARN"
+          volumeMounts:
+          - name: model-cache
+            mountPath: /model-cache
+          - name: shm
+            mountPath: /dev/shm
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            set -e
+            LEADER_IP=${LWS_LEADER_ADDRESS}
+            echo "Waiting for Ray head at ${LEADER_IP}:6379..."
+
+            until python3 -c "import socket; socket.create_connection(('${LEADER_IP}', 6379), timeout=3)" 2>/dev/null; do
+              sleep 3
+            done
+            echo "Ray head reachable. Joining cluster..."
+
+            ray start \
+              --address=${LEADER_IP}:6379 \
+              --block
+        volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: model-cache-qwen3-coder-next-spark-02
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

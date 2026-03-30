@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen3-coder-next
+  namespace: token-labs
+  labels:
+    app: qwen3-coder-next
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 250Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache/huggingface"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      vllm serve Qwen/Qwen3-Coder-Next-FP8 \
+        --enable-auto-tool-choice \
+        --tool-call-parser qwen3_coder \
+        --gpu-memory-utilization 0.90 \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --kv-cache-dtype fp8 \
+        --load-format auto \
+        --attention-backend flashinfer \
+        --enable-prefix-caching \
+        --max-model-len 131072 \
+        --download-dir /model-cache/huggingface/hub \
+        --trust-remote-code
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 480
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen3-coder-next-spark-01
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi
