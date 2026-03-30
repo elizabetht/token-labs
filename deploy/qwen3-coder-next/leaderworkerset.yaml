@@ -120,10 +120,10 @@ spec:
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
-            echo "Starting SGLang PP=2 rank 0 (leader)..."
+            echo "Starting SGLang TP=2 rank 0 (leader)..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --pp-size 2 \
+              --tp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -163,7 +163,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen3-coder-next-shared
+            claimName: model-cache-qwen3-coder-next-spark-01
         - name: shm
           emptyDir:
             medium: Memory
@@ -243,10 +243,10 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
-            echo "Starting SGLang PP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
+            echo "Starting SGLang TP=2 rank 1 (worker), connecting to ${LWS_LEADER_ADDRESS}:20000..."
             python -m sglang.launch_server \
               --model Qwen/Qwen3-Coder-Next \
-              --pp-size 2 \
+              --tp-size 2 \
               --tool-call-parser qwen3_coder \
               --trust-remote-code \
               --chunked-prefill-size 131072 \
@@ -261,7 +261,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-qwen3-coder-next-shared
+            claimName: model-cache-qwen3-coder-next-spark-02
         - name: shm
           emptyDir:
             medium: Memory
