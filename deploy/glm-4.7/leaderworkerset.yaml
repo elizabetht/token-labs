@@ -91,6 +91,12 @@ spec:
             value: "1"
           - name: HF_XET_HIGH_PERFORMANCE
             value: "1"
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          - name: HF_HUB_OFFLINE
+            value: "1"
+          - name: TRANSFORMERS_OFFLINE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -109,9 +115,9 @@ spec:
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
             LEADER_IP=$(hostname -i | awk '{print $1}')
             echo "Leader IP: $LEADER_IP"
-            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with huggingface-cli (retries until complete)..."
-            until huggingface-cli download nvidia/GLM-4.7-NVFP4 \
-              --cache-dir /model-cache/huggingface \
+            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with hf download (retries until complete)..."
+            until hf download nvidia/GLM-4.7-NVFP4 \
+              --cache-dir /model-cache/huggingface/hub \
               --quiet; do
               echo "Download attempt failed, retrying in 10s..."
               sleep 10
@@ -126,6 +132,7 @@ spec:
               --trust-remote-code \
               --chunked-prefill-size 131072 \
               --mem-fraction-static 0.80 \
+              --disable-cuda-graph \
               --nnodes 2 \
               --node-rank 0 \
               --dist-init-addr ${LEADER_IP}:20000 \
@@ -159,7 +166,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-glm-4-7-spark-01
+            claimName: model-cache-glm-4-7-shared
         - name: shm
           emptyDir:
             medium: Memory
@@ -216,6 +223,12 @@ spec:
             value: "1"
           - name: HF_XET_HIGH_PERFORMANCE
             value: "1"
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          - name: HF_HUB_OFFLINE
+            value: "1"
+          - name: TRANSFORMERS_OFFLINE
+            value: "1"
           volumeMounts:
           - name: model-cache
             mountPath: /model-cache
@@ -232,9 +245,9 @@ spec:
                 || echo "WARNING: Could not set memory.swap.max"
             fi
             sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
-            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with huggingface-cli (retries until complete)..."
-            until huggingface-cli download nvidia/GLM-4.7-NVFP4 \
-              --cache-dir /model-cache/huggingface \
+            echo "Pre-downloading nvidia/GLM-4.7-NVFP4 with hf download (retries until complete)..."
+            until hf download nvidia/GLM-4.7-NVFP4 \
+              --cache-dir /model-cache/huggingface/hub \
               --quiet; do
               echo "Download attempt failed, retrying in 10s..."
               sleep 10
@@ -249,6 +262,8 @@ spec:
               --trust-remote-code \
               --chunked-prefill-size 131072 \
               --mem-fraction-static 0.80 \
+              --cpu-offload-gb 8 \
+              --disable-cuda-graph \
               --nnodes 2 \
               --node-rank 1 \
               --dist-init-addr ${LWS_LEADER_ADDRESS}:20000 \
@@ -257,7 +272,7 @@ spec:
         volumes:
         - name: model-cache
           persistentVolumeClaim:
-            claimName: model-cache-glm-4-7-spark-02
+            claimName: model-cache-glm-4-7-shared
         - name: shm
           emptyDir:
             medium: Memory
