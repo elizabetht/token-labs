@@ -291,9 +291,6 @@ function renderDP(svg, showFlow) {
       drawBlock(svg,gx+BXI,y+BH+2,AW,BH,C.blue2,`L${i} · FFN`);
     });
   }
-  const ay=GY+GH/2;
-  const x1=G0X+GW+14, x2=G1X-14;
-  biArrow(svg,x1,ay,x2,ay,'AllReduce gradients  (training only)',C.green,2.2);
   svg.appendChild(txt(G0X+GW/2,GY+GH+18,'← Batch A',C.muted,11));
   svg.appendChild(txt(G1X+GW/2,GY+GH+18,'Batch B →',C.muted,11));
 
@@ -540,7 +537,6 @@ const LEGENDS = {
   dp:[
     {color:C.blue,   label:'Full attention layer (replicated)'},
     {color:C.blue2,  label:'Full FFN layer (replicated)'},
-    {color:C.green,  label:'AllReduce — gradients (training only)'},
   ],
   tp:[
     {color:C.purple, label:'Attention weight shard (Q/K/V columns)'},
