@@ -110,7 +110,7 @@ spec:
             done
             echo "Worker joined Ray cluster. Starting vllm..."
 
-            vllm serve Qwen/Qwen3-Coder-Next-FP8 \
+            vllm serve Qwen/Qwen3-Coder-Next \
               --enable-auto-tool-choice \
               --tool-call-parser qwen3_coder \
               --gpu-memory-utilization 0.90 \
@@ -121,6 +121,7 @@ spec:
               --attention-backend flashinfer \
               --enable-prefix-caching \
               --max-model-len 131072 \
+              --enforce-eager \
               -pp 2 \
               --distributed-executor-backend ray \
               --download-dir /model-cache/huggingface/hub \

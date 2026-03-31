@@ -45,7 +45,7 @@ spec:
     command: ["/bin/bash", "-c"]
     args:
     - |
-      vllm serve Qwen/Qwen3-Coder-Next-FP8 \
+      vllm serve Qwen/Qwen3-Coder-Next \
         --enable-auto-tool-choice \
         --tool-call-parser qwen3_coder \
         --gpu-memory-utilization 0.90 \

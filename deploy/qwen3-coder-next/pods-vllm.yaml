@@ -120,7 +120,7 @@ spec:
         --port 8000 \
         --kv-cache-dtype fp8 \
         --load-format auto \
-        --attention-backend flashinfer \
+        --attention-backend auto \
         --enable-prefix-caching \
         --max-model-len 131072 \
         -pp 2 \
