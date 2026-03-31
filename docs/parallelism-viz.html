@@ -147,6 +147,7 @@
     <button data-key="tp" onclick="switchTab('tp')">Tensor (TP=2)</button>
     <button data-key="pp" onclick="switchTab('pp')">Pipeline (PP=2)</button>
     <button data-key="ep" onclick="switchTab('ep')">Expert (EP=2)</button>
+    <button data-key="wep" onclick="switchTab('wep')">Wide-EP</button>
   </nav>
   <div class="flow-toggle" id="flowToggle" onclick="toggleFlow()">
     <div class="flow-dot"></div>
@@ -422,6 +423,54 @@ function renderEP(svg, showFlow) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Strategy: Wide-EP
+// ═══════════════════════════════════════════════════════════════════
+function renderWideEP(svg, showFlow) {
+  drawGPU(svg, G0X, GY, 'Prefill Tier', 'DP·attn + EP·experts (compute-bound)');
+  drawGPU(svg, G1X, GY, 'Decode Tier',  'DP·attn + EP·experts (memory-bw-bound)');
+
+  const eq = (AW - 6) / 4;
+  for (let i = 0; i < 8; i++) {
+    const y = layerY(i);
+    // Attention: DP — replicated identically in both tiers
+    [G0X, G1X].forEach(gx =>
+      drawBlock(svg, gx + BXI, y, AW, BH, C.blue, `L${i} · Attn (DP)`)
+    );
+    // Expert FFN: EP — split across GPUs within each tier
+    [G0X, G1X].forEach(gx => {
+      drawBlock(svg, gx + BXI,          y + BH + 2, eq * 2 - 2, BH, C.emerald, i === 0 ? 'Exp 0…N/2' : '');
+      drawBlock(svg, gx + BXI + eq * 2, y + BH + 2, eq * 2 - 2, BH, C.cyan,    i === 0 ? 'Exp N/2…N' : '');
+    });
+  }
+
+  // NIXL KV cache: prefill → decode (one-way, RDMA)
+  const ky = GY + GH / 2;
+  commArrow(svg, G0X + GW + 14, ky - 10, G1X - 14, ky - 10,
+    'NIXL — KV cache  (RDMA, prefill → decode)', C.green, false, 0, 2.0);
+
+  // DeepEP annotation (intra-tier, not shown as inter-box arrow)
+  svg.appendChild(txt(MX, ky + 14, 'DeepEP dispatch', C.dim, 10, 'middle'));
+  svg.appendChild(txt(MX, ky + 26, '(sparse all-to-all, intra-tier)', C.dim, 9, 'middle'));
+
+  svg.appendChild(txt(G0X + GW / 2, GY + GH + 18, '← prompt tokens', C.muted, 11));
+  svg.appendChild(txt(G1X + GW / 2, GY + GH + 18, 'generated tokens →', C.muted, 11));
+
+  if (showFlow) {
+    const cx0 = G0X + GW / 2;
+    const pts0 = [[cx0, GY + BMT]];
+    for (let i = 0; i < 8; i++) pts0.push([cx0, layerY(i) + BH * 2 + 2]);
+    pts0.push([cx0, GY + GH]);
+    flowToken(svg, pts0, 3.0, 0, '#6ee7b7');
+
+    const cx1 = G1X + GW / 2;
+    const pts1 = [[cx1, GY + BMT]];
+    for (let i = 0; i < 8; i++) pts1.push([cx1, layerY(i) + BH * 2 + 2]);
+    pts1.push([cx1, GY + GH]);
+    flowToken(svg, pts1, 3.0, 1.5, '#76b900');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Request flow diagram (bottom panel)
 // ═══════════════════════════════════════════════════════════════════
 const FLOW_DIAGRAMS = {
@@ -488,6 +537,22 @@ const FLOW_DIAGRAMS = {
       {from:4,to:5,label:'gather',color:C.cyan},
     ],
     note: 'Per MoE layer: attention on both GPUs → router picks expert → All-to-All dispatches token → expert computes → All-to-All gathers back.'
+  },
+  wep: {
+    steps:[
+      {x:50,  label:'Input',    sub:'prompt tokens',       color:C.blue},
+      {x:195, label:'Prefill',  sub:'DP·attn + EP·experts', color:C.emerald},
+      {x:450, label:'NIXL',     sub:'KV cache → RDMA',     color:C.green, small:true},
+      {x:705, label:'Decode',   sub:'DP·attn + EP·experts', color:C.cyan},
+      {x:860, label:'Output',   sub:'generated tokens',    color:C.blue},
+    ],
+    edges:[
+      {from:0,to:1,label:'',           color:C.blue},
+      {from:1,to:2,label:'KV cache',   color:C.green},
+      {from:2,to:3,label:'',           color:C.green},
+      {from:3,to:4,label:'',           color:C.cyan},
+    ],
+    note: 'Prompt runs through Prefill tier (compute-bound). KV cache ships via NIXL/RDMA to Decode tier. Each new token runs only through Decode (memory-bandwidth-bound).'
   }
 };
 
@@ -554,6 +619,12 @@ const LEGENDS = {
     {color:C.cyan,   label:'Expert FFN bank — GPU 1 (experts 2+3)'},
     {color:'#374151',label:'Expert slot absent on this GPU'},
   ],
+  wep:[
+    {color:C.blue,   label:'Attention layers (DP — replicated in each tier)'},
+    {color:C.emerald,label:'Expert FFN — lower half (EP, split across tier GPUs)'},
+    {color:C.cyan,   label:'Expert FFN — upper half (EP, split across tier GPUs)'},
+    {color:C.green,  label:'NIXL — KV cache transfer (RDMA, prefill → decode)'},
+  ],
 };
 
 const CAPTIONS = {
@@ -594,6 +665,15 @@ const CAPTIONS = {
       {label:'Use when',        value:'MoE model; combine with PP to keep experts local'},
     ]
   },
+  wep:{
+    text:`<strong>Wide Expert Parallelism</strong> is the current production standard for MoE inference at scale. It stacks three techniques: <em>Disaggregation</em> splits serving into a prefill tier (compute-bound — long prompt processing) and a decode tier (memory-bandwidth-bound — one token per step, loads all weights each step). <em>DP attention</em> runs full self-attention independently on each GPU within a tier — no cross-GPU sync for attention. <em>EP experts</em> distribute MoE FFN banks across all GPUs in the tier via DeepEP sparse all-to-all (high-throughput kernels in prefill, low-latency kernels in decode). KV cache moves from prefill to decode via <em>NIXL</em> over InfiniBand RDMA.`,
+    stats:[
+      {label:'What gets split',  value:'Prefill/decode tiers + expert FFN banks within each tier'},
+      {label:'Communication',    value:'NIXL RDMA (KV cache) + DeepEP all-to-all (experts, intra-tier)'},
+      {label:'Interconnect',     value:'InfiniBand required (NVLink within node)'},
+      {label:'Use when',         value:'MoE at scale; need to separate compute- and memory-bound phases'},
+    ]
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -606,7 +686,7 @@ function renderStrategy(key) {
   const defs=svg.querySelector('defs');
   while(svg.lastChild!==defs) svg.removeChild(svg.lastChild);
   svg.appendChild(rect(0,0,W,H,'#111111',0));
-  ({dp:renderDP,tp:renderTP,pp:renderPP,ep:renderEP})[key](svg, flowOn);
+  ({dp:renderDP,tp:renderTP,pp:renderPP,ep:renderEP,wep:renderWideEP})[key](svg, flowOn);
 
   document.getElementById('legend').innerHTML=
     LEGENDS[key].map(l=>`<div class="legend-item"><div class="legend-swatch" style="background:${l.color}"></div>${l.label}</div>`).join('');
