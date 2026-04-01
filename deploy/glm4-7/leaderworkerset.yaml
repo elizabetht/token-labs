@@ -1,0 +1,188 @@
+# Single-node Deployment — zai-org/GLM-4.7-Flash
+#
+# Architecture:
+#   spark-01: SGLang HTTP server, TP=1, single GPU
+#   No pipeline parallelism needed — 30B-A3B MoE fits in 125 GB GPU DRAM at BF16 (~60 GB weights)
+#
+# Model: zai-org/GLM-4.7-Flash
+#   - 30B total params, 3B active (MoE) — efficient inference footprint
+#   - BF16 weights ~60 GB, leaving ~55 GB for KV cache
+#   - TurboQuant-style KV compression: --kv-cache-dtype fp8_e4m3 (8-bit quantized KV)
+#     halves KV cache memory vs BF16, enabling longer effective context in the remaining DRAM
+#   - 131K token context window fully enabled
+#   - Tool-call + reasoning (thinking) support via trust-remote-code
+#
+# TurboQuant reference: https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/
+#   PolarQuant + QJL achieve 3-bit KV compression; fp8_e4m3 is the closest
+#   native SGLang approximation (8-bit) applied without retraining.
+#
+# Prerequisites:
+#   1. Create PVC:
+#      kubectl apply -f deploy/glm4-7/model-cache-pvcs.yaml
+#   2. GPU time-slicing disabled on spark-01:
+#      kubectl label node spark-01 nvidia.com/gpu.sharing-strategy=none --overwrite
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glm4-7
+  namespace: token-labs
+  labels:
+    app: glm4-7
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glm4-7
+  template:
+    metadata:
+      labels:
+        app: glm4-7
+        llm-d.ai/inference-serving: "true"
+        llm-d.ai/model: glm4-7
+    spec:
+      runtimeClassName: nvidia
+      nodeSelector:
+        kubernetes.io/hostname: spark-01
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoSchedule
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 3600
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoSchedule
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 3600
+      containers:
+      - name: sglang
+        image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "8"
+            memory: 64Gi
+            nvidia.com/gpu: "1"
+          limits:
+            cpu: "12"
+            memory: 150Gi
+            nvidia.com/gpu: "1"
+        env:
+        - name: HF_HOME
+          value: "/model-cache/huggingface"
+        - name: NCCL_IB_DISABLE
+          value: "1"
+        - name: NCCL_SOCKET_IFNAME
+          value: "eth0"
+        - name: NCCL_DEBUG
+          value: "WARN"
+        - name: SGLANG_ENABLE_JIT_DEEPGEMM
+          value: "0"
+        - name: SGLANG_DISABLE_CUDNN_CHECK
+          value: "1"
+        - name: SGLANG_SET_CPU_AFFINITY
+          value: "true"
+        volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+        - name: shm
+          mountPath: /dev/shm
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -e
+          CGPATH=$(awk -F: '$1=="0"{print $3}' /proc/1/cgroup 2>/dev/null)
+          if [ -n "$CGPATH" ] && [ "$CGPATH" != "/" ]; then
+            echo $((32*1024*1024*1024)) > "/sys/fs/cgroup${CGPATH}/memory.swap.max" 2>/dev/null \
+              && echo "Container swap enabled (32GiB)" \
+              || echo "WARNING: Could not set memory.swap.max"
+          fi
+          sync && echo 3 > /proc/sys/vm/drop_caches && echo 1 > /proc/sys/vm/compact_memory
+          echo "Starting SGLang TP=1 — GLM-4.7-Flash with TurboQuant-style fp8_e4m3 KV compression..."
+          python3 -m sglang.launch_server \
+            --model zai-org/GLM-4.7-Flash \
+            --tp-size 1 \
+            --trust-remote-code \
+            --mem-fraction-static 0.80 \
+            --kv-cache-dtype fp8_e4m3 \
+            --context-length 131072 \
+            --chunked-prefill-size 131072 \
+            --max-running-requests 8 \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --download-dir /model-cache/huggingface/hub
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          failureThreshold: 240   # up to ~60 min for model download + load
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 15
+          failureThreshold: 3
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 30
+          failureThreshold: 5
+          timeoutSeconds: 10
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: model-cache-glm4-7-shared
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glm4-7
+  namespace: token-labs
+  labels:
+    app: glm4-7
+spec:
+  selector:
+    app: glm4-7
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glm4-7-ext
+  namespace: token-labs
+  labels:
+    app: glm4-7
+spec:
+  selector:
+    app: glm4-7
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  type: LoadBalancer

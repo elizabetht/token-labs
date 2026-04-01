@@ -1,0 +1,16 @@
+# PVC for zai-org/GLM-4.7-Flash model cache — single-node RWX volume
+#
+# GLM-4.7-Flash (30B-A3B MoE) runs on spark-01 only.
+# 100 GB covers BF16 checkpoint + HF hub metadata with room to spare.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-glm4-7-shared
+  namespace: token-labs
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 100Gi
