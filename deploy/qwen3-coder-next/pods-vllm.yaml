@@ -84,6 +84,10 @@ spec:
       value: "WARN"
     - name: RAY_memory_monitor_refresh_ms
       value: "0"        # disable Ray OOM killer — pod limits enforce memory bounds
+    - name: RAY_CGRAPH_get_timeout
+      value: "3600"     # 1h timeout for compiled DAG reads; first request triggers page faults on iSCSI
+    - name: VLLM_USE_RAY_COMPILED_DAG
+      value: "0"        # disable compiled DAG: hangs on GB10 unified memory, use regular Ray tasks instead
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
@@ -115,7 +119,7 @@ spec:
       vllm serve Qwen/Qwen3-Coder-Next-FP8 \
         --enable-auto-tool-choice \
         --tool-call-parser qwen3_coder \
-        --gpu-memory-utilization 0.90 \
+        --gpu-memory-utilization 0.75 \
         --host 0.0.0.0 \
         --port 8000 \
         --kv-cache-dtype fp8 \
@@ -210,6 +214,8 @@ spec:
       value: "WARN"
     - name: RAY_memory_monitor_refresh_ms
       value: "0"        # disable Ray OOM killer on worker node too
+    - name: VLLM_USE_RAY_COMPILED_DAG
+      value: "0"        # disable compiled DAG: hangs on GB10 unified memory, use regular Ray tasks instead
     - name: LEADER_SVC
       value: "qwen3-coder-next-vllm-leader.token-labs.svc.cluster.local"
     volumeMounts:
