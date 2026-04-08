@@ -273,6 +273,76 @@
             color: var(--success);
             font-weight: 600;
         }
+
+        .chart-container-tall {
+            height: 500px;
+        }
+
+        .isl-osl-legend {
+            display: flex;
+            gap: 1.25rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .isl-osl-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .isl-osl-swatch {
+            width: 28px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        .pending-badge {
+            display: inline-block;
+            background: #334155;
+            color: #94a3b8;
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            margin-left: 0.75rem;
+            vertical-align: middle;
+        }
+
+        .isl-osl-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .isl-osl-tab {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.85rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .isl-osl-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .isl-osl-table-wrap {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+        }
+
+        .isl-osl-table th, .isl-osl-table td {
+            white-space: nowrap;
+            font-size: 0.875rem;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
@@ -298,6 +368,8 @@
         <div id="results">
             <div class="loading">Loading benchmark results...</div>
         </div>
+
+        <div id="gemma4-isl-osl-section"></div>
 
         <div id="history-section"></div>
 
@@ -955,12 +1027,233 @@
             }
         }
 
+        // ── Gemma 4 26B ISL/OSL sweep ──────────────────────────────────────────
+
+        const ISL_OSL_COLORS = [
+            { border: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },  // ISL128/OSL128  — indigo
+            { border: '#a855f7', bg: 'rgba(168,85,247,0.15)'  },  // ISL128/OSL512  — purple
+            { border: '#76b900', bg: 'rgba(118,185,0,0.15)'   },  // ISL1024/OSL128 — nvidia green
+            { border: '#f59e0b', bg: 'rgba(245,158,11,0.15)'  },  // ISL1024/OSL512 — amber
+            { border: '#ef4444', bg: 'rgba(239,68,68,0.15)'   },  // ISL4096/OSL512 — red
+        ];
+
+        let gemma4ChartThroughputTTFT = null;
+        let gemma4ChartThroughputITL  = null;
+
+        function buildGemma4Datasets(data, metricKey) {
+            const combos   = data.isl_osl_combos;
+            const concLevels = data.concurrency_levels;
+            return combos.map((combo, idx) => {
+                const comboData = data.results[combo.label];
+                const points = concLevels.map(c => {
+                    const row = comboData[`concurrency_${c}`];
+                    if (!row || row.throughput_tok_s === null || row[metricKey] === null) return null;
+                    return { x: row.throughput_tok_s, y: row[metricKey], concurrency: c };
+                }).filter(p => p !== null);
+
+                const color = ISL_OSL_COLORS[idx % ISL_OSL_COLORS.length];
+                return {
+                    label: combo.label,
+                    data: points,
+                    backgroundColor: color.border,
+                    borderColor: color.border,
+                    fill: false,
+                    tension: 0.35,
+                    pointRadius: 6,
+                    pointHoverRadius: 9,
+                    pointBackgroundColor: color.border,
+                    showLine: true
+                };
+            });
+        }
+
+        function commonGemma4ChartOptions(xLabel, yLabel) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#94a3b8',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            title: function(items) {
+                                return items[0].dataset.label + '  —  concurrency ' + items[0].raw.concurrency;
+                            },
+                            label: function(ctx) {
+                                return [
+                                    'Throughput: ' + ctx.raw.x.toLocaleString() + ' tok/s',
+                                    yLabel + ': ' + ctx.raw.y.toFixed(1) + ' ms'
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: xLabel, color: '#94a3b8', font: { size: 13, weight: '500' } },
+                        ticks: { color: '#94a3b8', callback: v => v.toLocaleString() },
+                        grid: { color: '#334155' }
+                    },
+                    y: {
+                        title: { display: true, text: yLabel + ' (ms)', color: '#94a3b8', font: { size: 13, weight: '500' } },
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: '#334155' },
+                        beginAtZero: true
+                    }
+                }
+            };
+        }
+
+        function buildGemma4RawTable(data, activeCombo) {
+            const concLevels = data.concurrency_levels;
+            const comboData  = data.results[activeCombo];
+            if (!comboData) return '<p style="color:var(--text-muted);font-size:0.875rem;">No data for this combo yet.</p>';
+
+            const rows = concLevels.map(c => {
+                const row = comboData[`concurrency_${c}`];
+                const fmt = v => v === null ? '<span style="color:#475569">—</span>' : v.toLocaleString(undefined, {maximumFractionDigits: 1});
+                return `<tr>
+                    <td>${c}</td>
+                    <td>${fmt(row.throughput_tok_s)}</td>
+                    <td>${fmt(row.ttft_p50_ms)}</td>
+                    <td>${fmt(row.ttft_p95_ms)}</td>
+                    <td>${fmt(row.itl_p50_ms)}</td>
+                    <td>${fmt(row.itl_p95_ms)}</td>
+                </tr>`;
+            }).join('');
+
+            return `<table class="isl-osl-table">
+                <thead>
+                    <tr>
+                        <th>Concurrency</th>
+                        <th>Throughput (tok/s)</th>
+                        <th>TTFT p50 (ms)</th>
+                        <th>TTFT p95 (ms)</th>
+                        <th>ITL p50 (ms)</th>
+                        <th>ITL p95 (ms)</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
+        async function loadGemma4IslOsl() {
+            const section = document.getElementById('gemma4-isl-osl-section');
+            try {
+                const response = await fetch('benchmark-results.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load benchmark-results.json');
+                const json = await response.json();
+                const data = json.gemma4_26b_isl_osl;
+                if (!data) return;
+
+                const isPending = data.status === 'pending';
+                const pendingNote = isPending
+                    ? '<span class="pending-badge">Benchmarks pending</span>'
+                    : '';
+
+                const legendHTML = data.isl_osl_combos.map((combo, idx) => {
+                    const color = ISL_OSL_COLORS[idx % ISL_OSL_COLORS.length];
+                    return `<div class="isl-osl-legend-item">
+                        <div class="isl-osl-swatch" style="background:${color.border};"></div>
+                        ${combo.label}
+                    </div>`;
+                }).join('');
+
+                const tabsHTML = data.isl_osl_combos.map((combo, idx) =>
+                    `<button class="isl-osl-tab${idx === 0 ? ' active' : ''}" data-combo="${combo.label}" onclick="switchGemma4Tab(this)">${combo.label}</button>`
+                ).join('');
+
+                section.innerHTML = `
+                    <div class="card">
+                        <h2>Gemma 4 26B A4B &mdash; ISL/OSL Performance ${pendingNote}</h2>
+                        <p class="chart-subtitle">
+                            Throughput vs latency curves for Gemma 4 26B (A4B quantized) on DGX Spark GB10 with Pipeline Parallel = 2.
+                            Each curve represents one ISL/OSL workload. Points along each curve are concurrency levels 1&rarr;64.
+                            Higher throughput and lower latency is better &mdash; curves should move right and down as hardware saturates.
+                        </p>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+                            <div>
+                                <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Throughput vs TTFT p50</p>
+                                <div class="chart-container chart-container-tall">
+                                    <canvas id="gemma4ThroughputTTFT"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Throughput vs ITL p50</p>
+                                <div class="chart-container chart-container-tall">
+                                    <canvas id="gemma4ThroughputITL"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="isl-osl-legend">${legendHTML}</div>
+
+                        <div style="margin-top:1.75rem;">
+                            <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:0.75rem;">Raw numbers by workload:</p>
+                            <div class="isl-osl-tabs">${tabsHTML}</div>
+                            <div class="isl-osl-table-wrap" id="gemma4RawTable">
+                                ${buildGemma4RawTable(data, data.isl_osl_combos[0].label)}
+                            </div>
+                        </div>
+
+                        <a href="benchmark-results.json" class="json-link" style="margin-top:1rem;">
+                            View Raw JSON Data
+                        </a>
+                    </div>
+                `;
+
+                // Stash data for tab switching
+                window._gemma4Data = data;
+
+                const ttftDatasets = buildGemma4Datasets(data, 'ttft_p50_ms');
+                const itlDatasets  = buildGemma4Datasets(data, 'itl_p50_ms');
+
+                if (isPending) {
+                    // Charts will render empty axes — that's intentional; fill on next deploy
+                }
+
+                const ctxTTFT = document.getElementById('gemma4ThroughputTTFT').getContext('2d');
+                gemma4ChartThroughputTTFT = new Chart(ctxTTFT, {
+                    type: 'scatter',
+                    data: { datasets: ttftDatasets },
+                    options: commonGemma4ChartOptions('Throughput (tok/s)', 'TTFT p50')
+                });
+
+                const ctxITL = document.getElementById('gemma4ThroughputITL').getContext('2d');
+                gemma4ChartThroughputITL = new Chart(ctxITL, {
+                    type: 'scatter',
+                    data: { datasets: itlDatasets },
+                    options: commonGemma4ChartOptions('Throughput (tok/s)', 'ITL p50')
+                });
+
+            } catch (error) {
+                section.innerHTML = '';
+            }
+        }
+
+        function switchGemma4Tab(btn) {
+            document.querySelectorAll('.isl-osl-tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const combo = btn.getAttribute('data-combo');
+            const tableWrap = document.getElementById('gemma4RawTable');
+            if (tableWrap && window._gemma4Data) {
+                tableWrap.innerHTML = buildGemma4RawTable(window._gemma4Data, combo);
+            }
+        }
+
         // Load all sections
         loadHighlights();
         loadQualitySpeed();
         loadPricingComparison();
         loadConfigTable();
         loadResults();
+        loadGemma4IslOsl();
         loadHistory();
     </script>
 </body>

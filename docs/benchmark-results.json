@@ -1,4 +1,67 @@
 {
+  "gemma4_26b_isl_osl": {
+    "model": "google/gemma-4-26b-it",
+    "hardware": {
+      "platform": "NVIDIA DGX Spark",
+      "gpu": "GB10 (Grace Blackwell)",
+      "architecture": "ARM64",
+      "tensor_parallel": 2,
+      "pipeline_parallel": 2
+    },
+    "description": "ISL/OSL sweep benchmarks for Gemma 4 26B A4B on DGX Spark (GB10, PP=2). Throughput vs latency curves across concurrency levels and input/output sequence length combinations.",
+    "concurrency_levels": [1, 4, 8, 16, 32, 64],
+    "isl_osl_combos": [
+      {"isl": 128, "osl": 128, "label": "ISL128/OSL128"},
+      {"isl": 128, "osl": 512, "label": "ISL128/OSL512"},
+      {"isl": 1024, "osl": 128, "label": "ISL1024/OSL128"},
+      {"isl": 1024, "osl": 512, "label": "ISL1024/OSL512"},
+      {"isl": 4096, "osl": 512, "label": "ISL4096/OSL512"}
+    ],
+    "results": {
+      "ISL128/OSL128": {
+        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+      },
+      "ISL128/OSL512": {
+        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+      },
+      "ISL1024/OSL128": {
+        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+      },
+      "ISL1024/OSL512": {
+        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+      },
+      "ISL4096/OSL512": {
+        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+      }
+    },
+    "timestamp": null,
+    "status": "pending"
+  },
   "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
   "dgx_cost_per_hour": 0.1112,
   "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
