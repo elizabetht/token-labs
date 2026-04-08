@@ -1,0 +1,20 @@
+# PVC — Qwen2.5-7B-Instruct model cache (spark-01)
+#
+# Single PVC on spark-01; pod runs TP=1 on a single GPU.
+# Qwen2.5-7B BF16 weights ~14 GB + HF hub temp files → 30 GB is sufficient.
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen25-7b-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 30Gi

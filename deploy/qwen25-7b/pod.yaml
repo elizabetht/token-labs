@@ -1,0 +1,137 @@
+# Single-pod vLLM deployment — Qwen/Qwen2.5-7B-Instruct
+#
+# Architecture:
+#   spark-01: vLLM HTTP server, TP=1, single GPU
+#   No pipeline parallelism needed — 7B dense fits in ~15 GB at BF16
+#
+# Model: Qwen/Qwen2.5-7B-Instruct
+#   - 7B dense params, BF16 weights ~14 GB
+#   - gpu-memory-utilization 0.70 — leaves room for KV cache
+#   - enforce_eager=True: skips CUDA graph capture, faster startup for benchmarks
+#   - max_model_len 32768: 32K context, sufficient for benchmarks
+#
+# HF token sourced from secret: llm-d-hf-token (key: HF_TOKEN)
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen25-7b-vllm
+  namespace: token-labs
+  labels:
+    app: qwen25-7b-vllm
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: qwen25-7b-vllm
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 3600
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 3600
+  containers:
+  - name: vllm
+    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.19.0
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+    - name: HF_HOME
+      value: "/model-cache/huggingface"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: HF_HUB_ETAG_TIMEOUT
+      value: "60"
+    - name: HF_HUB_DOWNLOAD_TIMEOUT
+      value: "60"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting vLLM — Qwen/Qwen2.5-7B-Instruct (enforce_eager, gpu_util=0.70, ctx=32768)..."
+      vllm serve Qwen/Qwen2.5-7B-Instruct \
+        --gpu-memory-utilization 0.70 \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --dtype bfloat16 \
+        --load-format auto \
+        --enforce-eager \
+        --max-model-len 32768 \
+        --enable-prefix-caching \
+        --download-dir /model-cache/huggingface/hub
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 120   # up to ~30 min for model download + load
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen25-7b-spark-01
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

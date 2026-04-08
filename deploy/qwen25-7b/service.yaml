@@ -1,0 +1,22 @@
+# LoadBalancer service for Qwen/Qwen2.5-7B-Instruct
+# External IP: 192.168.1.203 (next after .202 gemma4-26b)
+# Exposes the vLLM pod's OpenAI-compatible API on port 8000.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen25-7b-vllm
+  namespace: token-labs
+  labels:
+    app: qwen25-7b-vllm
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.203
+spec:
+  type: LoadBalancer
+  selector:
+    app: qwen25-7b-vllm
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
