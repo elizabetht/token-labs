@@ -65,6 +65,8 @@ decode:
         - "0.85"
         - "--enforce-eager"
         - "--enable-prefix-caching"
+        - "--kv-cache-dtype"
+        - "fp8"
         - "--trust-remote-code"
       env:
         - name: VLLM_WORKER_MULTIPROC_METHOD
