@@ -39,7 +39,7 @@ decode:
             - key: kubernetes.io/hostname
               operator: In
               values:
-                - spark-01
+                - spark-02
   tolerations:
     - key: nvidia.com/gpu
       operator: Exists
