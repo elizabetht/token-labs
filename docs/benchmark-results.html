@@ -1,1260 +1,876 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Token Labs - Benchmark Results</title>
-    <style>
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --bg: #0f172a;
-            --bg-card: #1e293b;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #334155;
-            --success: #22c55e;
-            --nvidia-green: #76b900;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token Labs · Benchmark Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── Reset & Variables ───────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    :root {
+      --bg:           #0d0d0d;
+      --bg-card:      #1a1a1a;
+      --bg-card2:     #222222;
+      --border:       #2a2a2a;
+      --border-light: #333333;
+      --text:         #f0f0f0;
+      --text-muted:   #888888;
+      --text-dim:     #555555;
+      --green:        #76b900;
+      --green-dim:    rgba(118,185,0,0.15);
+      --green-border: rgba(118,185,0,0.35);
+      --red:          #e05252;
+      --red-dim:      rgba(224,82,82,0.15);
+      --yellow:       #f5a623;
+      --blue:         #4a9eff;
+      --purple:       #a855f7;
+      --radius:       10px;
+      --radius-sm:    6px;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
+    html { scroll-behavior: smooth; }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
 
-        header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
+    /* ── Layout ──────────────────────────────────────────────── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--primary), #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+    /* ── Hero ────────────────────────────────────────────────── */
+    .hero {
+      padding: 3rem 0 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .hero-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .hero-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .hero-title span {
+      color: var(--green);
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+    .hw-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg-card);
+      border: 1px solid var(--green-border);
+      color: var(--green);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      letter-spacing: 0.03em;
+    }
+    .hw-badge svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .updated-badge {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+    }
 
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 1.1rem;
-        }
+    /* ── Section headers ─────────────────────────────────────── */
+    .section { margin-bottom: 3rem; }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
 
-        .badge {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            margin-top: 1rem;
-        }
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+    .card + .card { margin-top: 1rem; }
 
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+    /* ── Status badges ───────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .badge-done    { background: rgba(118,185,0,0.2);  color: var(--green);  border: 1px solid rgba(118,185,0,0.4); }
+    .badge-running { background: rgba(74,158,255,0.2); color: var(--blue);   border: 1px solid rgba(74,158,255,0.4); }
+    .badge-pending { background: rgba(245,166,35,0.2); color: var(--yellow); border: 1px solid rgba(245,166,35,0.4); }
+    .badge-queued  { background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid var(--border-light); }
+    .badge-failed  { background: rgba(224,82,82,0.2);  color: var(--red);    border: 1px solid rgba(224,82,82,0.4); }
 
-        .card h2 {
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            color: var(--text);
-        }
+    /* ── Experiment Registry Table ───────────────────────────── */
+    .registry-table-wrap { overflow-x: auto; }
+    table.registry {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    table.registry thead tr {
+      border-bottom: 1px solid var(--border-light);
+    }
+    table.registry th {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      white-space: nowrap;
+    }
+    table.registry td {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    table.registry tr.data-row {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    table.registry tr.data-row:hover td {
+      background: var(--bg-card2);
+    }
+    table.registry tr.detail-row td {
+      padding: 0;
+      background: var(--bg-card2);
+    }
+    .detail-inner {
+      padding: 1rem 1.25rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem 2rem;
+      border-top: 1px solid var(--border);
+    }
+    .detail-inner strong { color: var(--text); }
+    .detail-inner .full-width { grid-column: 1 / -1; }
+    .exp-name { font-weight: 600; color: var(--text); }
+    .exp-model { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+    .fw-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .fw-vllm   { background: rgba(74,158,255,0.15); color: var(--blue);   border: 1px solid rgba(74,158,255,0.3); }
+    .fw-llmd   { background: rgba(118,185,0,0.15);  color: var(--green);  border: 1px solid rgba(118,185,0,0.3); }
+    .fw-sglang { background: rgba(168,85,247,0.15); color: var(--purple); border: 1px solid rgba(168,85,247,0.3); }
+    .metric-val { font-variant-numeric: tabular-nums; }
+    .metric-null { color: var(--text-dim); }
 
-        .chart-subtitle {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-            line-height: 1.5;
-        }
+    /* ── Group label row ─────────────────────────────────────── */
+    tr.group-header td {
+      background: rgba(118,185,0,0.05);
+      border-bottom: 1px solid var(--border-light);
+      border-top: 2px solid var(--green-border);
+      padding: 0.45rem 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--green);
+    }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
+    /* ── Charts ──────────────────────────────────────────────── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 720px) { .chart-grid { grid-template-columns: 1fr; } }
+    .chart-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .chart-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .chart-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 220px;
+      border: 1px dashed var(--border-light);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      gap: 0.5rem;
+    }
+    canvas { display: block; }
 
-        .stat {
-            background: var(--bg);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            text-align: center;
-        }
+    /* ── Waterfall ───────────────────────────────────────────── */
+    .waterfall-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
 
-        .stat-label {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.5rem;
-        }
+    /* ── Framework comparison ────────────────────────────────── */
+    .fw-chart-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
 
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--success);
-        }
+    /* ── Legend ──────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
 
-        .stat-unit {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-left: 0.25rem;
-        }
+    /* ── ISL/OSL tab selector ────────────────────────────────── */
+    .tab-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+    .tab-btn {
+      background: var(--bg-card2);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .tab-btn:hover { border-color: var(--green); color: var(--green); }
+    .tab-btn.active {
+      background: var(--green-dim);
+      border-color: var(--green);
+      color: var(--green);
+    }
 
-        .stat-config {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.25rem;
-        }
+    /* ── Pending overlay ─────────────────────────────────────── */
+    .pending-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 2.5rem;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .pending-overlay svg { opacity: 0.3; width: 36px; height: 36px; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      color: var(--text-dim);
+      font-size: 0.78rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    footer a { color: var(--green); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
 
-        th, td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
+    /* ── Misc ─────────────────────────────────────────────────── */
+    .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82em; }
+    .text-green { color: var(--green); }
+    .text-red   { color: var(--red); }
+    .text-muted { color: var(--text-muted); }
+    .delta-pos { color: var(--green); font-weight: 600; }
+    .delta-neg { color: var(--red);   font-weight: 600; }
 
-        th {
-            color: var(--text-muted);
-            font-weight: 500;
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+    /* animate detail expand */
+    tr.detail-row { display: none; }
+    tr.detail-row.open { display: table-row; }
 
-        td {
-            font-size: 1rem;
-        }
-
-        .highlight {
-            color: var(--success);
-            font-weight: 600;
-        }
-
-        .methodology {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            line-height: 1.7;
-        }
-
-        .methodology h3 {
-            color: var(--text);
-            font-size: 1rem;
-            margin: 1rem 0 0.5rem 0;
-        }
-
-        .methodology ul {
-            margin-left: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .json-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            margin-top: 1rem;
-        }
-
-        .json-link:hover {
-            text-decoration: underline;
-        }
-
-        .last-updated {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-top: 2rem;
-        }
-
-        .back-link {
-            display: inline-block;
-            color: var(--primary);
-            text-decoration: none;
-            margin-bottom: 1rem;
-        }
-
-        .back-link:hover {
-            text-decoration: underline;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-muted);
-        }
-
-        .error {
-            background: #7f1d1d;
-            border: 1px solid #991b1b;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            color: #fecaca;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin: 1rem 0;
-        }
-
-        .chart-container-hero {
-            height: 420px;
-        }
-
-        .tier-legend {
-            display: flex;
-            gap: 1.5rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .tier-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .tier-swatch {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-        }
-
-        .history-table {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .version-badge {
-            background: var(--primary);
-            color: white;
-            padding: 0.125rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-family: monospace;
-        }
-
-        .trend-up {
-            color: var(--success);
-        }
-
-        .trend-down {
-            color: #ef4444;
-        }
-
-        .config-table td.best {
-            color: var(--success);
-            font-weight: 600;
-        }
-
-        .chart-container-tall {
-            height: 500px;
-        }
-
-        .isl-osl-legend {
-            display: flex;
-            gap: 1.25rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .isl-osl-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .isl-osl-swatch {
-            width: 28px;
-            height: 4px;
-            border-radius: 2px;
-        }
-
-        .pending-badge {
-            display: inline-block;
-            background: #334155;
-            color: #94a3b8;
-            padding: 0.2rem 0.6rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            margin-left: 0.75rem;
-            vertical-align: middle;
-        }
-
-        .isl-osl-tabs {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .isl-osl-tab {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.35rem 0.85rem;
-            border-radius: 0.5rem;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .isl-osl-tab.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
-        }
-
-        .isl-osl-table-wrap {
-            overflow-x: auto;
-            margin-top: 1.5rem;
-        }
-
-        .isl-osl-table th, .isl-osl-table td {
-            white-space: nowrap;
-            font-size: 0.875rem;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    @media (max-width: 600px) {
+      .detail-inner { grid-template-columns: 1fr; }
+      table.registry th:nth-child(n+4),
+      table.registry td:nth-child(n+4) { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <a href="index.html" class="back-link">&larr; Back to Token Labs</a>
+<div class="page">
 
-        <header>
-            <h1>Benchmark Results</h1>
-            <p class="subtitle">vLLM Performance on NVIDIA DGX Spark</p>
-            <span class="badge">Auto-updated via CI/CD</span>
-        </header>
-
-        <div id="highlights-section"></div>
-
-        <div id="quality-speed-section"></div>
-
-        <div id="pricing-section"></div>
-
-        <div id="config-table-section"></div>
-
-        <div id="results">
-            <div class="loading">Loading benchmark results...</div>
+  <!-- ── Hero ────────────────────────────────────────────── -->
+  <header class="hero">
+    <div class="hero-inner">
+      <div>
+        <h1 class="hero-title">Token Labs<br><span>Benchmark Dashboard</span></h1>
+        <p class="hero-sub">Inference performance on NVIDIA DGX Spark — real data, open lab.</p>
+        <div class="hero-badges">
+          <span class="hw-badge">
+            <svg viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 6h4M6 4v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            DGX Spark
+          </span>
+          <span class="hw-badge">GB10 · Grace Blackwell</span>
+          <span class="hw-badge">128 GB Unified Memory</span>
+          <span class="hw-badge">SM121</span>
+          <span class="updated-badge" id="last-updated">Updated 2026-04-07</span>
         </div>
+      </div>
+    </div>
+  </header>
 
-        <div id="gemma4-isl-osl-section"></div>
+  <!-- ── Summary Stats ────────────────────────────────────── -->
+  <div class="section">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:2.5rem;">
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Total Experiments</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--text);" id="stat-total">13</div>
+      </div>
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Completed</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--green);" id="stat-done">1</div>
+      </div>
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">In Progress / Pending</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--yellow);" id="stat-pending">4</div>
+      </div>
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Queued</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--text-muted);" id="stat-queued">6</div>
+      </div>
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Failed</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--red);" id="stat-failed">2</div>
+      </div>
+    </div>
+  </div>
 
-        <div id="history-section"></div>
+  <!-- ── Experiment Registry ──────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Experiment Registry</div>
+    <p class="section-desc">All planned and completed experiments. Click any row to expand hypothesis and notes.</p>
+    <div class="card" style="padding:0;">
+      <div class="registry-table-wrap">
+        <table class="registry" id="registry-table">
+          <thead>
+            <tr>
+              <th style="width:32%">Experiment</th>
+              <th>Framework</th>
+              <th>Status</th>
+              <th>Throughput<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(tok/s, c=32)</span></th>
+              <th>TTFT p50<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(ms)</span></th>
+              <th>ITL p50<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(ms)</span></th>
+            </tr>
+          </thead>
+          <tbody id="registry-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-        <div class="card">
-            <h2>Methodology</h2>
-            <div class="methodology">
-                <h3>Hardware</h3>
-                <ul>
-                    <li><strong>Platform:</strong> NVIDIA DGX Spark</li>
-                    <li><strong>GPU:</strong> Grace Hopper (~120GB GPU memory)</li>
-                    <li><strong>Architecture:</strong> ARM64</li>
-                    <li><strong>TDP:</strong> ~150W per node</li>
-                </ul>
+  <!-- ── ISL/OSL Performance Charts ───────────────────────── -->
+  <div class="section">
+    <div class="section-title">ISL/OSL Performance Sweep</div>
+    <p class="section-desc">
+      Throughput vs latency curves across concurrency levels (c=1–64) and input/output length combinations.
+      Model: <span class="mono">google/gemma-4-26b-it</span> · Framework: llm-d · Hardware: DGX Spark PP=2
+    </p>
 
-                <h3>Benchmark Configuration</h3>
-                <ul>
-                    <li><strong>Prefill Test:</strong> 100 prompts, 3072 input tokens, 1024 output tokens (3:1 ratio)</li>
-                    <li><strong>Cache Test:</strong> Enabled (LMCache with CPU offload) - 100 prompts with prefix repetition</li>
-                    <li><strong>Decode Test:</strong> 100 prompts, 1024 input tokens, 3072 output tokens (1:3 ratio)</li>
-                    <li><strong>Request Rate:</strong> 10 requests/second</li>
-                    <li><strong>Tool:</strong> <code>vllm bench serve</code></li>
-                </ul>
-
-                <h3>Metrics</h3>
-                <ul>
-                    <li><strong>Output Speed (tok/s):</strong> Decode throughput &mdash; total output tokens generated per second. Higher = faster responses for users.</li>
-                    <li><strong>Input/Output Cost:</strong> (DGX hourly cost &times; 1,000,000) &divide; (tokens/sec &times; 3600). DGX Spark: $4000 &divide; 26,280 hours (3yr @ 30% utilization) + electricity &asymp; $0.07/hour</li>
-                    <li><strong>Quality (IFEval):</strong> Instruction-following accuracy measured on 541 prompts from the IFEval benchmark. Higher = better at following user instructions.</li>
-                </ul>
-
-                <a href="benchmark-results.json" class="json-link">
-                    View Raw JSON Data
-                </a>
-            </div>
-        </div>
-
-        <p class="last-updated" id="last-updated"></p>
+    <div class="tab-row" id="isl-osl-tabs">
+      <button class="tab-btn active" data-combo="all">All combos</button>
+      <button class="tab-btn" data-combo="ISL128/OSL128">ISL128/OSL128</button>
+      <button class="tab-btn" data-combo="ISL128/OSL512">ISL128/OSL512</button>
+      <button class="tab-btn" data-combo="ISL1024/OSL128">ISL1024/OSL128</button>
+      <button class="tab-btn" data-combo="ISL1024/OSL512">ISL1024/OSL512</button>
+      <button class="tab-btn" data-combo="ISL4096/OSL512">ISL4096/OSL512</button>
     </div>
 
-    <script>
-        // Shared helpers
-        const classifyModel = (model) => {
-            if (!model) return 'BF16';
-            if (model.includes('QAT')) return 'FP4-QAT';
-            if (model.includes('NVFP4')) return 'FP4';
-            if (model.includes('FP8')) return 'FP8';
-            return 'BF16';
-        };
-
-        const quantColors = {
-            'BF16': { bg: 'rgba(99, 102, 241, 0.85)', border: '#6366f1' },
-            'FP8': { bg: 'rgba(168, 85, 247, 0.85)', border: '#a855f7' },
-            'FP4': { bg: 'rgba(118, 185, 0, 0.85)', border: '#76b900' },
-            'FP4-QAT': { bg: 'rgba(34, 197, 94, 0.85)', border: '#22c55e' }
-        };
-
-        const quantLegendHTML = `
-            <div class="tier-legend">
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(99,102,241,0.85); border-radius: 50%;"></div> BF16</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(168,85,247,0.85); border-radius: 50%;"></div> FP8</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(118,185,0,0.85); border-radius: 50%;"></div> FP4</div>
-                <div class="tier-item"><div class="tier-swatch" style="background: rgba(34,197,94,0.85); border-radius: 50%;"></div> FP4-QAT</div>
-            </div>
-        `;
-
-        const shortModelName = (model) => {
-            if (!model) return 'N/A';
-            const parts = model.split('/');
-            return parts[parts.length - 1] || model;
-        };
-
-        async function loadHighlights() {
-            const section = document.getElementById('highlights-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                let bestSpeed = { value: 0, config: '', version: '' };
-                let bestInputCost = { value: Infinity, config: '', version: '' };
-                let bestOutputCost = { value: Infinity, config: '', version: '' };
-                let bestQuality = { value: 0, config: '', version: '' };
-
-                for (const h of history) {
-                    const type = classifyModel(h.model);
-                    const v = h.version || 'N/A';
-
-                    if (h.decode?.tokens_per_second > bestSpeed.value) {
-                        bestSpeed = { value: h.decode.tokens_per_second, config: type, version: v };
-                    }
-                    if (h.prefill?.cost_per_million_tokens > 0 && h.prefill.cost_per_million_tokens < bestInputCost.value) {
-                        bestInputCost = { value: h.prefill.cost_per_million_tokens, config: type, version: v };
-                    }
-                    if (h.decode?.cost_per_million_tokens > 0 && h.decode.cost_per_million_tokens < bestOutputCost.value) {
-                        bestOutputCost = { value: h.decode.cost_per_million_tokens, config: type, version: v };
-                    }
-                    if (h.accuracy?.ifeval?.evaluated && h.accuracy.ifeval.prompt_level_accuracy > bestQuality.value) {
-                        bestQuality = { value: h.accuracy.ifeval.prompt_level_accuracy, config: type, version: v };
-                    }
-                }
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Performance Highlights</h2>
-                        <div class="stats-grid">
-                            <div class="stat">
-                                <div class="stat-label">Output Speed</div>
-                                <div class="stat-value">${bestSpeed.value.toLocaleString()}<span class="stat-unit">tok/s</span></div>
-                                <div class="stat-config">${bestSpeed.config} &mdash; v${bestSpeed.version}</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Input Cost</div>
-                                <div class="stat-value">$${bestInputCost.value.toFixed(4)}<span class="stat-unit">/1M</span></div>
-                                <div class="stat-config">${bestInputCost.config} &mdash; v${bestInputCost.version}</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Output Cost</div>
-                                <div class="stat-value">$${bestOutputCost.value.toFixed(4)}<span class="stat-unit">/1M</span></div>
-                                <div class="stat-config">${bestOutputCost.config} &mdash; v${bestOutputCost.version}</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Quality (IFEval)</div>
-                                <div class="stat-value">${bestQuality.value.toFixed(1)}<span class="stat-unit">%</span></div>
-                                <div class="stat-config">${bestQuality.config} &mdash; v${bestQuality.version}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        async function loadQualitySpeed() {
-            const section = document.getElementById('quality-speed-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                const valid = history.filter(h =>
-                    h.accuracy?.ifeval?.evaluated === true && h.decode?.tokens_per_second > 0
-                );
-                if (valid.length === 0) return;
-
-                const groups = {};
-                for (const h of valid) {
-                    const type = classifyModel(h.model);
-                    if (!groups[type]) groups[type] = [];
-
-                    groups[type].push({
-                        x: Math.round(h.accuracy.ifeval.prompt_level_accuracy * 100) / 100,
-                        y: h.decode.tokens_per_second,
-                        version: h.version || 'N/A',
-                        model: h.model
-                    });
-                }
-
-                const datasets = Object.entries(groups).map(([type, points]) => ({
-                    label: type,
-                    data: points,
-                    backgroundColor: quantColors[type]?.bg || 'rgba(148, 163, 184, 0.8)',
-                    borderColor: quantColors[type]?.border || '#94a3b8',
-                    borderWidth: 2,
-                    pointRadius: 8,
-                    pointHoverRadius: 11
-                }));
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Quality vs Speed</h2>
-                        <p class="chart-subtitle">
-                            Pick your tradeoff: accuracy on the X-axis, output speed on the Y-axis.
-                            Top-right is the sweet spot &mdash; fast AND accurate.
-                            FP4 configs are fastest with a slight quality tradeoff.
-                            BF16 delivers highest quality at lower throughput.
-                        </p>
-                        <div class="chart-container chart-container-hero">
-                            <canvas id="qualitySpeedChart"></canvas>
-                        </div>
-                        ${quantLegendHTML}
-                    </div>
-                `;
-
-                const ctx = document.getElementById('qualitySpeedChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'scatter',
-                    data: { datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                backgroundColor: '#1e293b',
-                                titleColor: '#f8fafc',
-                                bodyColor: '#94a3b8',
-                                borderColor: '#334155',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    title: function(items) {
-                                        const pt = items[0].raw;
-                                        return shortModelName(pt.model) + ' (v' + pt.version + ')';
-                                    },
-                                    label: function(context) {
-                                        const pt = context.raw;
-                                        return [
-                                            'IFEval Accuracy: ' + pt.x.toFixed(1) + '%',
-                                            'Output Speed: ' + pt.y.toLocaleString() + ' tok/s'
-                                        ];
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'IFEval Accuracy (%)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Output Speed (tok/s)',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: {
-                                    color: '#94a3b8',
-                                    callback: function(value) {
-                                        return value.toLocaleString();
-                                    }
-                                },
-                                grid: { color: '#334155' },
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        async function loadPricingComparison() {
-            const section = document.getElementById('pricing-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                const parseVersion = (v) => {
-                    if (!v) return [0, 0, 0];
-                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-                };
-
-                // Get latest version for each quantization type
-                const latest = {};
-                for (const h of history) {
-                    const type = classifyModel(h.model);
-                    const ver = parseVersion(h.version);
-                    if (!latest[type] || parseVersion(latest[type].version) < ver ||
-                        (parseVersion(latest[type].version).join('.') === ver.join('.') &&
-                         new Date(h.timestamp) > new Date(latest[type].timestamp))) {
-                        latest[type] = h;
-                    }
-                }
-
-                // Sort quantization types in a logical order
-                const quantOrder = ['BF16', 'FP8', 'FP4', 'FP4-QAT'];
-                const labels = quantOrder.filter(q => latest[q]);
-
-                const inputCosts = labels.map(q => latest[q].prefill?.cost_per_million_tokens || 0);
-                const outputCosts = labels.map(q => latest[q].decode?.cost_per_million_tokens || 0);
-                const cachedCosts = labels.map(q => {
-                    const c = latest[q].cached?.cost_per_million_tokens;
-                    return (c && c > 0) ? c : 0;
-                });
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Pricing by Configuration</h2>
-                        <p class="chart-subtitle">
-                            Cost per 1M tokens for each quantization type (latest version).
-                            FP4 and FP4-QAT are dramatically cheaper than BF16 across all categories.
-                        </p>
-                        <div class="chart-container chart-container-hero">
-                            <canvas id="pricingChart"></canvas>
-                        </div>
-                    </div>
-                `;
-
-                const ctx = document.getElementById('pricingChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Input Cost',
-                                data: inputCosts,
-                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                borderColor: '#6366f1',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Output Cost',
-                                data: outputCosts,
-                                backgroundColor: 'rgba(168, 85, 247, 0.8)',
-                                borderColor: '#a855f7',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Cached Input Cost',
-                                data: cachedCosts,
-                                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                                borderColor: '#22c55e',
-                                borderWidth: 1
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                labels: { color: '#94a3b8' }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1e293b',
-                                titleColor: '#f8fafc',
-                                bodyColor: '#94a3b8',
-                                borderColor: '#334155',
-                                borderWidth: 1,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.dataset.label + ': $' + context.raw.toFixed(4) + '/1M tokens';
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                ticks: { color: '#94a3b8' },
-                                grid: { color: '#334155' }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: '$/1M tokens',
-                                    color: '#94a3b8',
-                                    font: { size: 13, weight: '500' }
-                                },
-                                ticks: {
-                                    color: '#94a3b8',
-                                    callback: function(value) {
-                                        return '$' + value.toFixed(3);
-                                    }
-                                },
-                                grid: { color: '#334155' },
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        async function loadConfigTable() {
-            const section = document.getElementById('config-table-section');
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-                const history = await response.json();
-                if (!history || history.length === 0) return;
-
-                const parseVersion = (v) => {
-                    if (!v) return [0, 0, 0];
-                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-                };
-
-                const versionGreater = (a, b) => {
-                    const va = parseVersion(a);
-                    const vb = parseVersion(b);
-                    for (let i = 0; i < 3; i++) {
-                        if (va[i] !== vb[i]) return va[i] > vb[i];
-                    }
-                    return false;
-                };
-
-                // Get latest version for each quantization type
-                const latest = {};
-                for (const h of history) {
-                    const type = classifyModel(h.model);
-                    if (!latest[type] || versionGreater(h.version, latest[type].version) ||
-                        (h.version === latest[type].version && new Date(h.timestamp) > new Date(latest[type].timestamp))) {
-                        latest[type] = h;
-                    }
-                }
-
-                const quantOrder = ['BF16', 'FP8', 'FP4', 'FP4-QAT'];
-                const configs = quantOrder.filter(q => latest[q]);
-
-                // Compute best values for highlighting
-                let bestSpeed = 0, bestInput = Infinity, bestOutput = Infinity, bestCached = Infinity, bestQuality = 0;
-                for (const q of configs) {
-                    const h = latest[q];
-                    if (h.decode?.tokens_per_second > bestSpeed) bestSpeed = h.decode.tokens_per_second;
-                    if (h.prefill?.cost_per_million_tokens > 0 && h.prefill.cost_per_million_tokens < bestInput) bestInput = h.prefill.cost_per_million_tokens;
-                    if (h.decode?.cost_per_million_tokens > 0 && h.decode.cost_per_million_tokens < bestOutput) bestOutput = h.decode.cost_per_million_tokens;
-                    if (h.cached?.cost_per_million_tokens > 0 && h.cached.cost_per_million_tokens < bestCached) bestCached = h.cached.cost_per_million_tokens;
-                    if (h.accuracy?.ifeval?.evaluated && h.accuracy.ifeval.prompt_level_accuracy > bestQuality) bestQuality = h.accuracy.ifeval.prompt_level_accuracy;
-                }
-
-                const rows = configs.map(q => {
-                    const h = latest[q];
-                    const speed = h.decode?.tokens_per_second || 0;
-                    const inputCost = h.prefill?.cost_per_million_tokens || 0;
-                    const outputCost = h.decode?.cost_per_million_tokens || 0;
-                    const cachedCost = h.cached?.cost_per_million_tokens || 0;
-                    const quality = h.accuracy?.ifeval?.evaluated ? h.accuracy.ifeval.prompt_level_accuracy : null;
-
-                    return `<tr>
-                        <td><strong>${q}</strong></td>
-                        <td>${shortModelName(h.model)}</td>
-                        <td class="${speed === bestSpeed ? 'best' : ''}">${speed.toLocaleString()} tok/s</td>
-                        <td class="${inputCost === bestInput ? 'best' : ''}">$${inputCost.toFixed(4)}</td>
-                        <td class="${outputCost === bestOutput ? 'best' : ''}">$${outputCost.toFixed(4)}</td>
-                        <td class="${cachedCost > 0 && cachedCost === bestCached ? 'best' : ''}">${cachedCost > 0 ? '$' + cachedCost.toFixed(4) : '&mdash;'}</td>
-                        <td class="${quality !== null && quality === bestQuality ? 'best' : ''}">${quality !== null ? quality.toFixed(1) + '%' : '&mdash;'}</td>
-                    </tr>`;
-                }).join('');
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Configuration Comparison</h2>
-                        <p class="chart-subtitle">
-                            Latest benchmarked version of each quantization type. Best values highlighted in green.
-                        </p>
-                        <table class="config-table">
-                            <thead>
-                                <tr>
-                                    <th>Configuration</th>
-                                    <th>Model</th>
-                                    <th>Output Speed</th>
-                                    <th>Input Cost</th>
-                                    <th>Output Cost</th>
-                                    <th>Cached Cost</th>
-                                    <th>Quality</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${rows}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        async function loadResults() {
-            const container = document.getElementById('results');
-            const lastUpdated = document.getElementById('last-updated');
-
-            try {
-                const response = await fetch('benchmark-results.json?t=' + Date.now());
-                if (!response.ok) throw new Error('Failed to load results');
-
-                const data = await response.json();
-
-                container.innerHTML = `
-                    ${data.benchmark_args ? `
-                    <div class="card">
-                        <h2>Benchmark Test Parameters</h2>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Parameter</th>
-                                    <th>Prefill Test</th>
-                                    <th>Cache Test</th>
-                                    <th>Decode Test</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Number of Prompts</td>
-                                    <td>${data.benchmark_args.prefill_test.num_prompts}</td>
-                                    <td>${data.benchmark_args.cache_test.num_prompts}</td>
-                                    <td>${data.benchmark_args.decode_test.num_prompts}</td>
-                                </tr>
-                                <tr>
-                                    <td>Request Rate</td>
-                                    <td>${data.benchmark_args.prefill_test.request_rate} req/s</td>
-                                    <td>-</td>
-                                    <td>${data.benchmark_args.decode_test.request_rate} req/s</td>
-                                </tr>
-                                <tr>
-                                    <td>Input Length</td>
-                                    <td>${data.benchmark_args.prefill_test.input_len} tokens</td>
-                                    <td>Prefix: ${data.benchmark_args.cache_test.prefix_len} + Suffix: ${data.benchmark_args.cache_test.suffix_len}</td>
-                                    <td>${data.benchmark_args.decode_test.input_len} tokens</td>
-                                </tr>
-                                <tr>
-                                    <td>Output Length</td>
-                                    <td>${data.benchmark_args.prefill_test.output_len} tokens</td>
-                                    <td>${data.benchmark_args.cache_test.output_len} tokens</td>
-                                    <td>${data.benchmark_args.decode_test.output_len} tokens</td>
-                                </tr>
-                                <tr>
-                                    <td>Test Focus</td>
-                                    <td>Prefill performance (${data.benchmark_args.prefill_test.ratio})</td>
-                                    <td>Cache effectiveness (${data.benchmark_args.cache_test.num_prefixes} unique prefixes)</td>
-                                    <td>Decode performance (${data.benchmark_args.decode_test.ratio})</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
-                `;
-
-                if (data.timestamp) {
-                    lastUpdated.textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
-                } else {
-                    lastUpdated.textContent = `Results auto-updated on each deployment`;
-                }
-
-            } catch (error) {
-                container.innerHTML = `
-                    <div class="error">
-                        <strong>Error loading results:</strong> ${error.message}<br>
-                        Results will be available after the first benchmark run.
-                    </div>
-                `;
-            }
-        }
-
-        async function loadHistory() {
-            const historySection = document.getElementById('history-section');
-
-            try {
-                const response = await fetch('benchmark-history.json?t=' + Date.now());
-                if (!response.ok) throw new Error('No history available');
-
-                const history = await response.json();
-
-                if (!history || history.length === 0) {
-                    historySection.innerHTML = '';
-                    return;
-                }
-
-                const parseVersion = (v) => {
-                    if (!v) return [0, 0, 0];
-                    const parts = v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
-                    return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
-                };
-
-                // Deduplicate by model + version
-                const dedupeMap = new Map();
-                for (const h of history) {
-                    const key = `${h.model || 'unknown'}|${h.version || 'unknown'}`;
-                    const existing = dedupeMap.get(key);
-                    if (!existing || new Date(h.timestamp) > new Date(existing.timestamp)) {
-                        dedupeMap.set(key, h);
-                    }
-                }
-                const dedupedHistory = Array.from(dedupeMap.values());
-
-                const sortedHistory = [...dedupedHistory].sort((a, b) => {
-                    const vA = parseVersion(a.version);
-                    const vB = parseVersion(b.version);
-                    for (let i = 0; i < 3; i++) {
-                        if (vA[i] !== vB[i]) return vA[i] - vB[i];
-                    }
-                    return new Date(a.timestamp) - new Date(b.timestamp);
-                });
-
-                const reversedHistory = [...sortedHistory].reverse();
-
-                const tableRows = reversedHistory.map((h, i, arr) => {
-                    const prev = arr[i + 1];
-                    const prefillTrend = prev ? (h.prefill?.tokens_per_second > prev.prefill?.tokens_per_second ? '&uarr;' : h.prefill?.tokens_per_second < prev.prefill?.tokens_per_second ? '&darr;' : '') : '';
-                    const cachedTrend = prev ? (h.cached?.tokens_per_second > prev.cached?.tokens_per_second ? '&uarr;' : h.cached?.tokens_per_second < prev.cached?.tokens_per_second ? '&darr;' : '') : '';
-                    const decodeTrend = prev ? (h.decode?.tokens_per_second > prev.decode?.tokens_per_second ? '&uarr;' : h.decode?.tokens_per_second < prev.decode?.tokens_per_second ? '&darr;' : '') : '';
-                    const prefillClass = prefillTrend.includes('uarr') ? 'trend-up' : prefillTrend.includes('darr') ? 'trend-down' : '';
-                    const cachedClass = cachedTrend.includes('uarr') ? 'trend-up' : cachedTrend.includes('darr') ? 'trend-down' : '';
-                    const decodeClass = decodeTrend.includes('uarr') ? 'trend-up' : decodeTrend.includes('darr') ? 'trend-down' : '';
-
-                    const costDisplay = `$${h.prefill?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    const cachedCostDisplay = `$${h.cached?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-                    const decodeCostDisplay = `$${h.decode?.cost_per_million_tokens?.toFixed(4) || 'N/A'}`;
-
-                    return `<tr>
-                        <td><span class="version-badge">${h.version || 'N/A'}</span></td>
-                        <td title="${h.model || 'N/A'}">${shortModelName(h.model)}</td>
-                        <td>${h.timestamp ? new Date(h.timestamp).toLocaleDateString() : 'N/A'}</td>
-                        <td class="${prefillClass}">${h.prefill?.tokens_per_second?.toLocaleString() || 'N/A'} ${prefillTrend}</td>
-                        <td class="${cachedClass}">${h.cached?.tokens_per_second?.toLocaleString() || 'N/A'} ${cachedTrend}</td>
-                        <td class="${decodeClass}">${h.decode?.tokens_per_second?.toLocaleString() || 'N/A'} ${decodeTrend}</td>
-                        <td>${costDisplay}</td>
-                        <td>${cachedCostDisplay}</td>
-                        <td>${decodeCostDisplay}</td>
-                    </tr>`;
-                }).join('');
-
-                historySection.innerHTML = `
-                    <div class="card">
-                        <h2>Release History</h2>
-                        <div class="history-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Version</th>
-                                        <th>Model</th>
-                                        <th>Date</th>
-                                        <th>Prefill (tok/s)</th>
-                                        <th>Cached Input (tok/s)</th>
-                                        <th>Decode (tok/s)</th>
-                                        <th>Input Cost</th>
-                                        <th>Cached Input Cost</th>
-                                        <th>Output Cost</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${tableRows}
-                                </tbody>
-                            </table>
-                        </div>
-                        <a href="benchmark-history.json" class="json-link">
-                            View Full History JSON
-                        </a>
-                    </div>
-                `;
-
-            } catch (error) {
-                historySection.innerHTML = '';
-            }
-        }
-
-        // ── Gemma 4 26B ISL/OSL sweep ──────────────────────────────────────────
-
-        const ISL_OSL_COLORS = [
-            { border: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },  // ISL128/OSL128  — indigo
-            { border: '#a855f7', bg: 'rgba(168,85,247,0.15)'  },  // ISL128/OSL512  — purple
-            { border: '#76b900', bg: 'rgba(118,185,0,0.15)'   },  // ISL1024/OSL128 — nvidia green
-            { border: '#f59e0b', bg: 'rgba(245,158,11,0.15)'  },  // ISL1024/OSL512 — amber
-            { border: '#ef4444', bg: 'rgba(239,68,68,0.15)'   },  // ISL4096/OSL512 — red
-        ];
-
-        let gemma4ChartThroughputTTFT = null;
-        let gemma4ChartThroughputITL  = null;
-
-        function buildGemma4Datasets(data, metricKey) {
-            const combos   = data.isl_osl_combos;
-            const concLevels = data.concurrency_levels;
-            return combos.map((combo, idx) => {
-                const comboData = data.results[combo.label];
-                const points = concLevels.map(c => {
-                    const row = comboData[`concurrency_${c}`];
-                    if (!row || row.throughput_tok_s === null || row[metricKey] === null) return null;
-                    return { x: row.throughput_tok_s, y: row[metricKey], concurrency: c };
-                }).filter(p => p !== null);
-
-                const color = ISL_OSL_COLORS[idx % ISL_OSL_COLORS.length];
-                return {
-                    label: combo.label,
-                    data: points,
-                    backgroundColor: color.border,
-                    borderColor: color.border,
-                    fill: false,
-                    tension: 0.35,
-                    pointRadius: 6,
-                    pointHoverRadius: 9,
-                    pointBackgroundColor: color.border,
-                    showLine: true
-                };
-            });
-        }
-
-        function commonGemma4ChartOptions(xLabel, yLabel) {
-            return {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#1e293b',
-                        titleColor: '#f8fafc',
-                        bodyColor: '#94a3b8',
-                        borderColor: '#334155',
-                        borderWidth: 1,
-                        padding: 12,
-                        callbacks: {
-                            title: function(items) {
-                                return items[0].dataset.label + '  —  concurrency ' + items[0].raw.concurrency;
-                            },
-                            label: function(ctx) {
-                                return [
-                                    'Throughput: ' + ctx.raw.x.toLocaleString() + ' tok/s',
-                                    yLabel + ': ' + ctx.raw.y.toFixed(1) + ' ms'
-                                ];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        title: { display: true, text: xLabel, color: '#94a3b8', font: { size: 13, weight: '500' } },
-                        ticks: { color: '#94a3b8', callback: v => v.toLocaleString() },
-                        grid: { color: '#334155' }
-                    },
-                    y: {
-                        title: { display: true, text: yLabel + ' (ms)', color: '#94a3b8', font: { size: 13, weight: '500' } },
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: '#334155' },
-                        beginAtZero: true
-                    }
-                }
-            };
-        }
-
-        function buildGemma4RawTable(data, activeCombo) {
-            const concLevels = data.concurrency_levels;
-            const comboData  = data.results[activeCombo];
-            if (!comboData) return '<p style="color:var(--text-muted);font-size:0.875rem;">No data for this combo yet.</p>';
-
-            const rows = concLevels.map(c => {
-                const row = comboData[`concurrency_${c}`];
-                const fmt = v => v === null ? '<span style="color:#475569">—</span>' : v.toLocaleString(undefined, {maximumFractionDigits: 1});
-                return `<tr>
-                    <td>${c}</td>
-                    <td>${fmt(row.throughput_tok_s)}</td>
-                    <td>${fmt(row.ttft_p50_ms)}</td>
-                    <td>${fmt(row.ttft_p95_ms)}</td>
-                    <td>${fmt(row.itl_p50_ms)}</td>
-                    <td>${fmt(row.itl_p95_ms)}</td>
-                </tr>`;
-            }).join('');
-
-            return `<table class="isl-osl-table">
-                <thead>
-                    <tr>
-                        <th>Concurrency</th>
-                        <th>Throughput (tok/s)</th>
-                        <th>TTFT p50 (ms)</th>
-                        <th>TTFT p95 (ms)</th>
-                        <th>ITL p50 (ms)</th>
-                        <th>ITL p95 (ms)</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>`;
-        }
-
-        async function loadGemma4IslOsl() {
-            const section = document.getElementById('gemma4-isl-osl-section');
-            try {
-                const response = await fetch('benchmark-results.json?t=' + Date.now());
-                if (!response.ok) throw new Error('Failed to load benchmark-results.json');
-                const json = await response.json();
-                const data = json.gemma4_26b_isl_osl;
-                if (!data) return;
-
-                const isPending = data.status === 'pending';
-                const pendingNote = isPending
-                    ? '<span class="pending-badge">Benchmarks pending</span>'
-                    : '';
-
-                const legendHTML = data.isl_osl_combos.map((combo, idx) => {
-                    const color = ISL_OSL_COLORS[idx % ISL_OSL_COLORS.length];
-                    return `<div class="isl-osl-legend-item">
-                        <div class="isl-osl-swatch" style="background:${color.border};"></div>
-                        ${combo.label}
-                    </div>`;
-                }).join('');
-
-                const tabsHTML = data.isl_osl_combos.map((combo, idx) =>
-                    `<button class="isl-osl-tab${idx === 0 ? ' active' : ''}" data-combo="${combo.label}" onclick="switchGemma4Tab(this)">${combo.label}</button>`
-                ).join('');
-
-                section.innerHTML = `
-                    <div class="card">
-                        <h2>Gemma 4 26B A4B &mdash; ISL/OSL Performance ${pendingNote}</h2>
-                        <p class="chart-subtitle">
-                            Throughput vs latency curves for Gemma 4 26B (A4B quantized) on DGX Spark GB10 with Pipeline Parallel = 2.
-                            Each curve represents one ISL/OSL workload. Points along each curve are concurrency levels 1&rarr;64.
-                            Higher throughput and lower latency is better &mdash; curves should move right and down as hardware saturates.
-                        </p>
-
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-                            <div>
-                                <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Throughput vs TTFT p50</p>
-                                <div class="chart-container chart-container-tall">
-                                    <canvas id="gemma4ThroughputTTFT"></canvas>
-                                </div>
-                            </div>
-                            <div>
-                                <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Throughput vs ITL p50</p>
-                                <div class="chart-container chart-container-tall">
-                                    <canvas id="gemma4ThroughputITL"></canvas>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="isl-osl-legend">${legendHTML}</div>
-
-                        <div style="margin-top:1.75rem;">
-                            <p style="color:var(--text-muted);font-size:0.875rem;margin-bottom:0.75rem;">Raw numbers by workload:</p>
-                            <div class="isl-osl-tabs">${tabsHTML}</div>
-                            <div class="isl-osl-table-wrap" id="gemma4RawTable">
-                                ${buildGemma4RawTable(data, data.isl_osl_combos[0].label)}
-                            </div>
-                        </div>
-
-                        <a href="benchmark-results.json" class="json-link" style="margin-top:1rem;">
-                            View Raw JSON Data
-                        </a>
-                    </div>
-                `;
-
-                // Stash data for tab switching
-                window._gemma4Data = data;
-
-                const ttftDatasets = buildGemma4Datasets(data, 'ttft_p50_ms');
-                const itlDatasets  = buildGemma4Datasets(data, 'itl_p50_ms');
-
-                if (isPending) {
-                    // Charts will render empty axes — that's intentional; fill on next deploy
-                }
-
-                const ctxTTFT = document.getElementById('gemma4ThroughputTTFT').getContext('2d');
-                gemma4ChartThroughputTTFT = new Chart(ctxTTFT, {
-                    type: 'scatter',
-                    data: { datasets: ttftDatasets },
-                    options: commonGemma4ChartOptions('Throughput (tok/s)', 'TTFT p50')
-                });
-
-                const ctxITL = document.getElementById('gemma4ThroughputITL').getContext('2d');
-                gemma4ChartThroughputITL = new Chart(ctxITL, {
-                    type: 'scatter',
-                    data: { datasets: itlDatasets },
-                    options: commonGemma4ChartOptions('Throughput (tok/s)', 'ITL p50')
-                });
-
-            } catch (error) {
-                section.innerHTML = '';
-            }
-        }
-
-        function switchGemma4Tab(btn) {
-            document.querySelectorAll('.isl-osl-tab').forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-            const combo = btn.getAttribute('data-combo');
-            const tableWrap = document.getElementById('gemma4RawTable');
-            if (tableWrap && window._gemma4Data) {
-                tableWrap.innerHTML = buildGemma4RawTable(window._gemma4Data, combo);
-            }
-        }
-
-        // Load all sections
-        loadHighlights();
-        loadQualitySpeed();
-        loadPricingComparison();
-        loadConfigTable();
-        loadResults();
-        loadGemma4IslOsl();
-        loadHistory();
-    </script>
+    <div class="chart-grid">
+      <div class="chart-wrap">
+        <div class="chart-label">Throughput vs TTFT p50</div>
+        <div id="scatter-ttft-wrap">
+          <div class="pending-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Data pending — experiments queued
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-label">Throughput vs ITL p50</div>
+        <div id="scatter-itl-wrap">
+          <div class="pending-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Data pending — experiments queued
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="legend" id="isl-osl-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
+  </div>
+
+  <!-- ── Framework Comparison ─────────────────────────────── -->
+  <div class="section">
+    <div class="section-title">Serving Framework Comparison</div>
+    <p class="section-desc">
+      llm-d disaggregated prefill/decode vs vLLM vs SGLang.
+      Model: <span class="mono">google/gemma-4-26b-it</span> · c=32 · ISL=1024 / OSL=512 · DGX Spark GB10 PP=2
+    </p>
+    <div class="fw-chart-wrap">
+      <div id="fw-chart-body">
+        <div class="pending-overlay" style="height:240px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Data pending — framework comparison experiments queued
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── vLLM Optimization Waterfall ──────────────────────── -->
+  <div class="section">
+    <div class="section-title">vLLM Optimization Waterfall</div>
+    <p class="section-desc">
+      Throughput delta relative to baseline for each optimization.
+      Green = improvement, red = regression.
+      Model: <span class="mono">Qwen/Qwen3-Coder-Next-FP8</span> · PP=2 · DGX Spark GB10
+    </p>
+    <div class="waterfall-wrap">
+      <div id="waterfall-body">
+        <div class="pending-overlay" style="height:300px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Data pending — optimization experiments running
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<div class="page" style="padding-top:0;">
+  <footer>
+    <span>Token Labs · <a href="https://www.tokenlabs.run" target="_blank">tokenlabs.run</a></span>
+    <span>Hardware: NVIDIA DGX Spark · GB10 · SM121 · 128GB</span>
+    <span>Data: <a href="benchmark-results.json">benchmark-results.json</a></span>
+  </footer>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+
+const REGISTRY_DATA = [
+  // Group: Serving Framework Comparison
+  {
+    _group: "Serving Framework Comparison — Gemma 4 26B A4B · DGX Spark GB10 · PP=2",
+    id: "llmd-gemma4-disagg-pp2",
+    name: "llm-d disaggregated prefill/decode",
+    model: "google/gemma-4-26b-it",
+    framework: "llm-d",
+    status: "pending",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Disaggregated prefill/decode separates the prefill and decode phases across nodes, reducing head-of-line blocking. Primary experiment for llm-d evaluation on GB10.",
+    notes: "Primary experiment for framework comparison series.",
+  },
+  {
+    id: "vllm-gemma4-baseline-pp2",
+    name: "vLLM baseline PP=2",
+    model: "google/gemma-4-26b-it",
+    framework: "vllm",
+    status: "pending",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Standard vLLM pipeline parallel deployment across spark-01/spark-02.",
+    notes: "Baseline for framework comparison.",
+  },
+  {
+    id: "sglang-gemma4-baseline",
+    name: "SGLang baseline",
+    model: "google/gemma-4-26b-it",
+    framework: "sglang",
+    status: "pending",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "SGLang RadixAttention + piecewise CUDA graph faster under saturation. sara4dev confirmed SGLang beats vLLM at 3B by +21%.",
+    notes: "Expected +10-20% throughput vs vLLM baseline.",
+  },
+  // Group: vLLM Optimization Experiments
+  {
+    _group: "vLLM Optimization Experiments — Qwen3-Coder-Next-FP8 · DGX Spark GB10 · PP=2",
+    id: "baseline-qwen3-coder-next-fp8-pp2",
+    name: "Baseline PP=2",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "done",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Reference point for all subsequent optimizations. First deployment on GB10 PP=2.",
+    notes: "SGLang on spark-01 was consuming GPU — required pkill before deploy.",
+    date: "2026-04-05",
+  },
+  {
+    id: "vllm-chunked-prefill-pp2",
+    name: "Chunked Prefill",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "failed",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Chunked prefill distributes prefill across decode steps, reducing TTFT p99 at c=32. sara4dev saw +50% throughput on SM120.",
+    notes: "Expected delta: -20% TTFT p99, throughput neutral. Date: 2026-04-06",
+  },
+  {
+    id: "vllm-higher-mem-utilization-pp2",
+    name: "Higher Memory Utilization (0.85)",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "failed",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "More KV cache blocks available → better batching → higher throughput. sara4dev saw minimal gain at 0.90.",
+    notes: "Expected delta: +10-15% throughput. Date: 2026-04-06",
+  },
+  {
+    id: "vllm-prefix-caching-pp2",
+    name: "Prefix Caching (APC)",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "pending",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "System prompts cached across requests → reduced TTFT for repeated prefixes. sara4dev: neutral (4239 vs 4241 baseline).",
+    notes: "Previous run all-zero (c=32 0/50 ok) — endpoint degraded from race condition; requeued. Date: 2026-04-07",
+  },
+  {
+    id: "sglang-baseline-qwen3-coder-next",
+    name: "SGLang Baseline (Qwen3)",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "sglang",
+    status: "pending",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "SGLang RadixAttention + piecewise CUDA graph faster under saturation. sara4dev: +21% on SM120.",
+    notes: "Expected delta: +10-20% throughput vs vllm baseline. Date: 2026-04-07",
+  },
+  {
+    id: "vllm-no-enforce-eager-pp2",
+    name: "CUDA Graphs (no-enforce-eager)",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "queued",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "CUDA graph capture reduces kernel launch overhead. sara4dev: +19% on SM120 (3553→4241 tok/s).",
+    notes: "Risk: may hang or OOM on GB10 unified memory. Expected: +15-20%",
+  },
+  {
+    id: "vllm-fp8-kv-cache-pp2",
+    name: "FP8 KV Cache",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "queued",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "FP8 KV cache halves KV memory, enabling ~2x more concurrent sequences. sara4dev: +5% KV-only on SM120, +65% with FP8 weights.",
+    notes: "Expected delta: +20-40% throughput at c=32",
+  },
+  {
+    id: "vllm-speculative-decoding-pp2",
+    name: "Speculative Decoding",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "queued",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Draft model proposes tokens, target verifies in parallel → lower TPOT. EAGLE-3 achieves 2-6x at NeurIPS'25.",
+    notes: "Expected delta: -30% ITL p50",
+  },
+  {
+    id: "vllm-tp2-disable-custom-ar-pp1",
+    name: "TP=2 + disable-custom-all-reduce",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "queued",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "TP=2 within spark-01 via NVLink-C2C. sara4dev confirms DISABLE_CUSTOM_ALL_REDUCE required for TP>1 on Blackwell.",
+    notes: "sara4dev TP=2 was -9% for 3B; may differ for larger model on GB10.",
+  },
+  {
+    id: "vllm-longer-context-pp2",
+    name: "Longer Context (200k)",
+    model: "Qwen/Qwen3-Coder-Next-FP8",
+    framework: "vllm",
+    status: "queued",
+    throughput: null, ttft_p50: null, itl_p50: null,
+    hypothesis: "Qwen3-Coder-Next supports 1M context; test practical limit on 2×128GB. sara4dev: neutral at 32k.",
+    notes: "Expected: ~-5% throughput, +200k context window available",
+  },
+];
+
+// Placeholder waterfall data — will be replaced when results arrive
+// Sorted by absolute expected delta for illustration
+const WATERFALL_PLACEHOLDER = [
+  { name: "Speculative Decoding",          delta: null, expected: -30, unit: "ITL" },
+  { name: "FP8 KV Cache",                  delta: null, expected: +30  },
+  { name: "CUDA Graphs",                   delta: null, expected: +17  },
+  { name: "SGLang (framework switch)",     delta: null, expected: +15  },
+  { name: "Prefix Caching",               delta: null, expected: 0    },
+  { name: "Higher Mem Util (0.85)",        delta: null, expected: null },
+  { name: "Chunked Prefill",              delta: null, expected: null },
+  { name: "Longer Context (200k)",         delta: null, expected: -5   },
+  { name: "TP=2 + disable-custom-ar",     delta: null, expected: null },
+];
+
+// ── ISL/OSL combo colors ──────────────────────────────────────────────────────
+const COMBO_COLORS = {
+  "ISL128/OSL128":  { line: "#76b900", bg: "rgba(118,185,0,0.15)" },
+  "ISL128/OSL512":  { line: "#4a9eff", bg: "rgba(74,158,255,0.15)" },
+  "ISL1024/OSL128": { line: "#a855f7", bg: "rgba(168,85,247,0.15)" },
+  "ISL1024/OSL512": { line: "#f5a623", bg: "rgba(245,166,35,0.15)" },
+  "ISL4096/OSL512": { line: "#e05252", bg: "rgba(224,82,82,0.15)" },
+};
+
+// ── Render Registry Table ─────────────────────────────────────────────────────
+function renderRegistry() {
+  const tbody = document.getElementById("registry-body");
+  let html = "";
+
+  REGISTRY_DATA.forEach((exp, idx) => {
+    if (exp._group) {
+      html += `<tr class="group-header"><td colspan="6">${exp._group}</td></tr>`;
+    }
+
+    const fw = exp.framework;
+    const fwClass = fw === "vllm" ? "fw-vllm" : fw === "llm-d" ? "fw-llmd" : "fw-sglang";
+    const fwLabel = fw === "llm-d" ? "llm-d" : fw.toUpperCase();
+
+    const st = exp.status;
+    const stClass = `badge-${st}`;
+
+    const fmt = (v) => v !== null && v !== undefined
+      ? `<span class="metric-val">${v.toLocaleString()}</span>`
+      : `<span class="metric-null">—</span>`;
+
+    html += `
+      <tr class="data-row" data-idx="${idx}" onclick="toggleDetail(this, ${idx})">
+        <td>
+          <div class="exp-name">${exp.name}</div>
+          <div class="exp-model mono">${exp.model.split("/")[1] ?? exp.model}</div>
+        </td>
+        <td><span class="fw-tag ${fwClass}">${fwLabel}</span></td>
+        <td><span class="badge ${stClass}">${st}</span></td>
+        <td>${fmt(exp.throughput)}</td>
+        <td>${fmt(exp.ttft_p50)}</td>
+        <td>${fmt(exp.itl_p50)}</td>
+      </tr>
+      <tr class="detail-row" id="detail-${idx}">
+        <td colspan="6">
+          <div class="detail-inner">
+            <div><strong>ID:</strong> <span class="mono">${exp.id}</span></div>
+            <div><strong>Model:</strong> <span class="mono">${exp.model}</span></div>
+            <div class="full-width"><strong>Hypothesis:</strong> ${exp.hypothesis || "—"}</div>
+            <div class="full-width"><strong>Notes:</strong> ${exp.notes || "—"}</div>
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = html;
+}
+
+function toggleDetail(row, idx) {
+  const detail = document.getElementById(`detail-${idx}`);
+  detail.classList.toggle("open");
+}
+
+// ── ISL/OSL Legend ─────────────────────────────────────────────────────────────
+function renderIslOslLegend() {
+  const el = document.getElementById("isl-osl-legend");
+  let html = "";
+  Object.entries(COMBO_COLORS).forEach(([label, c]) => {
+    html += `<div class="legend-item">
+      <div class="legend-dot" style="background:${c.line}"></div>
+      <span>${label}</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ── Tab handling (for future use when data arrives) ───────────────────────────
+document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll("#isl-osl-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  // When data is available, filter charts here
+});
+
+// ── Waterfall — placeholder expected-delta bars ───────────────────────────────
+function renderWaterfall() {
+  const body = document.getElementById("waterfall-body");
+
+  // Check if we have any actual data
+  const hasData = WATERFALL_PLACEHOLDER.some(e => e.delta !== null);
+
+  if (!hasData) {
+    // Show expected-delta preview as ghost bars
+    body.innerHTML = `
+      <div style="padding:0.5rem 0 1rem;font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:0.5rem;">
+        <span style="background:rgba(255,255,255,0.05);border:1px solid var(--border-light);border-radius:4px;padding:.15rem .5rem;font-size:.7rem;">PREVIEW</span>
+        Showing expected deltas — actual results pending
+      </div>
+      <div id="waterfall-canvas-wrap">
+        <canvas id="waterfall-canvas" height="280"></canvas>
+      </div>`;
+
+    const ctx = document.getElementById("waterfall-canvas").getContext("2d");
+    const items = WATERFALL_PLACEHOLDER.filter(e => e.expected !== null);
+    const sorted = [...items].sort((a, b) => (b.expected ?? 0) - (a.expected ?? 0));
+
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: sorted.map(e => e.name),
+        datasets: [{
+          label: "Expected Δ throughput (%)",
+          data: sorted.map(e => e.expected),
+          backgroundColor: sorted.map(e =>
+            e.expected >= 0 ? "rgba(118,185,0,0.25)" : "rgba(224,82,82,0.25)"
+          ),
+          borderColor: sorted.map(e =>
+            e.expected >= 0 ? "#76b900" : "#e05252"
+          ),
+          borderWidth: 1.5,
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.raw;
+                return ` ${v > 0 ? "+" : ""}${v}% (estimated)`;
+              }
+            },
+            backgroundColor: "#1a1a1a",
+            borderColor: "#333",
+            borderWidth: 1,
+            titleColor: "#f0f0f0",
+            bodyColor: "#888",
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(255,255,255,0.04)" },
+            ticks: { color: "#666", font: { size: 11 }, callback: v => `${v > 0 ? "+" : ""}${v}%` },
+            border: { color: "#2a2a2a" },
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: "#999", font: { size: 11 } },
+            border: { color: "#2a2a2a" },
+          },
+        },
+      },
+    });
+    return;
+  }
+
+  // Real data path — will be populated when experiments complete
+  body.innerHTML = `<canvas id="waterfall-canvas" height="280"></canvas>`;
+  // (Chart.js render goes here once data is populated in WATERFALL_PLACEHOLDER)
+}
+
+// ── Framework comparison placeholder ─────────────────────────────────────────
+function renderFrameworkChart() {
+  const body = document.getElementById("fw-chart-body");
+  // Real data check (none yet)
+  const hasData = false;
+  if (!hasData) return; // leave the pending overlay
+
+  // When data is ready:
+  // body.innerHTML = `<canvas id="fw-chart" height="260"></canvas>`;
+  // ... Chart.js grouped bar chart
+}
+
+// ── Chart.js global defaults ─────────────────────────────────────────────────
+Chart.defaults.color = "#888";
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderRegistry();
+renderIslOslLegend();
+renderWaterfall();
+renderFrameworkChart();
+</script>
 </body>
 </html>

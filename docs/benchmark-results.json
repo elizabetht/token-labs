@@ -1,167 +1,297 @@
 {
-  "gemma4_26b_isl_osl": {
-    "model": "google/gemma-4-26b-it",
+  "meta": {
+    "last_updated": "2026-04-07",
     "hardware": {
       "platform": "NVIDIA DGX Spark",
       "gpu": "GB10 (Grace Blackwell)",
-      "architecture": "ARM64",
-      "tensor_parallel": 2,
-      "pipeline_parallel": 2
+      "memory_gb": 128,
+      "sm_version": "SM121",
+      "architecture": "ARM64"
+    }
+  },
+
+  "experiment_groups": {
+
+    "serving_framework_comparison": {
+      "description": "Framework comparison: llm-d disaggregated prefill/decode vs vLLM vs SGLang on Gemma 4 26B A4B, DGX Spark GB10, PP=2",
+      "model": "google/gemma-4-26b-it",
+      "node_config": "pp2-spark01-spark02",
+      "fixed_concurrency": 32,
+      "fixed_isl": 1024,
+      "fixed_osl": 512,
+      "experiments": [
+        {
+          "id": "llmd-gemma4-disagg-pp2",
+          "name": "llm-d disaggregated prefill/decode",
+          "framework": "llm-d",
+          "status": "pending",
+          "priority": 0,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "notes": "Primary experiment — disaggregated prefill/decode via llm-d"
+        },
+        {
+          "id": "vllm-gemma4-baseline-pp2",
+          "name": "vLLM baseline PP=2",
+          "framework": "vllm",
+          "status": "pending",
+          "priority": 1,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "notes": "Baseline for framework comparison"
+        },
+        {
+          "id": "sglang-gemma4-baseline",
+          "name": "SGLang baseline",
+          "framework": "sglang",
+          "status": "pending",
+          "priority": 2,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "notes": "SGLang RadixAttention baseline"
+        }
+      ]
     },
-    "description": "ISL/OSL sweep benchmarks for Gemma 4 26B A4B on DGX Spark (GB10, PP=2). Throughput vs latency curves across concurrency levels and input/output sequence length combinations.",
-    "concurrency_levels": [1, 4, 8, 16, 32, 64],
-    "isl_osl_combos": [
-      {"isl": 128, "osl": 128, "label": "ISL128/OSL128"},
-      {"isl": 128, "osl": 512, "label": "ISL128/OSL512"},
-      {"isl": 1024, "osl": 128, "label": "ISL1024/OSL128"},
-      {"isl": 1024, "osl": 512, "label": "ISL1024/OSL512"},
-      {"isl": 4096, "osl": 512, "label": "ISL4096/OSL512"}
-    ],
-    "results": {
-      "ISL128/OSL128": {
-        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
-      },
-      "ISL128/OSL512": {
-        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
-      },
-      "ISL1024/OSL128": {
-        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
-      },
-      "ISL1024/OSL512": {
-        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
-      },
-      "ISL4096/OSL512": {
-        "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
-        "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+
+    "isl_osl_sweep": {
+      "description": "ISL/OSL performance sweep via llm-d on Gemma 4 26B A4B, DGX Spark GB10, PP=2",
+      "model": "google/gemma-4-26b-it",
+      "framework": "llm-d",
+      "node_config": "pp2-spark01-spark02",
+      "concurrency_levels": [1, 4, 8, 16, 32, 64],
+      "isl_osl_combos": [
+        {"isl": 128,  "osl": 128, "label": "ISL128/OSL128",   "status": "pending"},
+        {"isl": 128,  "osl": 512, "label": "ISL128/OSL512",   "status": "pending"},
+        {"isl": 1024, "osl": 128, "label": "ISL1024/OSL128",  "status": "pending"},
+        {"isl": 1024, "osl": 512, "label": "ISL1024/OSL512",  "status": "pending"},
+        {"isl": 4096, "osl": 512, "label": "ISL4096/OSL512",  "status": "pending"}
+      ],
+      "results": {
+        "ISL128/OSL128": {
+          "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+        },
+        "ISL128/OSL512": {
+          "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+        },
+        "ISL1024/OSL128": {
+          "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+        },
+        "ISL1024/OSL512": {
+          "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+        },
+        "ISL4096/OSL512": {
+          "concurrency_1":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_4":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_8":  {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_16": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_32": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null},
+          "concurrency_64": {"throughput_tok_s": null, "ttft_p50_ms": null, "ttft_p95_ms": null, "itl_p50_ms": null, "itl_p95_ms": null}
+        }
       }
     },
-    "timestamp": null,
-    "status": "pending"
-  },
-  "model": "tokenlabsdotrun/Llama-3.1-8B-ModelOpt-NVFP4-QAT",
-  "dgx_cost_per_hour": 0.1112,
-  "image_tag": "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0",
-  "prefill": {
-    "tokens_per_second": 0.0,
-    "cost_per_million_tokens": 0.0,
-    "latency": {
-      "mean_ttft_ms": 0.0,
-      "median_ttft_ms": 0.0,
-      "p99_ttft_ms": 0.0,
-      "mean_tpot_ms": 0.0,
-      "median_tpot_ms": 0.0,
-      "p99_tpot_ms": 0.0,
-      "mean_itl_ms": 0.0,
-      "median_itl_ms": 0.0,
-      "p99_itl_ms": 0.0
-    }
-  },
-  "cached": {
-    "tokens_per_second": 0.0,
-    "cost_per_million_tokens": 0.0,
-    "latency": {
-      "mean_ttft_ms": 0.0,
-      "median_ttft_ms": 0.0,
-      "p99_ttft_ms": 0.0,
-      "mean_tpot_ms": 0.0,
-      "median_tpot_ms": 0.0,
-      "p99_tpot_ms": 0.0,
-      "mean_itl_ms": 0.0,
-      "median_itl_ms": 0.0,
-      "p99_itl_ms": 0.0
-    }
-  },
-  "decode": {
-    "tokens_per_second": 0.0,
-    "cost_per_million_tokens": 0.0,
-    "latency": {
-      "mean_ttft_ms": 0.0,
-      "median_ttft_ms": 0.0,
-      "p99_ttft_ms": 0.0,
-      "mean_tpot_ms": 0.0,
-      "median_tpot_ms": 0.0,
-      "p99_tpot_ms": 0.0,
-      "mean_itl_ms": 0.0,
-      "median_itl_ms": 0.0,
-      "p99_itl_ms": 0.0
-    }
-  },
-  "timestamp": "2026-01-22T19:32:33.695651Z",
-  "vllm_server_args": {
-    "gpu_memory_utilization": 0.6,
-    "max_model_len": 131072,
-    "kv_transfer_config": null,
-    "prefix_caching": false,
-    "speculative_decoding": false
-  },
-  "lmcache_config": {
-    "enabled": false,
-    "chunk_size": null,
-    "local_cpu": null,
-    "max_local_cpu_size": null
-  },
-  "benchmark_args": {
-    "prefill_test": {
-      "num_prompts": 10,
-      "request_rate": 10,
-      "input_len": 3072,
-      "output_len": 1024,
-      "ratio": "3072:1024 input:output",
-      "total_tokens": 4096
-    },
-    "decode_test": {
-      "num_prompts": 10,
-      "request_rate": 10,
-      "input_len": 1024,
-      "output_len": 3072,
-      "ratio": "1024:3072 input:output",
-      "total_tokens": 4096
-    },
-    "cache_test": {
-      "dataset": "prefix_repetition",
-      "num_prompts": 10,
-      "prefix_len": 512,
-      "suffix_len": 128,
-      "num_prefixes": 5,
-      "output_len": 128,
-      "description": "Tests LMCache with repeated prefixes"
-    }
-  },
-  "hardware": {
-    "platform": "NVIDIA DGX Spark",
-    "gpu": "Grace Hopper",
-    "architecture": "ARM64"
-  },
-  "accuracy": {
-    "ifeval": {
-      "prompt_level_accuracy": 32.34750462107209,
-      "instruction_level_accuracy": 44.36450839328538,
-      "num_samples": 541,
-      "evaluated": true
+
+    "vllm_optimizations": {
+      "description": "vLLM optimization experiments on Qwen3-Coder-Next-FP8, DGX Spark GB10, PP=2",
+      "model": "Qwen/Qwen3-Coder-Next-FP8",
+      "framework": "vllm",
+      "node_config": "pp2-spark01-spark02",
+      "image": "ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1",
+      "benchmark_concurrency": 32,
+      "benchmark_isl": 1024,
+      "benchmark_osl": 512,
+      "experiments": [
+        {
+          "id": "baseline-qwen3-coder-next-fp8-pp2",
+          "name": "Baseline PP=2",
+          "variable_changed": "none (baseline)",
+          "status": "done",
+          "priority": 0,
+          "date_run": "2026-04-05",
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": 0,
+          "hypothesis": "Reference point for all subsequent optimizations",
+          "notes": "First deployment — SGLang on spark-01 was consuming GPU, required pkill before deploy"
+        },
+        {
+          "id": "vllm-chunked-prefill-pp2",
+          "name": "Chunked Prefill",
+          "variable_changed": "--enable-chunked-prefill",
+          "status": "failed",
+          "priority": 1,
+          "date_run": "2026-04-06",
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "Chunked prefill distributes prefill across decode steps, reducing TTFT p99 at c=32. sara4dev saw +50% throughput on SM120.",
+          "expected_delta": "-20% TTFT p99, throughput neutral"
+        },
+        {
+          "id": "vllm-higher-mem-utilization-pp2",
+          "name": "Higher Memory Utilization",
+          "variable_changed": "--gpu-memory-utilization 0.85",
+          "status": "failed",
+          "priority": 2,
+          "date_run": "2026-04-06",
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "More KV cache blocks → better batching → higher throughput. sara4dev saw minimal gain at 0.90.",
+          "expected_delta": "+10-15% throughput"
+        },
+        {
+          "id": "vllm-prefix-caching-pp2",
+          "name": "Prefix Caching (APC)",
+          "variable_changed": "--enable-prefix-caching",
+          "status": "pending",
+          "priority": 3,
+          "date_run": "2026-04-07",
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "System prompts cached across requests → reduced TTFT for repeated prefixes.",
+          "expected_delta": "-30% TTFT p50 for prompts sharing system prefix",
+          "notes": "Previous run produced all-zero primary (c=32 0/50 ok) — requeued for clean run"
+        },
+        {
+          "id": "sglang-baseline-qwen3-coder-next",
+          "name": "SGLang Baseline",
+          "variable_changed": "framework switch to sglang",
+          "status": "pending",
+          "priority": 4,
+          "date_run": "2026-04-07",
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "SGLang RadixAttention + piecewise CUDA graph faster under saturation. sara4dev: +21% on SM120.",
+          "expected_delta": "+10-20% throughput vs vllm baseline"
+        },
+        {
+          "id": "vllm-no-enforce-eager-pp2",
+          "name": "CUDA Graphs (no-enforce-eager)",
+          "variable_changed": "remove --enforce-eager",
+          "status": "queued",
+          "priority": 5,
+          "date_run": null,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "CUDA graph capture reduces kernel launch overhead. sara4dev: +19% on SM120 (3553→4241 tok/s).",
+          "expected_delta": "+15-20% throughput",
+          "risk": "May hang or OOM on GB10 unified memory"
+        },
+        {
+          "id": "vllm-fp8-kv-cache-pp2",
+          "name": "FP8 KV Cache",
+          "variable_changed": "--kv-cache-dtype fp8",
+          "status": "queued",
+          "priority": 6,
+          "date_run": null,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "FP8 KV cache halves KV memory footprint, enabling ~2x more concurrent sequences. sara4dev: +5% on SM120.",
+          "expected_delta": "+20-40% throughput at c=32"
+        },
+        {
+          "id": "vllm-speculative-decoding-pp2",
+          "name": "Speculative Decoding",
+          "variable_changed": "--speculative-config JSON",
+          "status": "queued",
+          "priority": 7,
+          "date_run": null,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "Draft model proposes tokens, target verifies in parallel → lower TPOT. EAGLE-3 achieves 2-6x on NeurIPS'25.",
+          "expected_delta": "-30% ITL p50"
+        },
+        {
+          "id": "vllm-tp2-disable-custom-ar-pp1",
+          "name": "TP=2 + disable-custom-all-reduce",
+          "variable_changed": "TP=2 intra-node + --disable-custom-all-reduce",
+          "status": "queued",
+          "priority": 8,
+          "date_run": null,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "TP=2 within spark-01 via NVLink-C2C. sara4dev confirms DISABLE_CUSTOM_ALL_REDUCE required for TP>1 on Blackwell.",
+          "expected_delta": "Unknown — sara4dev TP=2 was -9% for 3B; may differ for larger model"
+        },
+        {
+          "id": "vllm-longer-context-pp2",
+          "name": "Longer Context (200k)",
+          "variable_changed": "--max-model-len 200000",
+          "status": "queued",
+          "priority": 9,
+          "date_run": null,
+          "throughput_tok_s": null,
+          "ttft_p50_ms": null,
+          "ttft_p99_ms": null,
+          "itl_p50_ms": null,
+          "itl_p99_ms": null,
+          "throughput_delta_pct": null,
+          "hypothesis": "Qwen3-Coder-Next supports 1M context; test practical limit on 2×128GB. sara4dev: neutral at 32k.",
+          "expected_delta": "~-5% throughput, +200k context window"
+        }
+      ]
     }
   }
 }
