@@ -146,10 +146,14 @@
       white-space: nowrap;
     }
     .badge-done    { background: rgba(118,185,0,0.2);  color: var(--green);  border: 1px solid rgba(118,185,0,0.4); }
-    .badge-running { background: rgba(74,158,255,0.2); color: var(--blue);   border: 1px solid rgba(74,158,255,0.4); }
+    .badge-running { background: rgba(74,158,255,0.2); color: var(--blue);   border: 1px solid rgba(74,158,255,0.4); animation: pulse-border 1.5s ease-in-out infinite; }
     .badge-pending { background: rgba(245,166,35,0.2); color: var(--yellow); border: 1px solid rgba(245,166,35,0.4); }
     .badge-queued  { background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid var(--border-light); }
     .badge-failed  { background: rgba(224,82,82,0.2);  color: var(--red);    border: 1px solid rgba(224,82,82,0.4); }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(74,158,255,0); }
+      50%       { box-shadow: 0 0 0 3px rgba(74,158,255,0.25); }
+    }
 
     /* ── Experiment Registry Table ───────────────────────────── */
     .registry-table-wrap { overflow-x: auto; }
@@ -429,7 +433,7 @@
           <span class="hw-badge">GB10 · Grace Blackwell</span>
           <span class="hw-badge">128 GB Unified Memory</span>
           <span class="hw-badge">SM121</span>
-          <span class="updated-badge" id="last-updated">Updated 2026-04-07</span>
+          <span class="updated-badge" id="last-updated">Updated 2026-04-08</span>
         </div>
       </div>
     </div>
@@ -704,7 +708,7 @@ const ABLATION_DATA = [
     id: "qwen25-7b-llmd-fp8-kv",
     label: "+ FP8 KV Cache",
     technique: "FP8 KV cache quantization",
-    status: "pending",
+    status: "running",
     throughput_tok_s: null,
     ttft_p50_ms: null,
     est_throughput: 580,
@@ -1147,10 +1151,10 @@ const REGISTRY_DATA = [
     name: "FP8 KV Cache",
     model: "Qwen/Qwen2.5-7B-Instruct",
     framework: "llm-d",
-    status: "queued",
+    status: "running",
     throughput: null, ttft_p50: null, itl_p50: null,
     hypothesis: "FP8 KV cache halves KV memory footprint vs BF16, ~doubling KV slots. GB10 SM121 has native FP8 tensor core support.",
-    notes: "Expected: +20-40% throughput from larger effective batch capacity.",
+    notes: "Benchmarking now on spark-02. Expected: +20-40% throughput from larger effective batch capacity.",
   },
   {
     id: "qwen25-7b-llmd-spec-decoding",
