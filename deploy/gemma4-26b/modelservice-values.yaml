@@ -5,7 +5,7 @@
 # KV transfer: NixlConnector (NIXL v2) over pod overlay network
 #
 # Hardware: GB10 Grace Blackwell (sm_121, ARM64)
-# Image: ghcr.io/elizabetht/inference-images/llm-d-serve:latest (custom, supports Gemma 4 architecture)
+# Image: ghcr.io/elizabetht/inference-images/llm-d-serve:2.0.0 (custom, supports Gemma 4 architecture)
 #
 # Gemma 4 26B A4B weight size: ~52 GB bfloat16
 # GB10 unified DRAM: 128 GB — fits comfortably with KV cache headroom
@@ -57,7 +57,7 @@ decode:
       effect: NoSchedule
   containers:
     - name: "vllm"
-      image: ghcr.io/elizabetht/inference-images/llm-d-serve:latest
+      image: ghcr.io/elizabetht/inference-images/llm-d-serve:2.0.0
       modelCommand: vllmServe
       args:
         - "--block-size"
@@ -166,7 +166,7 @@ prefill:
       effect: NoSchedule
   containers:
     - name: "vllm"
-      image: ghcr.io/elizabetht/inference-images/llm-d-serve:latest
+      image: ghcr.io/elizabetht/inference-images/llm-d-serve:2.0.0
       modelCommand: vllmServe
       args:
         - "--block-size"
