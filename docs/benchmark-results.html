@@ -554,7 +554,7 @@
     <div class="section-title">ISL/OSL Performance Sweep</div>
     <p class="section-desc">
       Throughput vs latency curves across concurrency levels (c=1–64) and input/output length combinations.
-      Model: <span class="mono">google/gemma-4-26b-it</span> · Framework: llm-d · Hardware: DGX Spark PP=2
+      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · Framework: llm-d · Hardware: DGX Spark GB10
     </p>
 
     <div class="tab-row" id="isl-osl-tabs">
@@ -594,7 +594,7 @@
     <div class="section-title">Serving Framework Comparison</div>
     <p class="section-desc">
       llm-d disaggregated prefill/decode vs vLLM vs SGLang.
-      Model: <span class="mono">google/gemma-4-26b-it</span> · c=32 · ISL=1024 / OSL=512 · DGX Spark GB10 PP=2
+      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · c=32 · ISL=1024 / OSL=512 · DGX Spark GB10
     </p>
     <div class="fw-chart-wrap">
       <div id="fw-chart-body">
@@ -612,7 +612,7 @@
     <p class="section-desc">
       Throughput delta relative to baseline for each optimization.
       Green = improvement, red = regression.
-      Model: <span class="mono">Qwen/Qwen3-Coder-Next-FP8</span> · PP=2 · DGX Spark GB10
+      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · DGX Spark GB10 · enforce_eager → CUDA graphs
     </p>
     <div class="waterfall-wrap">
       <div id="waterfall-body">
