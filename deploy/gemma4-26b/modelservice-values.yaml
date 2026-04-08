@@ -78,6 +78,8 @@ decode:
         # GB10 / Blackwell — CUDA compute capability sm_121
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: "spawn"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
       ports:
         - containerPort: 8200
           name: vllm
@@ -184,6 +186,8 @@ prefill:
               fieldPath: status.podIP
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: "spawn"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
       ports:
         - containerPort: 8000
           name: vllm
