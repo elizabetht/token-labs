@@ -1,0 +1,40 @@
+# PVCs — Gemma 4 26B A4B model cache
+#
+# One PVC per node. Each worker independently downloads the full checkpoint
+# (prefill on spark-01, decode on spark-02).
+#
+# Gemma 4 26B A4B bfloat16 weights: ~52 GB + HF hub temp files → 80 GB per node.
+#
+# volumeName: leave empty on first deploy; Longhorn will provision a new PV.
+# After the model is downloaded once, you can set volumeName to pin to the
+# specific PV (Retain policy) so it survives PVC deletion.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-gemma4-26b-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 80Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-gemma4-26b-spark-02
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 80Gi

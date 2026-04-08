@@ -11,6 +11,7 @@
 #
 # InferencePool backendRefs:
 #   llm-d-inferencepool-qwen35-397b  → spark-01+02  (Qwen3.5-397B-A17B-NVFP4 PP=2)
+#   gaie-gemma4-26b                  → spark-01 prefill / spark-02 decode (PD disagg)
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -58,3 +59,16 @@ spec:
       name: llm-d-inferencepool-gpt-oss
     timeouts:
       request: 600s     # longer timeout for 120B model inference
+
+  # ── Gemma 4 26B A4B (PD disaggregated: spark-01 prefill / spark-02 decode) ──
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: google/gemma-4-26B-A4B
+    backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: gaie-gemma4-26b
+    timeouts:
+      request: 300s

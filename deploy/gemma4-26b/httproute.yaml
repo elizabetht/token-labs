@@ -1,0 +1,36 @@
+# HTTPRoute — Gemma 4 26B A4B via llm-d InferencePool
+#
+# Routes /v1/* traffic from the token-labs-gateway to the llm-d EPP,
+# which then applies PD-aware scheduling to pick prefill vs decode workers.
+#
+# The gateway exposes a LoadBalancer at 192.168.1.202:80.
+# Clients call: POST http://192.168.1.202/v1/chat/completions
+#               with {"model": "google/gemma-4-26B-A4B", ...}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gemma4-26b
+  namespace: token-labs
+spec:
+  parentRefs:
+    - name: token-labs-gateway
+      namespace: token-labs
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - type: Exact
+              name: x-model
+              value: "google/gemma-4-26B-A4B"
+      backendRefs:
+        - group: inference.networking.k8s.io
+          kind: InferencePool
+          name: gaie-gemma4-26b
+          port: 8000
+      timeouts:
+        request: 300s

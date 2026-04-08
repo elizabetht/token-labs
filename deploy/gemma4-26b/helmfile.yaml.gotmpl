@@ -1,0 +1,52 @@
+# llm-d helmfile — Gemma 4 26B A4B P/D Disaggregation
+#
+# Architecture:
+#   spark-01: prefill worker (TP=1, 1 replica)
+#   spark-02: decode  worker (TP=1, 1 replica)
+#   KV transfer: NixlConnector (NIXL v2) over pod network (100 GbE)
+#   Gateway: LoadBalancer at 192.168.1.202 (port 80)
+#
+# Model: google/gemma-4-26B-A4B
+#   - 26B total params, ~4B active (MoE-style attention), bfloat16
+#   - Fits in one GB10 (128 GB unified DRAM) per role
+#   - sm_121 (GB10 / Blackwell) supported in llm-d-cuda:v0.6.0 (vLLM v0.17.1)
+#
+# Deploy:
+#   kubectl apply -f deploy/gemma4-26b/model-cache-pvcs.yaml
+#   kubectl create secret generic llm-d-hf-token \
+#     --from-literal=HF_TOKEN=hf_xxx -n token-labs
+#   cd deploy/gemma4-26b && NAMESPACE=token-labs helmfile apply
+#   kubectl apply -f deploy/gemma4-26b/httproute.yaml -n token-labs
+#
+# Note: llm-d-infra (CRDs + Gateway) is already deployed by deploy/llm-d/helmfile.yaml.gotmpl.
+#       This helmfile only deploys the InferencePool (EPP) and ModelService (workers).
+
+{{- $ns := .Namespace | default "token-labs" -}}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  # ── InferencePool (EPP + scheduling) ───────────────────────────────────────
+  - name: gaie-gemma4-26b
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+
+  # ── ModelService (prefill + decode workers) ─────────────────────────────────
+  - name: ms-gemma4-26b
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-gemma4-26b
+    values:
+      - modelservice-values.yaml

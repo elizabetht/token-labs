@@ -30,7 +30,7 @@ releases:
   - name: llm-d-infra
     namespace: token-labs
     chart: llm-d-infra/llm-d-infra
-    version: v1.3.6
+    version: v1.4.0
     values:
     - values/infra.yaml
 
@@ -60,3 +60,17 @@ releases:
     - token-labs/llm-d-infra
     values:
     - ../gpt-oss/inferencepool-values.yaml
+
+  # ── Gemma 4 26B A4B (PD disaggregated, spark-01 prefill / spark-02 decode) ─
+  # This release is managed by deploy/gemma4-26b/helmfile.yaml.gotmpl
+  # (separate helmfile so infra/gaie/ms lifecycle can be controlled independently)
+  # Uncomment here only if you want a single root helmfile to manage everything.
+  #
+  # - name: gaie-gemma4-26b
+  #   namespace: token-labs
+  #   chart: gaie/inferencepool
+  #   version: v1.4.0
+  #   needs:
+  #   - token-labs/llm-d-infra
+  #   values:
+  #   - ../gemma4-26b/gaie-values.yaml

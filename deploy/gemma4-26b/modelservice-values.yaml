@@ -1,0 +1,248 @@
+# ModelService values — Gemma 4 26B A4B P/D Disaggregation
+#
+# Prefill: 1 replica on spark-01 (TP=1)
+# Decode:  1 replica on spark-02 (TP=1)
+# KV transfer: NixlConnector (NIXL v2) over pod overlay network
+#
+# Hardware: GB10 Grace Blackwell (sm_121, ARM64)
+# Image: ghcr.io/llm-d/llm-d-cuda:v0.6.0 (vLLM v0.17.1, supports sm_121)
+#
+# Gemma 4 26B A4B weight size: ~52 GB bfloat16
+# GB10 unified DRAM: 128 GB — fits comfortably with KV cache headroom
+
+multinode: false
+
+modelArtifacts:
+  uri: "hf://google/gemma-4-26B-A4B"
+  size: 80Gi
+  authSecretName: "llm-d-hf-token"
+  name: "google/gemma-4-26B-A4B"
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: gemma4-26b
+    llm-d.ai/hardware-variant: "gpu"
+    llm-d.ai/accelerator-vendor: "nvidia"
+
+routing:
+  servicePort: 8000
+  proxy:
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+    connector: nixlv2
+    secure: false
+
+# ── Decode worker (spark-02) ────────────────────────────────────────────────
+decode:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  monitoring:
+    podmonitor:
+      enabled: true
+      portName: "vllm"
+      path: "/metrics"
+      interval: "30s"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - spark-02
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: "vllm"
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      modelCommand: vllmServe
+      args:
+        - "--block-size"
+        - "128"
+        - "--kv-transfer-config"
+        - '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
+        - "--disable-uvicorn-access-log"
+        - "--max-model-len"
+        - "32768"
+        - "--dtype"
+        - "bfloat16"
+        - "--trust-remote-code"
+      env:
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        # GB10 / Blackwell — CUDA compute capability sm_121
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
+      ports:
+        - containerPort: 8200
+          name: vllm
+          protocol: TCP
+        - containerPort: 5600
+          name: nixl
+          protocol: TCP
+      resources:
+        limits:
+          memory: 96Gi
+          cpu: "12"
+          nvidia.com/gpu: "1"
+        requests:
+          memory: 64Gi
+          cpu: "8"
+          nvidia.com/gpu: "1"
+      mountModelVolume: true
+      volumeMounts:
+        - name: metrics-volume
+          mountPath: /.config
+        - name: shm
+          mountPath: /dev/shm
+        - name: torch-compile-cache
+          mountPath: /.cache
+        - name: model-cache
+          mountPath: /model-cache
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 80
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: vllm
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 3
+  volumes:
+    - name: metrics-volume
+      emptyDir: {}
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: "16Gi"
+    - name: torch-compile-cache
+      emptyDir: {}
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-gemma4-26b-spark-02
+
+# ── Prefill worker (spark-01) ────────────────────────────────────────────────
+prefill:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  monitoring:
+    podmonitor:
+      enabled: true
+      portName: "vllm"
+      path: "/metrics"
+      interval: "30s"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - spark-01
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: "vllm"
+      image: ghcr.io/llm-d/llm-d-cuda:v0.6.0
+      modelCommand: vllmServe
+      args:
+        - "--block-size"
+        - "128"
+        - "--kv-transfer-config"
+        - '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
+        - "--disable-uvicorn-access-log"
+        - "--max-model-len"
+        - "32768"
+        - "--dtype"
+        - "bfloat16"
+        - "--trust-remote-code"
+      env:
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
+      ports:
+        - containerPort: 8000
+          name: vllm
+          protocol: TCP
+        - containerPort: 5600
+          name: nixl
+          protocol: TCP
+      resources:
+        limits:
+          memory: 96Gi
+          cpu: "12"
+          nvidia.com/gpu: "1"
+        requests:
+          memory: 64Gi
+          cpu: "8"
+          nvidia.com/gpu: "1"
+      mountModelVolume: true
+      volumeMounts:
+        - name: metrics-volume
+          mountPath: /.config
+        - name: shm
+          mountPath: /dev/shm
+        - name: torch-compile-cache
+          mountPath: /.cache
+        - name: model-cache
+          mountPath: /model-cache
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 80
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: vllm
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 3
+  volumes:
+    - name: metrics-volume
+      emptyDir: {}
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: "16Gi"
+    - name: torch-compile-cache
+      emptyDir: {}
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-gemma4-26b-spark-01
