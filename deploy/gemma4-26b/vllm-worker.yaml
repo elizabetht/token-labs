@@ -1,0 +1,84 @@
+# vLLM Ray worker pod for google/gemma-4-26B-A4B PP=2
+# Runs on spark-02, joins Ray head on spark-01.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gemma4-26b-vllm-worker
+  namespace: token-labs
+  labels:
+    app: gemma4-26b-vllm
+    role: worker
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/disk-pressure
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.0.1
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    resources:
+      requests:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 250Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache/huggingface"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: RAY_memory_monitor_refresh_ms
+      value: "0"        # disable Ray OOM killer on worker node too
+    - name: VLLM_USE_RAY_COMPILED_DAG
+      value: "0"        # disable compiled DAG: hangs on GB10 unified memory
+    - name: LEADER_SVC
+      value: "gemma4-26b-vllm-leader.token-labs.svc.cluster.local"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Waiting for Ray head at ${LEADER_SVC}:6379..."
+      until python3 -c "import socket; socket.create_connection(('${LEADER_SVC}', 6379), timeout=3)" 2>/dev/null; do
+        sleep 3
+      done
+      echo "Ray head reachable. Joining cluster..."
+
+      ray start \
+        --address=${LEADER_SVC}:6379 \
+        --block
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen3-coder-next-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

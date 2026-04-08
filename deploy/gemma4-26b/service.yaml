@@ -1,0 +1,23 @@
+# LoadBalancer service for google/gemma-4-26B-A4B
+# External IP: 192.168.1.202 (next after .200 vllm qwen3, .201 sglang qwen3)
+# Exposes the vLLM leader's OpenAI-compatible API on port 8000.
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gemma4-26b-vllm
+  namespace: token-labs
+  labels:
+    app: gemma4-26b-vllm
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.202
+spec:
+  type: LoadBalancer
+  selector:
+    app: gemma4-26b-vllm
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
