@@ -1124,6 +1124,7 @@ const REGISTRY_DATA = [
     c1:  { throughput_tok_s: 12.6,  ttft_p50_ms: 80.0,  ttft_p99_ms: 177.0,  itl_p50_ms: 79.2, itl_p99_ms: 79.7,  ok: 50 },
     c8:  { throughput_tok_s: 108.6, ttft_p50_ms: 200.0, ttft_p99_ms: 3330.0, itl_p50_ms: 63.7, itl_p99_ms: 63.7,  ok: 50 },
     c32: { throughput_tok_s: 354.1, ttft_p50_ms: 239.0, ttft_p99_ms: 315.0,  itl_p50_ms: 70.5, itl_p99_ms: 70.6,  ok: 50 },
+    throughput: 354.1, ttft_p50: 239.0, itl_p50: 70.5,
     hypothesis: "Chunked prefill reduces head-of-line blocking. Standalone c=8 TTFT p99=3280ms shows significant HOL — chunked prefill should cut p99 dramatically.",
     notes: "TTFT p50 at c=32 -27% (327ms→239ms). TTFT p99 at c=32 -14% (367ms→315ms) — below -20-30% hypothesis. c=8 HOL blocking not fixed (p99 3399ms→3330ms, -2%). Throughput +1.7%. Key: chunked prefill helps high-concurrency latency; prefix cache is primary lever for c=8 tail latency.",
     date: "2026-04-08",
