@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Token Labs · Benchmark Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="chart.umd.min.js"></script>
   <style>
     /* ── Reset & Variables ───────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -664,9 +664,42 @@ const ABLATION_DATA = [
     est_throughput: 348,
     est_ttft: 327,
   },
-  { id: "qwen25-7b-llmd-prefix-cache", label: "+ Prefix Cache (warm)", status: "done", throughput_tok_s: 350.6, ttft_p50_ms: 188.3, itl_p50_ms: 71.6 },
-  { id: "qwen25-7b-llmd-chunked-prefill", label: "+ Chunked Prefill", status: "done", throughput_tok_s: 354.1, ttft_p50_ms: 239.3, itl_p50_ms: 70.5 },
-  { id: "qwen25-7b-llmd-higher-mem", label: "+ Higher Mem (0.85)", status: "done", throughput_tok_s: 348.9, ttft_p50_ms: 192.8, itl_p50_ms: 71.9 },
+  {
+    id: "qwen25-7b-llmd-prefix-cache",
+    label: "+ Prefix Cache (warm)",
+    technique: "Automatic Prefix Caching (APC) — warm cache",
+    status: "done",
+    throughput_tok_s: 350.6,
+    ttft_p50_ms: 188.3,
+    itl_p50_ms: 71.6,
+    date: "2026-04-08",
+    est_throughput: 350,
+    est_ttft: 188,
+  },
+  {
+    id: "qwen25-7b-llmd-chunked-prefill",
+    label: "+ Chunked Prefill",
+    technique: "Chunked prefill (512 tok chunks)",
+    status: "done",
+    throughput_tok_s: 354.1,
+    ttft_p50_ms: 239.3,
+    itl_p50_ms: 70.5,
+    date: "2026-04-08",
+    est_throughput: 354,
+    est_ttft: 239,
+  },
+  {
+    id: "qwen25-7b-llmd-higher-mem",
+    label: "+ Higher Mem (0.85)",
+    technique: "gpu_memory_utilization 0.70 → 0.85",
+    status: "done",
+    throughput_tok_s: 348.9,
+    ttft_p50_ms: 192.8,
+    itl_p50_ms: 71.9,
+    date: "2026-04-08",
+    est_throughput: 349,
+    est_ttft: 193,
+  },
   {
     id: "qwen25-7b-llmd-fp8-kv",
     label: "+ FP8 KV Cache",
