@@ -768,8 +768,8 @@ function renderAblation() {
   const total = ABLATION_DATA.length;
   const hasReal = ABLATION_DATA.some(d => d.throughput_tok_s !== null && d.ttft_p50_ms !== null);
   const pts = ABLATION_DATA.map(d => ({
-    x: hasReal ? d.throughput_tok_s : d.est_throughput,
-    y: hasReal ? d.ttft_p50_ms     : d.est_ttft,
+    x: (hasReal ? d.throughput_tok_s : null) ?? d.est_throughput,
+    y: (hasReal ? d.ttft_p50_ms     : null) ?? d.est_ttft,
     label: d.label,
     technique: d.technique,
   }));
@@ -787,8 +787,8 @@ function renderAblation() {
 
   const pointDatasets = ABLATION_DATA.map((d, i) => ({
     label: d.label,
-    data: [{ x: hasReal ? d.throughput_tok_s : d.est_throughput,
-              y: hasReal ? d.ttft_p50_ms      : d.est_ttft }],
+    data: [{ x: ((hasReal ? d.throughput_tok_s : null) ?? d.est_throughput),
+              y: ((hasReal ? d.ttft_p50_ms      : null) ?? d.est_ttft) }],
     pointRadius: i === total - 1 ? 10 : 7,
     pointHoverRadius: 12,
     pointBorderWidth: i === total - 1 ? 2.5 : 1.5,
@@ -1375,18 +1375,23 @@ function renderFrameworkChart() {
   // ... Chart.js grouped bar chart
 }
 
-// ── Chart.js global defaults ─────────────────────────────────────────────────
-Chart.defaults.color = "#888";
-Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
-
 // ── Init ──────────────────────────────────────────────────────────────────────
+// renderRegistry has no Chart.js dependency — run it first unconditionally
 renderRegistry();
-renderIslOslLegend();
-renderWaterfall();
-renderFrameworkChart();
-renderAblation();
-renderTechniqueImpact();
+
+// Guard all Chart.js calls — if chart.umd.min.js fails to load, rest of page still works
+try {
+  Chart.defaults.color = "#888";
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
+  renderIslOslLegend();
+  renderWaterfall();
+  renderFrameworkChart();
+  renderAblation();
+  renderTechniqueImpact();
+} catch (e) {
+  console.error("Chart render failed:", e);
+}
 </script>
 </body>
 </html>
