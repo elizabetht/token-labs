@@ -102,8 +102,6 @@ decode:
           mountPath: /dev/shm
         - name: torch-compile-cache
           mountPath: /.cache
-        - name: model-cache
-          mountPath: /model-cache
       startupProbe:
         httpGet:
           path: /v1/models
@@ -210,8 +208,6 @@ prefill:
           mountPath: /dev/shm
         - name: torch-compile-cache
           mountPath: /.cache
-        - name: model-cache
-          mountPath: /model-cache
       startupProbe:
         httpGet:
           path: /v1/models

@@ -21,7 +21,7 @@
 # Note: llm-d-infra (CRDs + Gateway) is already deployed by deploy/llm-d/helmfile.yaml.gotmpl.
 #       This helmfile only deploys the InferencePool (EPP) and ModelService (workers).
 
-{{- $ns := .Namespace | default "token-labs" -}}
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
 
 repositories:
   - name: llm-d-modelservice
