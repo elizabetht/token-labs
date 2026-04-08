@@ -1,0 +1,51 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "base_url": "http://10.244.2.92:8000",
+  "timestamp": "2026-04-08T05:56:13Z",
+  "primary": {
+    "concurrency": 32,
+    "throughput_tok_s": 348.2,
+    "ttft_p50_ms": 326.8,
+    "ttft_p99_ms": 367.0,
+    "itl_p50_ms": 71.68,
+    "itl_p99_ms": 71.84,
+    "e2e_p50_ms": 18581.4,
+    "requests_ok": 50,
+    "requests_err": 0
+  },
+  "levels": [
+    {
+      "concurrency": 1,
+      "throughput_tok_s": 12.7,
+      "ttft_p50_ms": 82.7,
+      "ttft_p99_ms": 197.6,
+      "itl_p50_ms": 78.51,
+      "itl_p99_ms": 78.91,
+      "e2e_p50_ms": 20104.5,
+      "requests_ok": 50,
+      "requests_err": 0
+    },
+    {
+      "concurrency": 8,
+      "throughput_tok_s": 106.0,
+      "ttft_p50_ms": 215.6,
+      "ttft_p99_ms": 3399.0,
+      "itl_p50_ms": 65.06,
+      "itl_p99_ms": 65.14,
+      "e2e_p50_ms": 16807.4,
+      "requests_ok": 50,
+      "requests_err": 0
+    },
+    {
+      "concurrency": 32,
+      "throughput_tok_s": 348.2,
+      "ttft_p50_ms": 326.8,
+      "ttft_p99_ms": 367.0,
+      "itl_p50_ms": 71.68,
+      "itl_p99_ms": 71.84,
+      "e2e_p50_ms": 18581.4,
+      "requests_ok": 50,
+      "requests_err": 0
+    }
+  ]
+}
