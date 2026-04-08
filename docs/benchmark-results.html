@@ -337,6 +337,47 @@
     }
     .pending-overlay svg { opacity: 0.3; width: 36px; height: 36px; }
 
+    /* ── Optimization Journey ────────────────────────────────── */
+    .journey-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 860px) { .journey-grid { grid-template-columns: 1fr; } }
+    .journey-main {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      grid-column: 1 / -1;
+    }
+    .journey-side {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .journey-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .journey-note {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.6rem;
+    }
+    .technique-impact-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
     /* ── Footer ──────────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
@@ -444,6 +485,70 @@
     </div>
   </div>
 
+  <!-- ── Optimization Journey ────────────────────────────────── -->
+  <div class="section" id="section-ablation">
+    <div class="section-title">Optimization Journey — llm-d Ablation Study</div>
+    <p class="section-desc">
+      Progressive optimization stack on <span class="mono">google/gemma-4-26b-it</span> (Gemma 4 26B A4B) · llm-d disaggregated PD ·
+      spark-01 = prefill · spark-02 = decode · ISL=1024 / OSL=512 · c=16
+    </p>
+
+    <!-- Main scatter: throughput vs TTFT -->
+    <div class="journey-main">
+      <div class="journey-title">Throughput vs TTFT p50 — Optimization Frontier</div>
+      <div id="journey-scatter-wrap" style="position:relative;height:340px;">
+        <div class="pending-overlay" style="height:340px;" id="journey-scatter-pending">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Data pending — ablation experiments queued
+        </div>
+        <canvas id="journey-scatter" style="display:none;"></canvas>
+      </div>
+      <p class="journey-note">Each point = one experiment at c=16. Arrow path shows cumulative optimization journey from baseline → full stack. Bottom-right = optimal (high throughput, low TTFT).</p>
+    </div>
+
+    <!-- Secondary: throughput bar + TTFT bar -->
+    <div class="journey-grid">
+      <div class="journey-side">
+        <div class="journey-title">Output Throughput (tok/s)</div>
+        <div id="journey-tput-wrap" style="position:relative;height:220px;">
+          <div class="pending-overlay" style="height:220px;" id="journey-tput-pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Pending
+          </div>
+          <canvas id="journey-tput" style="display:none;"></canvas>
+        </div>
+      </div>
+      <div class="journey-side">
+        <div class="journey-title">TTFT p50 (ms) — lower is better</div>
+        <div id="journey-ttft-wrap" style="position:relative;height:220px;">
+          <div class="pending-overlay" style="height:220px;" id="journey-ttft-pending">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Pending
+          </div>
+          <canvas id="journey-ttft" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Technique Impact (Delta Waterfall) ───────────────────── -->
+  <div class="section" id="section-technique-impact">
+    <div class="section-title">Technique Impact — Incremental Gain per Step</div>
+    <p class="section-desc">
+      Marginal throughput and TTFT improvement each optimization adds vs the previous step.
+      Model: <span class="mono">google/gemma-4-26b-it</span> · llm-d · c=16 · ISL=1024/OSL=512
+    </p>
+    <div class="technique-impact-wrap">
+      <div id="technique-impact-body">
+        <div class="pending-overlay" style="height:280px;" id="technique-impact-pending">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Showing estimated deltas — actual results pending
+        </div>
+        <canvas id="technique-impact-canvas" style="display:none;height:280px;"></canvas>
+      </div>
+    </div>
+  </div>
+
   <!-- ── ISL/OSL Performance Charts ───────────────────────── -->
   <div class="section">
     <div class="section-title">ISL/OSL Performance Sweep</div>
@@ -530,6 +635,425 @@
 </div>
 
 <script>
+// ── Ablation Study Data ───────────────────────────────────────────────────────
+// ISL=1024, OSL=512, c=16 representative workload
+// throughput_tok_s / ttft_p50_ms will be filled when experiments run.
+// estimated_throughput / estimated_ttft are placeholder values for shape preview.
+const ABLATION_DATA = [
+  {
+    id: "gemma4-llmd-baseline",
+    label: "Baseline",
+    technique: "No optimizations",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    // Estimated values for ghost preview (will be replaced by real data)
+    est_throughput: 820,
+    est_ttft: 1850,
+  },
+  {
+    id: "gemma4-llmd-prefix-cache",
+    label: "+ Prefix Cache",
+    technique: "Prefix caching",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 960,
+    est_ttft: 1420,
+  },
+  {
+    id: "gemma4-llmd-chunked-prefill",
+    label: "+ Chunked Prefill",
+    technique: "Chunked prefill",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 1050,
+    est_ttft: 1180,
+  },
+  {
+    id: "gemma4-llmd-fp8-quant",
+    label: "+ FP8 Quant",
+    technique: "FP8 quantization",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 1380,
+    est_ttft: 960,
+  },
+  {
+    id: "gemma4-llmd-spec-decoding",
+    label: "+ Spec Decoding",
+    technique: "Speculative decoding",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 1590,
+    est_ttft: 870,
+  },
+  {
+    id: "gemma4-llmd-fp8-plus-spec",
+    label: "+ FP8 + Spec",
+    technique: "FP8 + speculative decoding",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 1860,
+    est_ttft: 740,
+  },
+  {
+    id: "gemma4-llmd-cuda-graphs",
+    label: "+ CUDA Graphs",
+    technique: "CUDA graphs",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 2140,
+    est_ttft: 680,
+  },
+  {
+    id: "gemma4-llmd-full-stack",
+    label: "Full Stack",
+    technique: "All optimizations",
+    status: "pending",
+    throughput_tok_s: null,
+    ttft_p50_ms: null,
+    est_throughput: 2480,
+    est_ttft: 580,
+  },
+];
+
+// Incremental deltas for Technique Impact chart (estimated until real data arrives)
+const ABLATION_INCREMENTAL = [
+  { label: "Prefix Cache",         throughput_delta: +17,  ttft_delta: -23 },
+  { label: "Chunked Prefill",      throughput_delta: +9,   ttft_delta: -17 },
+  { label: "FP8 Quant",            throughput_delta: +31,  ttft_delta: -19 },
+  { label: "Spec Decoding",        throughput_delta: +15,  ttft_delta: -9  },
+  { label: "FP8 + Spec Combined",  throughput_delta: +17,  ttft_delta: -15 },
+  { label: "CUDA Graphs",          throughput_delta: +15,  ttft_delta: -8  },
+  { label: "Full Stack (+KV FP8)", throughput_delta: +16,  ttft_delta: -15 },
+];
+
+// Color gradient: gray (baseline) → NVIDIA green (full stack)
+function ablationColor(idx, total, alpha) {
+  // 0 = gray #666, last = #76b900
+  const t = idx / (total - 1);
+  const r = Math.round(102 + t * (118 - 102));
+  const g = Math.round(102 + t * (185 - 102));
+  const b = Math.round(102 + t * (0   - 102));
+  return alpha ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r},${g},${b})`;
+}
+
+function renderAblation() {
+  const total = ABLATION_DATA.length;
+  const hasReal = ABLATION_DATA.some(d => d.throughput_tok_s !== null && d.ttft_p50_ms !== null);
+  const pts = ABLATION_DATA.map(d => ({
+    x: hasReal ? d.throughput_tok_s : d.est_throughput,
+    y: hasReal ? d.ttft_p50_ms     : d.est_ttft,
+    label: d.label,
+    technique: d.technique,
+  }));
+
+  // ── Scatter: Throughput vs TTFT ───────────────────────────────────────────
+  const scatterPending = document.getElementById("journey-scatter-pending");
+  const scatterCanvas  = document.getElementById("journey-scatter");
+  scatterPending.style.display = "none";
+  scatterCanvas.style.display  = "block";
+
+  const scatterCtx = scatterCanvas.getContext("2d");
+
+  // Build path dataset (lines connecting the journey)
+  const pathData = pts.map((p, i) => ({ x: p.x, y: p.y }));
+
+  const pointDatasets = ABLATION_DATA.map((d, i) => ({
+    label: d.label,
+    data: [{ x: hasReal ? d.throughput_tok_s : d.est_throughput,
+              y: hasReal ? d.ttft_p50_ms      : d.est_ttft }],
+    pointRadius: i === total - 1 ? 10 : 7,
+    pointHoverRadius: 12,
+    pointBorderWidth: i === total - 1 ? 2.5 : 1.5,
+    backgroundColor: ablationColor(i, total, 0.85),
+    borderColor: i === total - 1 ? "#76b900" : ablationColor(i, total, 1),
+    showLine: false,
+    order: 1,
+  }));
+
+  const pathDataset = {
+    label: "_path",
+    data: pathData,
+    type: "line",
+    borderColor: "rgba(118,185,0,0.25)",
+    borderWidth: 1.5,
+    borderDash: [4, 4],
+    pointRadius: 0,
+    fill: false,
+    tension: 0.3,
+    showLine: true,
+    order: 2,
+  };
+
+  new Chart(scatterCtx, {
+    type: "scatter",
+    data: { datasets: [pathDataset, ...pointDatasets] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: (item) => item.dataset.label !== "_path",
+          callbacks: {
+            title: (items) => {
+              const idx = ABLATION_DATA.findIndex(d => d.label === items[0].dataset.label);
+              return idx >= 0 ? ABLATION_DATA[idx].label : "";
+            },
+            label: (item) => {
+              const d = item.raw;
+              const prefix = hasReal ? "" : " (est.)";
+              return [
+                ` Throughput: ${d.x.toLocaleString()} tok/s${prefix}`,
+                ` TTFT p50:   ${d.y.toLocaleString()} ms${prefix}`,
+              ];
+            },
+          },
+          backgroundColor: "#1a1a1a",
+          borderColor: "#333",
+          borderWidth: 1,
+          titleColor: "#76b900",
+          bodyColor: "#999",
+          padding: 10,
+        },
+        annotation: { annotations: {} }, // no plugin needed
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Output Throughput (tok/s)  →  higher is better",
+            color: "#666",
+            font: { size: 11 },
+          },
+          grid: { color: "rgba(255,255,255,0.04)" },
+          ticks: { color: "#666", font: { size: 11 } },
+          border: { color: "#2a2a2a" },
+        },
+        y: {
+          title: {
+            display: true,
+            text: "TTFT p50 (ms)  →  lower is better",
+            color: "#666",
+            font: { size: 11 },
+          },
+          grid: { color: "rgba(255,255,255,0.04)" },
+          ticks: { color: "#666", font: { size: 11 } },
+          border: { color: "#2a2a2a" },
+          reverse: false,
+        },
+      },
+    },
+    plugins: [{
+      // Draw point labels inline
+      id: "pointLabels",
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((ds, dsIdx) => {
+          if (ds.label === "_path") return;
+          const meta = chart.getDatasetMeta(dsIdx);
+          meta.data.forEach((point) => {
+            const label = ds.label;
+            const isLast = label === "Full Stack";
+            ctx.save();
+            ctx.font = `${isLast ? "600 " : ""}11px Inter, system-ui, sans-serif`;
+            ctx.fillStyle = isLast ? "#76b900" : "#888";
+            ctx.textAlign = "left";
+            ctx.fillText(label, point.x + 10, point.y + 4);
+            ctx.restore();
+          });
+        });
+      }
+    }],
+  });
+
+  // ── Throughput bar ────────────────────────────────────────────────────────
+  const tputPending = document.getElementById("journey-tput-pending");
+  const tputCanvas  = document.getElementById("journey-tput");
+  tputPending.style.display = "none";
+  tputCanvas.style.display  = "block";
+
+  new Chart(tputCanvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: ABLATION_DATA.map(d => d.label),
+      datasets: [{
+        label: "Throughput (tok/s)",
+        data: ABLATION_DATA.map((d, i) => hasReal ? d.throughput_tok_s : d.est_throughput),
+        backgroundColor: ABLATION_DATA.map((d, i) => ablationColor(i, total, 0.6)),
+        borderColor:     ABLATION_DATA.map((d, i) => ablationColor(i, total, 1)),
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.raw.toLocaleString()} tok/s${hasReal ? "" : " (est.)"}`,
+          },
+          backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+          titleColor: "#f0f0f0", bodyColor: "#888",
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#666", font: { size: 10 }, maxRotation: 30, minRotation: 20 },
+          border: { color: "#2a2a2a" },
+        },
+        y: {
+          grid: { color: "rgba(255,255,255,0.04)" },
+          ticks: { color: "#666", font: { size: 10 } },
+          border: { color: "#2a2a2a" },
+        },
+      },
+    },
+  });
+
+  // ── TTFT bar ──────────────────────────────────────────────────────────────
+  const ttftPending = document.getElementById("journey-ttft-pending");
+  const ttftCanvas  = document.getElementById("journey-ttft");
+  ttftPending.style.display = "none";
+  ttftCanvas.style.display  = "block";
+
+  new Chart(ttftCanvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: ABLATION_DATA.map(d => d.label),
+      datasets: [{
+        label: "TTFT p50 (ms)",
+        data: ABLATION_DATA.map((d, i) => hasReal ? d.ttft_p50_ms : d.est_ttft),
+        backgroundColor: ABLATION_DATA.map((d, i) => ablationColor(i, total, 0.6)),
+        borderColor:     ABLATION_DATA.map((d, i) => ablationColor(i, total, 1)),
+        borderWidth: 1.5,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.raw.toLocaleString()} ms${hasReal ? "" : " (est.)"}`,
+          },
+          backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+          titleColor: "#f0f0f0", bodyColor: "#888",
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#666", font: { size: 10 }, maxRotation: 30, minRotation: 20 },
+          border: { color: "#2a2a2a" },
+        },
+        y: {
+          grid: { color: "rgba(255,255,255,0.04)" },
+          ticks: { color: "#666", font: { size: 10 }, callback: v => `${v}ms` },
+          border: { color: "#2a2a2a" },
+          reverse: false,
+        },
+      },
+    },
+  });
+}
+
+function renderTechniqueImpact() {
+  const body    = document.getElementById("technique-impact-body");
+  const pending = document.getElementById("technique-impact-pending");
+  const canvas  = document.getElementById("technique-impact-canvas");
+
+  pending.style.display = "none";
+  canvas.style.display  = "block";
+
+  const labels = ABLATION_INCREMENTAL.map(d => d.label);
+  const tputDeltas = ABLATION_INCREMENTAL.map(d => d.throughput_delta);
+  const ttftDeltas = ABLATION_INCREMENTAL.map(d => d.ttft_delta);
+
+  new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Throughput Δ (%)",
+          data: tputDeltas,
+          backgroundColor: tputDeltas.map(v => v >= 0 ? "rgba(118,185,0,0.55)" : "rgba(224,82,82,0.55)"),
+          borderColor:     tputDeltas.map(v => v >= 0 ? "#76b900" : "#e05252"),
+          borderWidth: 1.5,
+          borderRadius: 4,
+          yAxisID: "y",
+        },
+        {
+          label: "TTFT Δ (%)",
+          data: ttftDeltas,
+          backgroundColor: ttftDeltas.map(v => v <= 0 ? "rgba(74,158,255,0.45)" : "rgba(224,82,82,0.45)"),
+          borderColor:     ttftDeltas.map(v => v <= 0 ? "#4a9eff" : "#e05252"),
+          borderWidth: 1.5,
+          borderRadius: 4,
+          yAxisID: "y",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          labels: { color: "#888", font: { size: 11 }, boxWidth: 12 },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.raw;
+              const sign = v > 0 ? "+" : "";
+              const note = ctx.dataset.label.includes("TTFT") && v < 0 ? " (improvement)" : "";
+              return ` ${ctx.dataset.label}: ${sign}${v}%${note} (est.)`;
+            },
+          },
+          backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+          titleColor: "#f0f0f0", bodyColor: "#888",
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#888", font: { size: 11 }, maxRotation: 25, minRotation: 15 },
+          border: { color: "#2a2a2a" },
+        },
+        y: {
+          grid: { color: "rgba(255,255,255,0.04)" },
+          ticks: {
+            color: "#666",
+            font: { size: 11 },
+            callback: v => `${v > 0 ? "+" : ""}${v}%`,
+          },
+          border: { color: "#2a2a2a" },
+          title: {
+            display: true,
+            text: "Incremental Δ vs previous step (est.)",
+            color: "#555",
+            font: { size: 10 },
+          },
+        },
+      },
+    },
+  });
+}
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const REGISTRY_DATA = [
@@ -871,6 +1395,8 @@ renderRegistry();
 renderIslOslLegend();
 renderWaterfall();
 renderFrameworkChart();
+renderAblation();
+renderTechniqueImpact();
 </script>
 </body>
 </html>
