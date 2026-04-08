@@ -1,0 +1,141 @@
+# ModelService values — Qwen2.5-7B-Instruct on spark-01
+# Exp 8: CUDA graphs enabled (enforce_eager=false) + all previous optimizations
+# enforce_eager: false enables CUDA graph capture for decode forward pass
+# NOTE: RISK — CUDA graph capture may hang on GB10 unified memory
+# Set NCCL_P2P_DISABLE=1 and NCCL_IB_DISABLE=1
+multinode: false
+
+modelArtifacts:
+  uri: "hf://Qwen/Qwen2.5-7B-Instruct"
+  size: 30Gi
+  authSecretName: "llm-d-hf-token"
+  name: "Qwen/Qwen2.5-7B-Instruct"
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: qwen25-7b-exp8
+    llm-d.ai/hardware-variant: "gpu"
+    llm-d.ai/accelerator-vendor: "nvidia"
+
+routing:
+  servicePort: 8000
+  proxy:
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+    connector: nixlv2
+    secure: false
+
+decode:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  monitoring:
+    podmonitor:
+      enabled: true
+      portName: "vllm"
+      path: "/metrics"
+      interval: "30s"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - spark-01
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: "vllm"
+      image: ghcr.io/elizabetht/inference-images/vllm-serve:0.19.0
+      modelCommand: vllmServe
+      args:
+        - "--disable-uvicorn-access-log"
+        - "--max-model-len"
+        - "32768"
+        - "--dtype"
+        - "bfloat16"
+        - "--gpu-memory-utilization"
+        - "0.85"
+        - "--enable-prefix-caching"
+        - "--kv-cache-dtype"
+        - "fp8"
+        - "--speculative-config"
+        - '{"method":"ngram","num_speculative_tokens":5}'
+        - "--trust-remote-code"
+      env:
+        - name: NCCL_P2P_DISABLE
+          value: "1"
+        - name: NCCL_IB_DISABLE
+          value: "1"
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
+        - name: HF_HOME
+          value: "/model-cache/huggingface"
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: llm-d-hf-token
+              key: HF_TOKEN
+      ports:
+        - containerPort: 8200
+          name: vllm
+          protocol: TCP
+      resources:
+        limits:
+          memory: 64Gi
+          cpu: "12"
+          nvidia.com/gpu: "1"
+        requests:
+          memory: 32Gi
+          cpu: "8"
+          nvidia.com/gpu: "1"
+      mountModelVolume: true
+      volumeMounts:
+        - name: metrics-volume
+          mountPath: /.config
+        - name: shm
+          mountPath: /dev/shm
+        - name: torch-compile-cache
+          mountPath: /.cache
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 40
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: vllm
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: vllm
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 3
+  volumes:
+    - name: metrics-volume
+      emptyDir: {}
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: "16Gi"
+    - name: torch-compile-cache
+      emptyDir: {}
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-qwen25-7b-spark-01
+
+prefill:
+  create: false
