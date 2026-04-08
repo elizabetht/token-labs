@@ -60,12 +60,8 @@ decode:
         - "--enable-prefix-caching"
         - "--kv-cache-dtype"
         - "fp8"
-        - "--num-speculative-tokens"
-        - "5"
-        - "--speculative-model"
-        - "[ngram]"
-        - "--ngram-prompt-lookup-max"
-        - "4"
+        - "--speculative-config"
+        - '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4}'
         - "--trust-remote-code"
       env:
         - name: VLLM_WORKER_MULTIPROC_METHOD
