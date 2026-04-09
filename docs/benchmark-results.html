@@ -552,8 +552,8 @@
   <div class="section">
     <div class="section-title">ISL/OSL Performance Sweep</div>
     <p class="section-desc">
-      Throughput vs latency curves across concurrency levels (c=1–64) and input/output length combinations.
-      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · Framework: llm-d · Hardware: DGX Spark GB10
+      Throughput vs latency curves across concurrency levels (c=1,4,8,16,32) and input/output length combinations.
+      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · Full-stack config (exp9) · DGX Spark GB10 · spark-02
     </p>
 
     <div class="tab-row" id="isl-osl-tabs">
@@ -568,20 +568,14 @@
     <div class="chart-grid">
       <div class="chart-wrap">
         <div class="chart-label">Throughput vs TTFT p50</div>
-        <div id="scatter-ttft-wrap">
-          <div class="pending-overlay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            Data pending — experiments queued
-          </div>
+        <div id="scatter-ttft-wrap" style="position:relative;height:300px;">
+          <canvas id="isl-osl-scatter-ttft" style="display:none;"></canvas>
         </div>
       </div>
       <div class="chart-wrap">
         <div class="chart-label">Throughput vs ITL p50</div>
-        <div id="scatter-itl-wrap">
-          <div class="pending-overlay">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            Data pending — experiments queued
-          </div>
+        <div id="scatter-itl-wrap" style="position:relative;height:300px;">
+          <canvas id="isl-osl-scatter-itl" style="display:none;"></canvas>
         </div>
       </div>
     </div>
@@ -1225,6 +1219,131 @@ const COMBO_COLORS = {
   "ISL4096/OSL512": { line: "#e05252", bg: "rgba(224,82,82,0.15)" },
 };
 
+// ── ISL/OSL Sweep Data (2026-04-09 · full-stack exp9 · spark-02) ─────────────
+const ISL_OSL_DATA = {
+  "ISL128/OSL128": { isl: 128, osl: 128, levels: [
+    { concurrency: 1,  throughput_tok_s: 23.24,  ttft_p50_ms: 83.33,  itl_p50_ms: 79.42 },
+    { concurrency: 4,  throughput_tok_s: 103.17, ttft_p50_ms: 136.38, itl_p50_ms: 67.28 },
+    { concurrency: 8,  throughput_tok_s: 176.43, ttft_p50_ms: 145.87, itl_p50_ms: 70.69 },
+    { concurrency: 16, throughput_tok_s: 292.87, ttft_p50_ms: 152.40, itl_p50_ms: 73.93 },
+    { concurrency: 32, throughput_tok_s: 458.80, ttft_p50_ms: 207.28, itl_p50_ms: 78.17 },
+  ]},
+  "ISL128/OSL512": { isl: 128, osl: 512, levels: [
+    { concurrency: 1,  throughput_tok_s: 64.03,  ttft_p50_ms: 140.22, itl_p50_ms: 68.89 },
+    { concurrency: 4,  throughput_tok_s: 166.35, ttft_p50_ms: 143.22, itl_p50_ms: 71.91 },
+    { concurrency: 8,  throughput_tok_s: 239.73, ttft_p50_ms: 146.51, itl_p50_ms: 73.09 },
+    { concurrency: 16, throughput_tok_s: 493.10, ttft_p50_ms: 161.18, itl_p50_ms: 80.98 },
+    { concurrency: 32, throughput_tok_s: 673.42, ttft_p50_ms: 212.41, itl_p50_ms: 84.90 },
+  ]},
+  "ISL1024/OSL128": { isl: 1024, osl: 128, levels: [
+    { concurrency: 1,  throughput_tok_s: 25.99,  ttft_p50_ms: 295.48, itl_p50_ms: 69.32 },
+    { concurrency: 4,  throughput_tok_s: 103.76, ttft_p50_ms: 219.47, itl_p50_ms: 70.32 },
+    { concurrency: 8,  throughput_tok_s: 202.48, ttft_p50_ms: 146.71, itl_p50_ms: 71.67 },
+    { concurrency: 16, throughput_tok_s: 360.81, ttft_p50_ms: 153.14, itl_p50_ms: 75.18 },
+    { concurrency: 32, throughput_tok_s: 491.53, ttft_p50_ms: 191.89, itl_p50_ms: 82.98 },
+  ]},
+  "ISL1024/OSL512": { isl: 1024, osl: 512, levels: [
+    { concurrency: 1,  throughput_tok_s: 45.77,  ttft_p50_ms: 149.07, itl_p50_ms: 67.82 },
+    { concurrency: 4,  throughput_tok_s: 162.21, ttft_p50_ms: 147.33, itl_p50_ms: 72.88 },
+    { concurrency: 8,  throughput_tok_s: 252.53, ttft_p50_ms: 151.74, itl_p50_ms: 75.39 },
+    { concurrency: 16, throughput_tok_s: 454.24, ttft_p50_ms: 165.86, itl_p50_ms: 81.39 },
+    { concurrency: 32, throughput_tok_s: 554.83, ttft_p50_ms: 207.06, itl_p50_ms: 87.47 },
+  ]},
+  "ISL4096/OSL512": { isl: 4096, osl: 512, levels: [
+    { concurrency: 1,  throughput_tok_s: 37.53,  ttft_p50_ms: 887.88, itl_p50_ms: 68.30 },
+    { concurrency: 4,  throughput_tok_s: 140.58, ttft_p50_ms: 944.71, itl_p50_ms: 74.27 },
+    { concurrency: 8,  throughput_tok_s: 248.85, ttft_p50_ms: 608.70, itl_p50_ms: 80.42 },
+    { concurrency: 16, throughput_tok_s: 550.77, ttft_p50_ms: 185.27, itl_p50_ms: 89.73 },
+    { concurrency: 32, throughput_tok_s: 584.81, ttft_p50_ms: 471.73, itl_p50_ms: 97.95 },
+  ]},
+};
+
+let _islOslTtftChart = null;
+let _islOslItlChart  = null;
+
+function buildIslOslDatasets(activeCombo, yField) {
+  const combos = activeCombo === "all"
+    ? Object.keys(ISL_OSL_DATA)
+    : [activeCombo];
+
+  return combos.map(key => {
+    const c = COMBO_COLORS[key];
+    const pts = ISL_OSL_DATA[key].levels.map(l => ({
+      x: l.throughput_tok_s,
+      y: l[yField],
+      concurrency: l.concurrency,
+    }));
+    return {
+      label: key,
+      data: pts,
+      borderColor: c.line,
+      backgroundColor: c.line,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      showLine: true,
+      tension: 0.2,
+      borderWidth: 2,
+      fill: false,
+    };
+  });
+}
+
+function renderIslOslCharts(activeCombo) {
+  const ttftCanvas = document.getElementById("isl-osl-scatter-ttft");
+  const itlCanvas  = document.getElementById("isl-osl-scatter-itl");
+  ttftCanvas.style.display = "block";
+  itlCanvas.style.display  = "block";
+
+  const commonOptions = (yLabel) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { color: "#888", font: { size: 11 }, boxWidth: 12 } },
+      tooltip: {
+        callbacks: {
+          title: (items) => `${items[0].dataset.label}`,
+          label: (item) => [
+            ` c=${item.raw.concurrency}`,
+            ` Throughput: ${item.raw.x.toLocaleString()} tok/s`,
+            ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
+          ],
+        },
+        backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+        titleColor: "#76b900", bodyColor: "#999", padding: 10,
+      },
+    },
+    scales: {
+      x: {
+        title: { display: true, text: "Output Throughput (tok/s)  →  higher is better", color: "#666", font: { size: 11 } },
+        grid: { color: "rgba(255,255,255,0.04)" },
+        ticks: { color: "#666", font: { size: 11 } },
+        border: { color: "#2a2a2a" },
+      },
+      y: {
+        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#666", font: { size: 11 } },
+        grid: { color: "rgba(255,255,255,0.04)" },
+        ticks: { color: "#666", font: { size: 11 } },
+        border: { color: "#2a2a2a" },
+      },
+    },
+  });
+
+  if (_islOslTtftChart) { _islOslTtftChart.destroy(); _islOslTtftChart = null; }
+  if (_islOslItlChart)  { _islOslItlChart.destroy();  _islOslItlChart  = null; }
+
+  _islOslTtftChart = new Chart(ttftCanvas.getContext("2d"), {
+    type: "scatter",
+    data: { datasets: buildIslOslDatasets(activeCombo, "ttft_p50_ms") },
+    options: commonOptions("TTFT p50"),
+  });
+
+  _islOslItlChart = new Chart(itlCanvas.getContext("2d"), {
+    type: "scatter",
+    data: { datasets: buildIslOslDatasets(activeCombo, "itl_p50_ms") },
+    options: commonOptions("ITL p50"),
+  });
+}
+
 // ── Render Registry Table ─────────────────────────────────────────────────────
 function renderRegistry() {
   const tbody = document.getElementById("registry-body");
@@ -1291,13 +1410,13 @@ function renderIslOslLegend() {
   el.innerHTML = html;
 }
 
-// ── Tab handling (for future use when data arrives) ───────────────────────────
+// ── ISL/OSL tab handling ──────────────────────────────────────────────────────
 document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab-btn");
   if (!btn) return;
   document.querySelectorAll("#isl-osl-tabs .tab-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
-  // When data is available, filter charts here
+  renderIslOslCharts(btn.dataset.combo);
 });
 
 // ── Waterfall — placeholder expected-delta bars ───────────────────────────────
@@ -1403,6 +1522,7 @@ try {
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
   renderIslOslLegend();
+  renderIslOslCharts("all");
   renderWaterfall();
   renderFrameworkChart();
   renderAblation();

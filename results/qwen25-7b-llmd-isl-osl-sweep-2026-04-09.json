@@ -1,0 +1,265 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "base_url": "http://10.244.1.152:8000",
+  "experiment": "isl-osl-sweep",
+  "config": "full-stack (exp9)",
+  "timestamp": "2026-04-09T19:20:18Z",
+  "progress": "25/25",
+  "combos": {
+    "ISL128/OSL128": {
+      "isl": 128,
+      "osl": 128,
+      "levels": [
+        {
+          "throughput_tok_s": 23.24,
+          "ttft_p50_ms": 83.33,
+          "ttft_p99_ms": 98.99,
+          "itl_p50_ms": 79.42,
+          "itl_p99_ms": 82.44,
+          "e2e_p50_ms": null,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 103.17,
+          "ttft_p50_ms": 136.38,
+          "ttft_p99_ms": 151.79,
+          "itl_p50_ms": 67.28,
+          "itl_p99_ms": 72.92,
+          "e2e_p50_ms": null,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 176.43,
+          "ttft_p50_ms": 145.87,
+          "ttft_p99_ms": 156.83,
+          "itl_p50_ms": 70.69,
+          "itl_p99_ms": 78.87,
+          "e2e_p50_ms": null,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 292.87,
+          "ttft_p50_ms": 152.4,
+          "ttft_p99_ms": 169.88,
+          "itl_p50_ms": 73.93,
+          "itl_p99_ms": 80.22,
+          "e2e_p50_ms": null,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 458.8,
+          "ttft_p50_ms": 207.28,
+          "ttft_p99_ms": 210.55,
+          "itl_p50_ms": 78.17,
+          "itl_p99_ms": 83.75,
+          "e2e_p50_ms": null,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL128/OSL512": {
+      "isl": 128,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 64.03,
+          "ttft_p50_ms": 140.22,
+          "ttft_p99_ms": 144.51,
+          "itl_p50_ms": 68.89,
+          "itl_p99_ms": 72.43,
+          "e2e_p50_ms": null,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 166.35,
+          "ttft_p50_ms": 143.22,
+          "ttft_p99_ms": 150.1,
+          "itl_p50_ms": 71.91,
+          "itl_p99_ms": 75.79,
+          "e2e_p50_ms": null,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 239.73,
+          "ttft_p50_ms": 146.51,
+          "ttft_p99_ms": 155.65,
+          "itl_p50_ms": 73.09,
+          "itl_p99_ms": 78.92,
+          "e2e_p50_ms": null,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 493.1,
+          "ttft_p50_ms": 161.18,
+          "ttft_p99_ms": 169.43,
+          "itl_p50_ms": 80.98,
+          "itl_p99_ms": 86.16,
+          "e2e_p50_ms": null,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 673.42,
+          "ttft_p50_ms": 212.41,
+          "ttft_p99_ms": 289.49,
+          "itl_p50_ms": 84.9,
+          "itl_p99_ms": 91.55,
+          "e2e_p50_ms": null,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL1024/OSL128": {
+      "isl": 1024,
+      "osl": 128,
+      "levels": [
+        {
+          "throughput_tok_s": 25.99,
+          "ttft_p50_ms": 295.48,
+          "ttft_p99_ms": 317.4,
+          "itl_p50_ms": 69.32,
+          "itl_p99_ms": 85.49,
+          "e2e_p50_ms": null,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 103.76,
+          "ttft_p50_ms": 219.47,
+          "ttft_p99_ms": 430.26,
+          "itl_p50_ms": 70.32,
+          "itl_p99_ms": 117.16,
+          "e2e_p50_ms": null,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 202.48,
+          "ttft_p50_ms": 146.71,
+          "ttft_p99_ms": 159.29,
+          "itl_p50_ms": 71.67,
+          "itl_p99_ms": 76.78,
+          "e2e_p50_ms": null,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 360.81,
+          "ttft_p50_ms": 153.14,
+          "ttft_p99_ms": 170.54,
+          "itl_p50_ms": 75.18,
+          "itl_p99_ms": 81.89,
+          "e2e_p50_ms": null,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 491.53,
+          "ttft_p50_ms": 191.89,
+          "ttft_p99_ms": 311.79,
+          "itl_p50_ms": 82.98,
+          "itl_p99_ms": 91.77,
+          "e2e_p50_ms": null,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL1024/OSL512": {
+      "isl": 1024,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 45.77,
+          "ttft_p50_ms": 149.07,
+          "ttft_p99_ms": 156.68,
+          "itl_p50_ms": 67.82,
+          "itl_p99_ms": 81.62,
+          "e2e_p50_ms": null,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 162.21,
+          "ttft_p50_ms": 147.33,
+          "ttft_p99_ms": 152.98,
+          "itl_p50_ms": 72.88,
+          "itl_p99_ms": 81.02,
+          "e2e_p50_ms": null,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 252.53,
+          "ttft_p50_ms": 151.74,
+          "ttft_p99_ms": 182.75,
+          "itl_p50_ms": 75.39,
+          "itl_p99_ms": 93.77,
+          "e2e_p50_ms": null,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 454.24,
+          "ttft_p50_ms": 165.86,
+          "ttft_p99_ms": 179.23,
+          "itl_p50_ms": 81.39,
+          "itl_p99_ms": 86.45,
+          "e2e_p50_ms": null,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 554.83,
+          "ttft_p50_ms": 207.06,
+          "ttft_p99_ms": 285.61,
+          "itl_p50_ms": 87.47,
+          "itl_p99_ms": 94.75,
+          "e2e_p50_ms": null,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL4096/OSL512": {
+      "isl": 4096,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 37.53,
+          "ttft_p50_ms": 887.88,
+          "ttft_p99_ms": 892.97,
+          "itl_p50_ms": 68.3,
+          "itl_p99_ms": 72.43,
+          "e2e_p50_ms": null,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 140.58,
+          "ttft_p50_ms": 944.71,
+          "ttft_p99_ms": 1795.83,
+          "itl_p50_ms": 74.27,
+          "itl_p99_ms": 130.08,
+          "e2e_p50_ms": null,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 248.85,
+          "ttft_p50_ms": 608.7,
+          "ttft_p99_ms": 2137.08,
+          "itl_p50_ms": 80.42,
+          "itl_p99_ms": 135.49,
+          "e2e_p50_ms": null,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 550.77,
+          "ttft_p50_ms": 185.27,
+          "ttft_p99_ms": 352.37,
+          "itl_p50_ms": 89.73,
+          "itl_p99_ms": 100.01,
+          "e2e_p50_ms": null,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 584.81,
+          "ttft_p50_ms": 471.73,
+          "ttft_p99_ms": 549.65,
+          "itl_p50_ms": 97.95,
+          "itl_p99_ms": 111.82,
+          "e2e_p50_ms": null,
+          "concurrency": 32
+        }
+      ]
+    }
+  }
+}
