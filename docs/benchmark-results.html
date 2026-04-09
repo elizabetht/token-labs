@@ -494,41 +494,36 @@
     <div class="section-title">Optimization Journey — Ablation Study</div>
     <p class="section-desc">
       Progressive optimization stack on <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · vLLM standalone → llm-d ·
-      DGX Spark GB10 · spark-01 · ~150 tok input / 256 tok output · c=32
+      DGX Spark GB10 · spark-01 · ~150 tok input / 256 tok output · all concurrency levels (c=1, c=8, c=32)
     </p>
 
     <!-- Main scatter: throughput vs TTFT -->
     <div class="journey-main">
-      <div class="journey-title">Throughput vs TTFT p50 — Optimization Frontier</div>
-      <div id="journey-scatter-wrap" style="position:relative;height:340px;">
-        <div class="pending-overlay" style="height:340px;" id="journey-scatter-pending">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          Data pending — ablation experiments queued
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
+        <div class="journey-title" style="margin-bottom:0;">Throughput vs TTFT p50 — Optimization Frontier</div>
+        <div class="tab-row" id="scatter-c-tabs" style="margin-bottom:0;">
+          <button class="tab-btn" data-c="1">c=1</button>
+          <button class="tab-btn" data-c="8">c=8</button>
+          <button class="tab-btn active" data-c="32">c=32</button>
         </div>
+      </div>
+      <div id="journey-scatter-wrap" style="position:relative;height:340px;">
         <canvas id="journey-scatter" style="display:none;"></canvas>
       </div>
-      <p class="journey-note">Each point = one experiment at c=16. Arrow path shows cumulative optimization journey from baseline → full stack. Bottom-right = optimal (high throughput, low TTFT).</p>
+      <p class="journey-note">Each point = one experiment. Path shows cumulative optimization journey. Select concurrency level above to switch view. Bottom-right = optimal (high throughput, low TTFT).</p>
     </div>
 
-    <!-- Secondary: throughput bar + TTFT bar -->
+    <!-- Secondary: throughput bar + TTFT bar (grouped by concurrency) -->
     <div class="journey-grid">
       <div class="journey-side">
-        <div class="journey-title">Output Throughput (tok/s)</div>
-        <div id="journey-tput-wrap" style="position:relative;height:220px;">
-          <div class="pending-overlay" style="height:220px;" id="journey-tput-pending">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            Pending
-          </div>
+        <div class="journey-title">Output Throughput (tok/s) — all concurrency levels</div>
+        <div id="journey-tput-wrap" style="position:relative;height:260px;">
           <canvas id="journey-tput" style="display:none;"></canvas>
         </div>
       </div>
       <div class="journey-side">
-        <div class="journey-title">TTFT p50 (ms) — lower is better</div>
-        <div id="journey-ttft-wrap" style="position:relative;height:220px;">
-          <div class="pending-overlay" style="height:220px;" id="journey-ttft-pending">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            Pending
-          </div>
+        <div class="journey-title">TTFT p50 (ms) — all concurrency levels — lower is better</div>
+        <div id="journey-ttft-wrap" style="position:relative;height:260px;">
           <canvas id="journey-ttft" style="display:none;"></canvas>
         </div>
       </div>
@@ -640,115 +635,116 @@
 
 <script>
 // ── Ablation Study Data ───────────────────────────────────────────────────────
-// Model: Qwen/Qwen2.5-7B-Instruct · DGX Spark GB10 · spark-01 · c=32
-// throughput_tok_s / ttft_p50_ms filled as experiments complete.
-// est_* are estimated values for pending experiments (ghost preview).
+// Model: Qwen/Qwen2.5-7B-Instruct · DGX Spark GB10 · spark-01
+// Each entry has levels[] with measurements at c=1, c=8, c=32.
 const ABLATION_DATA = [
   {
     id: "qwen25-7b-standalone-baseline",
     label: "vLLM Standalone",
     technique: "Baseline (enforce_eager, no llm-d)",
     status: "done",
-    throughput_tok_s: 347.1,
-    ttft_p50_ms: 282.6,
-    itl_p50_ms: 71.6,
     date: "2026-04-08",
-    est_throughput: 347,
-    est_ttft: 283,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.7,  ttft_p50_ms: 84.7,  itl_p50_ms: 78.5 },
+      { concurrency: 8,  throughput_tok_s: 106.4, ttft_p50_ms: 198.7, itl_p50_ms: 65.0 },
+      { concurrency: 32, throughput_tok_s: 347.1, ttft_p50_ms: 282.6, itl_p50_ms: 71.6 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-baseline",
     label: "+ llm-d Routing",
     technique: "llm-d ModelService (EPP + sidecar)",
     status: "done",
-    throughput_tok_s: 348.2,
-    ttft_p50_ms: 326.8,
-    itl_p50_ms: 71.7,
     date: "2026-04-08",
-    est_throughput: 348,
-    est_ttft: 327,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.7,  ttft_p50_ms: 82.7,  itl_p50_ms: 78.5 },
+      { concurrency: 8,  throughput_tok_s: 106.0, ttft_p50_ms: 215.6, itl_p50_ms: 65.1 },
+      { concurrency: 32, throughput_tok_s: 348.2, ttft_p50_ms: 326.8, itl_p50_ms: 71.7 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-prefix-cache",
     label: "+ Prefix Cache (warm)",
     technique: "Automatic Prefix Caching (APC) — warm cache",
     status: "done",
-    throughput_tok_s: 350.6,
-    ttft_p50_ms: 188.3,
-    itl_p50_ms: 71.6,
     date: "2026-04-08",
-    est_throughput: 350,
-    est_ttft: 188,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.7,  ttft_p50_ms: 84.0,  itl_p50_ms: 78.6 },
+      { concurrency: 8,  throughput_tok_s: 109.2, ttft_p50_ms: 198.0, itl_p50_ms: 65.1 },
+      { concurrency: 32, throughput_tok_s: 350.6, ttft_p50_ms: 188.0, itl_p50_ms: 71.6 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-chunked-prefill",
     label: "+ Chunked Prefill",
     technique: "Chunked prefill (512 tok chunks)",
     status: "done",
-    throughput_tok_s: 354.1,
-    ttft_p50_ms: 239.3,
-    itl_p50_ms: 70.5,
     date: "2026-04-08",
-    est_throughput: 354,
-    est_ttft: 239,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.6,  ttft_p50_ms: 80.0,  itl_p50_ms: 79.2 },
+      { concurrency: 8,  throughput_tok_s: 108.6, ttft_p50_ms: 200.0, itl_p50_ms: 63.7 },
+      { concurrency: 32, throughput_tok_s: 354.1, ttft_p50_ms: 239.0, itl_p50_ms: 70.5 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-higher-mem",
     label: "+ Higher Mem (0.85)",
     technique: "gpu_memory_utilization 0.70 → 0.85",
     status: "done",
-    throughput_tok_s: 348.9,
-    ttft_p50_ms: 192.8,
-    itl_p50_ms: 71.9,
     date: "2026-04-08",
-    est_throughput: 349,
-    est_ttft: 193,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.7,  ttft_p50_ms: 84.0,  itl_p50_ms: 78.4 },
+      { concurrency: 8,  throughput_tok_s: 105.7, ttft_p50_ms: 201.0, itl_p50_ms: 65.3 },
+      { concurrency: 32, throughput_tok_s: 348.9, ttft_p50_ms: 193.0, itl_p50_ms: 71.9 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-fp8-kv",
     label: "+ FP8 KV Cache",
     technique: "FP8 KV cache quantization",
     status: "done",
-    throughput_tok_s: 334.5,
-    ttft_p50_ms: 247.6,
-    itl_p50_ms: 69.7,
     date: "2026-04-08",
-    est_throughput: 580,
-    est_ttft: 155,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.5,  ttft_p50_ms: 142.0, itl_p50_ms: 79.2 },
+      { concurrency: 8,  throughput_tok_s: 112.8, ttft_p50_ms: 193.0, itl_p50_ms: 63.3 },
+      { concurrency: 32, throughput_tok_s: 334.5, ttft_p50_ms: 248.0, itl_p50_ms: 69.7 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-spec-decoding",
     label: "+ Spec Decoding",
     technique: "Speculative decoding (ngram, k=5)",
     status: "done",
-    throughput_tok_s: 304.6,
-    ttft_p50_ms: 169.8,
-    itl_p50_ms: 76.6,
     date: "2026-04-08",
-    est_throughput: 650,
-    est_ttft: 140,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.6,  ttft_p50_ms: 80.0,  itl_p50_ms: 79.9 },
+      { concurrency: 8,  throughput_tok_s: 100.0, ttft_p50_ms: 143.0, itl_p50_ms: 69.7 },
+      { concurrency: 32, throughput_tok_s: 304.6, ttft_p50_ms: 170.0, itl_p50_ms: 76.6 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-cuda-graphs",
     label: "+ CUDA Graphs",
     technique: "CUDA graph capture (enforce_eager=false)",
     status: "done",
-    throughput_tok_s: 285.1,
-    ttft_p50_ms: 183.2,
-    itl_p50_ms: 76.4,
     date: "2026-04-08",
-    est_throughput: 780,
-    est_ttft: 130,
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.6,  ttft_p50_ms: 82.0,  itl_p50_ms: 79.0 },
+      { concurrency: 8,  throughput_tok_s: 101.8, ttft_p50_ms: 142.0, itl_p50_ms: 68.5 },
+      { concurrency: 32, throughput_tok_s: 285.1, ttft_p50_ms: 183.0, itl_p50_ms: 76.4 },
+    ],
   },
   {
     id: "qwen25-7b-llmd-full-stack",
     label: "Full Stack",
     technique: "All optimizations",
-    status: "running",
-    throughput_tok_s: null,
-    ttft_p50_ms: null,
-    est_throughput: 900,
-    est_ttft: 115,
+    status: "done",
+    date: "2026-04-08",
+    levels: [
+      { concurrency: 1,  throughput_tok_s: 12.5,  ttft_p50_ms: 80.1,  itl_p50_ms: 79.6 },
+      { concurrency: 8,  throughput_tok_s: 105.3, ttft_p50_ms: 139.6, itl_p50_ms: 67.9 },
+      { concurrency: 32, throughput_tok_s: 298.7, ttft_p50_ms: 181.8, itl_p50_ms: 75.7 },
+    ],
   },
 ];
 
@@ -774,57 +770,65 @@ function ablationColor(idx, total, alpha) {
   return alpha ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r},${g},${b})`;
 }
 
-function renderAblation() {
+// ── Concurrency level palette ─────────────────────────────────────────────────
+const C_COLORS = {
+  1:  { bg: "rgba(74,158,255,0.55)",  border: "#4a9eff"  },
+  8:  { bg: "rgba(245,166,35,0.55)",  border: "#f5a623"  },
+  32: { bg: "rgba(118,185,0,0.55)",   border: "#76b900"  },
+};
+
+let _scatterChart = null;
+
+function buildScatterForConcurrency(level) {
   const total = ABLATION_DATA.length;
-  const hasReal = ABLATION_DATA.some(d => d.throughput_tok_s !== null && d.ttft_p50_ms !== null);
-  const pts = ABLATION_DATA.map(d => ({
-    x: (hasReal ? d.throughput_tok_s : null) ?? d.est_throughput,
-    y: (hasReal ? d.ttft_p50_ms     : null) ?? d.est_ttft,
-    label: d.label,
-    technique: d.technique,
-  }));
+  const pathData = ABLATION_DATA.map(d => {
+    const lv = d.levels.find(l => l.concurrency === level);
+    return { x: lv.throughput_tok_s, y: lv.ttft_p50_ms };
+  });
 
-  // ── Scatter: Throughput vs TTFT ───────────────────────────────────────────
-  const scatterPending = document.getElementById("journey-scatter-pending");
-  const scatterCanvas  = document.getElementById("journey-scatter");
-  scatterPending.style.display = "none";
-  scatterCanvas.style.display  = "block";
+  const pointDatasets = ABLATION_DATA.map((d, i) => {
+    const lv = d.levels.find(l => l.concurrency === level);
+    const isLast = i === total - 1;
+    return {
+      label: d.label,
+      data: [{ x: lv.throughput_tok_s, y: lv.ttft_p50_ms }],
+      pointRadius: isLast ? 10 : 7,
+      pointHoverRadius: 12,
+      pointBorderWidth: isLast ? 2.5 : 1.5,
+      backgroundColor: ablationColor(i, total, 0.85),
+      borderColor: isLast ? "#76b900" : ablationColor(i, total, 1),
+      showLine: false,
+      order: 1,
+    };
+  });
 
-  const scatterCtx = scatterCanvas.getContext("2d");
+  return [
+    {
+      label: "_path",
+      data: pathData,
+      type: "line",
+      borderColor: "rgba(118,185,0,0.25)",
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false,
+      tension: 0.3,
+      showLine: true,
+      order: 2,
+    },
+    ...pointDatasets,
+  ];
+}
 
-  // Build path dataset (lines connecting the journey)
-  const pathData = pts.map((p, i) => ({ x: p.x, y: p.y }));
+function renderScatter(level) {
+  const scatterCanvas = document.getElementById("journey-scatter");
+  scatterCanvas.style.display = "block";
 
-  const pointDatasets = ABLATION_DATA.map((d, i) => ({
-    label: d.label,
-    data: [{ x: ((hasReal ? d.throughput_tok_s : null) ?? d.est_throughput),
-              y: ((hasReal ? d.ttft_p50_ms      : null) ?? d.est_ttft) }],
-    pointRadius: i === total - 1 ? 10 : 7,
-    pointHoverRadius: 12,
-    pointBorderWidth: i === total - 1 ? 2.5 : 1.5,
-    backgroundColor: ablationColor(i, total, 0.85),
-    borderColor: i === total - 1 ? "#76b900" : ablationColor(i, total, 1),
-    showLine: false,
-    order: 1,
-  }));
+  if (_scatterChart) { _scatterChart.destroy(); _scatterChart = null; }
 
-  const pathDataset = {
-    label: "_path",
-    data: pathData,
-    type: "line",
-    borderColor: "rgba(118,185,0,0.25)",
-    borderWidth: 1.5,
-    borderDash: [4, 4],
-    pointRadius: 0,
-    fill: false,
-    tension: 0.3,
-    showLine: true,
-    order: 2,
-  };
-
-  new Chart(scatterCtx, {
+  _scatterChart = new Chart(scatterCanvas.getContext("2d"), {
     type: "scatter",
-    data: { datasets: [pathDataset, ...pointDatasets] },
+    data: { datasets: buildScatterForConcurrency(level) },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -833,104 +837,97 @@ function renderAblation() {
         tooltip: {
           filter: (item) => item.dataset.label !== "_path",
           callbacks: {
-            title: (items) => {
-              const idx = ABLATION_DATA.findIndex(d => d.label === items[0].dataset.label);
-              return idx >= 0 ? ABLATION_DATA[idx].label : "";
-            },
-            label: (item) => {
-              const d = item.raw;
-              const prefix = hasReal ? "" : " (est.)";
-              return [
-                ` Throughput: ${d.x.toLocaleString()} tok/s${prefix}`,
-                ` TTFT p50:   ${d.y.toLocaleString()} ms${prefix}`,
-              ];
-            },
+            title: (items) => items[0].dataset.label,
+            label: (item) => [
+              ` Throughput: ${item.raw.x.toLocaleString()} tok/s`,
+              ` TTFT p50:   ${item.raw.y.toLocaleString()} ms`,
+            ],
           },
-          backgroundColor: "#1a1a1a",
-          borderColor: "#333",
-          borderWidth: 1,
-          titleColor: "#76b900",
-          bodyColor: "#999",
-          padding: 10,
+          backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+          titleColor: "#76b900", bodyColor: "#999", padding: 10,
         },
-        annotation: { annotations: {} }, // no plugin needed
       },
       scales: {
         x: {
-          title: {
-            display: true,
-            text: "Output Throughput (tok/s)  →  higher is better",
-            color: "#666",
-            font: { size: 11 },
-          },
+          title: { display: true, text: "Output Throughput (tok/s)  →  higher is better", color: "#666", font: { size: 11 } },
           grid: { color: "rgba(255,255,255,0.04)" },
           ticks: { color: "#666", font: { size: 11 } },
           border: { color: "#2a2a2a" },
         },
         y: {
-          title: {
-            display: true,
-            text: "TTFT p50 (ms)  →  lower is better",
-            color: "#666",
-            font: { size: 11 },
-          },
+          title: { display: true, text: "TTFT p50 (ms)  →  lower is better", color: "#666", font: { size: 11 } },
           grid: { color: "rgba(255,255,255,0.04)" },
           ticks: { color: "#666", font: { size: 11 } },
           border: { color: "#2a2a2a" },
-          reverse: false,
         },
       },
     },
     plugins: [{
-      // Draw point labels inline
       id: "pointLabels",
       afterDatasetsDraw(chart) {
         const ctx = chart.ctx;
-        chart.data.datasets.forEach((ds, dsIdx) => {
+        chart.data.datasets.forEach((ds) => {
           if (ds.label === "_path") return;
-          const meta = chart.getDatasetMeta(dsIdx);
+          const meta = chart.getDatasetMeta(chart.data.datasets.indexOf(ds));
           meta.data.forEach((point) => {
-            const label = ds.label;
-            const isLast = label === "Full Stack";
+            const isLast = ds.label === "Full Stack";
             ctx.save();
             ctx.font = `${isLast ? "600 " : ""}11px Inter, system-ui, sans-serif`;
             ctx.fillStyle = isLast ? "#76b900" : "#888";
             ctx.textAlign = "left";
-            ctx.fillText(label, point.x + 10, point.y + 4);
+            ctx.fillText(ds.label, point.x + 10, point.y + 4);
             ctx.restore();
           });
         });
       }
     }],
   });
+}
 
-  // ── Throughput bar ────────────────────────────────────────────────────────
-  const tputPending = document.getElementById("journey-tput-pending");
-  const tputCanvas  = document.getElementById("journey-tput");
-  tputPending.style.display = "none";
-  tputCanvas.style.display  = "block";
+function renderAblation() {
+  const total = ABLATION_DATA.length;
+  const labels = ABLATION_DATA.map(d => d.label);
+
+  // ── Scatter (default c=32) ────────────────────────────────────────────────
+  renderScatter(32);
+
+  // Concurrency tab wiring for scatter
+  document.getElementById("scatter-c-tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn");
+    if (!btn) return;
+    document.querySelectorAll("#scatter-c-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderScatter(parseInt(btn.dataset.c, 10));
+  });
+
+  // ── Throughput bar — grouped by concurrency ───────────────────────────────
+  const tputCanvas = document.getElementById("journey-tput");
+  tputCanvas.style.display = "block";
 
   new Chart(tputCanvas.getContext("2d"), {
     type: "bar",
     data: {
-      labels: ABLATION_DATA.map(d => d.label),
-      datasets: [{
-        label: "Throughput (tok/s)",
-        data: ABLATION_DATA.map((d, i) => hasReal ? d.throughput_tok_s : d.est_throughput),
-        backgroundColor: ABLATION_DATA.map((d, i) => ablationColor(i, total, 0.6)),
-        borderColor:     ABLATION_DATA.map((d, i) => ablationColor(i, total, 1)),
+      labels,
+      datasets: [1, 8, 32].map(c => ({
+        label: `c=${c}`,
+        data: ABLATION_DATA.map(d => d.levels.find(l => l.concurrency === c).throughput_tok_s),
+        backgroundColor: C_COLORS[c].bg,
+        borderColor:     C_COLORS[c].border,
         borderWidth: 1.5,
-        borderRadius: 4,
-      }],
+        borderRadius: 3,
+      })),
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          labels: { color: "#888", font: { size: 11 }, boxWidth: 12 },
+        },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.raw.toLocaleString()} tok/s${hasReal ? "" : " (est.)"}`,
+            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} tok/s`,
           },
           backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
           titleColor: "#f0f0f0", bodyColor: "#888",
@@ -939,7 +936,7 @@ function renderAblation() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: "#666", font: { size: 10 }, maxRotation: 30, minRotation: 20 },
+          ticks: { color: "#666", font: { size: 9 }, maxRotation: 35, minRotation: 25 },
           border: { color: "#2a2a2a" },
         },
         y: {
@@ -951,33 +948,34 @@ function renderAblation() {
     },
   });
 
-  // ── TTFT bar ──────────────────────────────────────────────────────────────
-  const ttftPending = document.getElementById("journey-ttft-pending");
-  const ttftCanvas  = document.getElementById("journey-ttft");
-  ttftPending.style.display = "none";
-  ttftCanvas.style.display  = "block";
+  // ── TTFT bar — grouped by concurrency ────────────────────────────────────
+  const ttftCanvas = document.getElementById("journey-ttft");
+  ttftCanvas.style.display = "block";
 
   new Chart(ttftCanvas.getContext("2d"), {
     type: "bar",
     data: {
-      labels: ABLATION_DATA.map(d => d.label),
-      datasets: [{
-        label: "TTFT p50 (ms)",
-        data: ABLATION_DATA.map((d, i) => hasReal ? d.ttft_p50_ms : d.est_ttft),
-        backgroundColor: ABLATION_DATA.map((d, i) => ablationColor(i, total, 0.6)),
-        borderColor:     ABLATION_DATA.map((d, i) => ablationColor(i, total, 1)),
+      labels,
+      datasets: [1, 8, 32].map(c => ({
+        label: `c=${c}`,
+        data: ABLATION_DATA.map(d => d.levels.find(l => l.concurrency === c).ttft_p50_ms),
+        backgroundColor: C_COLORS[c].bg,
+        borderColor:     C_COLORS[c].border,
         borderWidth: 1.5,
-        borderRadius: 4,
-      }],
+        borderRadius: 3,
+      })),
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          labels: { color: "#888", font: { size: 11 }, boxWidth: 12 },
+        },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.raw.toLocaleString()} ms${hasReal ? "" : " (est.)"}`,
+            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw.toLocaleString()} ms`,
           },
           backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
           titleColor: "#f0f0f0", bodyColor: "#888",
@@ -986,14 +984,13 @@ function renderAblation() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: "#666", font: { size: 10 }, maxRotation: 30, minRotation: 20 },
+          ticks: { color: "#666", font: { size: 9 }, maxRotation: 35, minRotation: 25 },
           border: { color: "#2a2a2a" },
         },
         y: {
           grid: { color: "rgba(255,255,255,0.04)" },
           ticks: { color: "#666", font: { size: 10 }, callback: v => `${v}ms` },
           border: { color: "#2a2a2a" },
-          reverse: false,
         },
       },
     },
@@ -1194,10 +1191,14 @@ const REGISTRY_DATA = [
     name: "Full Stack",
     model: "Qwen/Qwen2.5-7B-Instruct",
     framework: "llm-d",
-    status: "running",
-    throughput: null, ttft_p50: null, itl_p50: null,
+    status: "completed",
+    throughput: 298.7, ttft_p50: 181.8, itl_p50: 75.7,
+    c1:  { throughput_tok_s: 12.5,  ttft_p50_ms: 80.1,  ttft_p99_ms: 100.6, itl_p50_ms: 79.6, itl_p99_ms: 85.5, ok: 50 },
+    c8:  { throughput_tok_s: 105.3, ttft_p50_ms: 139.6, ttft_p99_ms: 163.3, itl_p50_ms: 67.9, itl_p99_ms: 74.8, ok: 50 },
+    c32: { throughput_tok_s: 298.7, ttft_p50_ms: 181.8, ttft_p99_ms: 186.7, itl_p50_ms: 75.7, itl_p99_ms: 80.1, ok: 50 },
     hypothesis: "All validated optimizations: prefix cache + chunked prefill + FP8 KV + spec decoding + CUDA graphs. Expected multiplicative gains.",
-    notes: "Expected: +50-80% throughput vs standalone baseline; -30-50% ITL.",
+    notes: "Full stack: 298.7 tok/s @ c=32 (-14% vs standalone — cumulative regression from FP8 KV + spec decoding + CUDA graphs). TTFT p50 -36% (282ms→182ms). Best TTFT result of all experiments at c=8: 139.6ms. CUDA graph + spec decoding + FP8 KV combo hurts throughput on GB10 SM121.",
+    date: "2026-04-08",
   },
 ];
 
