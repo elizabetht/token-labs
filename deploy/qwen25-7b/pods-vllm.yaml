@@ -1,0 +1,119 @@
+# Bare Pod deployment — Qwen/Qwen2.5-7B-Instruct with standalone vLLM
+# Targets spark-02. Used by vllm-baseline-qwen25-7b experiment (framework comparison).
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen25-7b-vllm
+  namespace: token-labs
+  labels:
+    app: qwen25-7b-vllm
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.205
+spec:
+  type: LoadBalancer
+  selector:
+    app: qwen25-7b-vllm
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen25-7b-vllm-leader
+  namespace: token-labs
+  labels:
+    app: qwen25-7b-vllm
+    role: leader
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.19.0
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting standalone vLLM, HF_HUB_CACHE=$HF_HUB_CACHE"
+      vllm serve Qwen/Qwen2.5-7B-Instruct \
+        --port 8000 \
+        --host 0.0.0.0 \
+        --tensor-parallel-size 1 \
+        --trust-remote-code \
+        --max-model-len 32768 \
+        --gpu-memory-utilization 0.85
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 120
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen25-7b-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi
