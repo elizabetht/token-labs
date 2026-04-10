@@ -586,17 +586,24 @@
   <div class="section">
     <div class="section-title">Serving Framework Comparison</div>
     <p class="section-desc">
-      llm-d disaggregated prefill/decode vs vLLM vs SGLang.
-      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · c=32 · ISL=1024 / OSL=512 · DGX Spark GB10
+      SGLang vs TensorRT-LLM (PyTorch backend) on identical workloads.
+      Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · TP=1 · DGX Spark GB10 · 5 ISL/OSL combos × 5 concurrency levels
     </p>
+    <div class="tab-row" id="fw-tabs">
+      <button class="tab-btn active" data-combo="ISL128/OSL128">ISL128/OSL128</button>
+      <button class="tab-btn" data-combo="ISL128/OSL512">ISL128/OSL512</button>
+      <button class="tab-btn" data-combo="ISL1024/OSL128">ISL1024/OSL128</button>
+      <button class="tab-btn" data-combo="ISL1024/OSL512">ISL1024/OSL512</button>
+      <button class="tab-btn" data-combo="ISL4096/OSL512">ISL4096/OSL512</button>
+    </div>
     <div class="fw-chart-wrap">
       <div id="fw-chart-body">
-        <div class="pending-overlay" style="height:240px;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          Data pending — framework comparison experiments queued
-        </div>
+        <canvas id="fw-tput-chart" height="220"></canvas>
+        <canvas id="fw-ttft-chart" height="220" style="margin-top:1.5rem;"></canvas>
+        <canvas id="fw-itl-chart"  height="220" style="margin-top:1.5rem;"></canvas>
       </div>
     </div>
+    <div class="legend" id="fw-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
   </div>
 
   <!-- ── vLLM Optimization Waterfall ──────────────────────── -->
@@ -1419,6 +1426,14 @@ document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
   renderIslOslCharts(btn.dataset.combo);
 });
 
+document.getElementById("fw-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll("#fw-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderFrameworkChart(btn.dataset.combo);
+});
+
 // ── Waterfall — placeholder expected-delta bars ───────────────────────────────
 function renderWaterfall() {
   const body = document.getElementById("waterfall-body");
@@ -1500,16 +1515,175 @@ function renderWaterfall() {
   // (Chart.js render goes here once data is populated in WATERFALL_PLACEHOLDER)
 }
 
-// ── Framework comparison placeholder ─────────────────────────────────────────
-function renderFrameworkChart() {
-  const body = document.getElementById("fw-chart-body");
-  // Real data check (none yet)
-  const hasData = false;
-  if (!hasData) return; // leave the pending overlay
+// ── Framework Comparison Data (2026-04-10 · spark-01 SGLang · spark-02 TRT-LLM) ──
+const FRAMEWORK_DATA = {
+  "ISL128/OSL128": { isl: 128, osl: 128,
+    sglang: [
+      { c:1,  tput:12.60,  ttft:155.76, itl:77.92 },
+      { c:4,  tput:58.52,  ttft:171.05, itl:63.76 },
+      { c:8,  tput:108.36, ttft:129.96, itl:64.18 },
+      { c:16, tput:184.54, ttft:133.03, itl:65.59 },
+      { c:32, tput:353.07, ttft:159.34, itl:68.33 },
+    ],
+    trtllm: [
+      { c:1,  tput:12.54,  ttft:130.14, itl:78.61 },
+      { c:4,  tput:60.00,  ttft:219.42, itl:62.61 },
+      { c:8,  tput:111.09, ttft:216.78, itl:62.87 },
+      { c:16, tput:191.38, ttft:216.81, itl:64.28 },
+      { c:32, tput:359.09, ttft:262.06, itl:68.15 },
+    ],
+  },
+  "ISL128/OSL512": { isl: 128, osl: 512,
+    sglang: [
+      { c:1,  tput:12.73,  ttft:146.54, itl:78.23 },
+      { c:4,  tput:53.99,  ttft:132.22, itl:63.97 },
+      { c:8,  tput:110.71, ttft:130.25, itl:64.45 },
+      { c:16, tput:190.08, ttft:135.11, itl:66.24 },
+      { c:32, tput:359.21, ttft:155.57, itl:69.58 },
+    ],
+    trtllm: [
+      { c:1,  tput:12.66,  ttft:92.07,  itl:78.79 },
+      { c:4,  tput:54.61,  ttft:216.80, itl:62.80 },
+      { c:8,  tput:112.30, ttft:215.20, itl:63.23 },
+      { c:16, tput:192.81, ttft:206.76, itl:65.06 },
+      { c:32, tput:358.27, ttft:250.71, itl:69.28 },
+    ],
+  },
+  "ISL1024/OSL128": { isl: 1024, osl: 128,
+    sglang: [
+      { c:1,  tput:12.53,  ttft:259.27, itl:78.35 },
+      { c:4,  tput:57.17,  ttft:395.54, itl:64.46 },
+      { c:8,  tput:107.98, ttft:133.86, itl:65.76 },
+      { c:16, tput:182.00, ttft:142.82, itl:68.86 },
+      { c:32, tput:330.03, ttft:288.63, itl:75.14 },
+    ],
+    trtllm: [
+      { c:1,  tput:12.49,  ttft:196.98, itl:78.99 },
+      { c:4,  tput:57.76,  ttft:267.15, itl:63.29 },
+      { c:8,  tput:108.66, ttft:220.76, itl:64.58 },
+      { c:16, tput:184.31, ttft:212.08, itl:67.84 },
+      { c:32, tput:331.82, ttft:254.38, itl:74.24 },
+    ],
+  },
+  "ISL1024/OSL512": { isl: 1024, osl: 512,
+    sglang: [
+      { c:1,  tput:12.72,  ttft:148.05, itl:78.34 },
+      { c:4,  tput:53.35,  ttft:133.53, itl:64.82 },
+      { c:8,  tput:108.09, ttft:134.44, itl:66.15 },
+      { c:16, tput:182.63, ttft:142.70, itl:69.50 },
+      { c:32, tput:332.14, ttft:212.86, itl:75.98 },
+    ],
+    trtllm: [
+      { c:1,  tput:12.63,  ttft:96.71,  itl:79.00 },
+      { c:4,  tput:54.03,  ttft:221.24, itl:63.57 },
+      { c:8,  tput:109.64, ttft:224.38, itl:65.00 },
+      { c:16, tput:184.71, ttft:238.51, itl:68.66 },
+      { c:32, tput:331.18, ttft:268.50, itl:75.46 },
+    ],
+  },
+  "ISL4096/OSL512": { isl: 4096, osl: 512,
+    sglang: [
+      { c:1,  tput:12.48,  ttft:658.77,  itl:79.04  },
+      { c:4,  tput:49.30,  ttft:1543.79, itl:67.67  },
+      { c:8,  tput:94.31,  ttft:757.68,  itl:72.07  },
+      { c:16, tput:160.89, ttft:291.74,  itl:81.07  },
+      { c:32, tput:265.05, ttft:362.96,  itl:100.10 },
+    ],
+    trtllm: [
+      { c:1,  tput:12.37,  ttft:615.90,  itl:79.83 },
+      { c:4,  tput:49.82,  ttft:1338.15, itl:66.72 },
+      { c:8,  tput:95.74,  ttft:1281.57, itl:71.22 },
+      { c:16, tput:160.86, ttft:308.88,  itl:81.18 },
+      { c:32, tput:261.46, ttft:281.39,  itl:100.42 },
+    ],
+  },
+};
 
-  // When data is ready:
-  // body.innerHTML = `<canvas id="fw-chart" height="260"></canvas>`;
-  // ... Chart.js grouped bar chart
+const FW_COLORS = {
+  sglang: { bg: "rgba(74,158,255,0.6)", border: "#4a9eff" },
+  trtllm: { bg: "rgba(118,185,0,0.6)",  border: "#76b900" },
+};
+
+let _fwCharts = {};
+
+function renderFrameworkChart(activeCombo) {
+  activeCombo = activeCombo || "ISL128/OSL128";
+  const combo = FRAMEWORK_DATA[activeCombo];
+  if (!combo) return;
+
+  const concurrencies = [1, 4, 8, 16, 32];
+  const labels = concurrencies.map(c => `c=${c}`);
+
+  function buildDatasets(metric) {
+    return [
+      {
+        label: "SGLang",
+        data: combo.sglang.map(d => d[metric]),
+        backgroundColor: FW_COLORS.sglang.bg,
+        borderColor: FW_COLORS.sglang.border,
+        borderWidth: 1.5,
+        borderRadius: 3,
+      },
+      {
+        label: "TRT-LLM",
+        data: combo.trtllm.map(d => d[metric]),
+        backgroundColor: FW_COLORS.trtllm.bg,
+        borderColor: FW_COLORS.trtllm.border,
+        borderWidth: 1.5,
+        borderRadius: 3,
+      },
+    ];
+  }
+
+  function makeOrUpdate(canvasId, chartKey, yLabel, metric) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const datasets = buildDatasets(metric);
+    if (_fwCharts[chartKey]) {
+      _fwCharts[chartKey].data.datasets = datasets;
+      _fwCharts[chartKey].update();
+    } else {
+      _fwCharts[chartKey] = new Chart(canvas, {
+        type: "bar",
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) : "—"}${metric === "tput" ? " tok/s" : " ms"}`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { color: "rgba(255,255,255,0.04)" } },
+            y: {
+              title: { display: true, text: yLabel, color: "#888", font: { size: 11 } },
+              grid: { color: "rgba(255,255,255,0.04)" },
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    }
+  }
+
+  makeOrUpdate("fw-tput-chart", "tput", "Throughput (tok/s)", "tput");
+  makeOrUpdate("fw-ttft-chart", "ttft", "TTFT p50 (ms)", "ttft");
+  makeOrUpdate("fw-itl-chart",  "itl",  "ITL p50 (ms)",  "itl");
+
+  // legend
+  const legend = document.getElementById("fw-legend");
+  if (legend && !legend.dataset.rendered) {
+    legend.dataset.rendered = "1";
+    legend.innerHTML = [
+      ["SGLang", FW_COLORS.sglang.border],
+      ["TRT-LLM (PyTorch backend)", FW_COLORS.trtllm.border],
+    ].map(([name, color]) =>
+      `<span class="legend-item"><span class="legend-swatch" style="background:${color};"></span>${name}</span>`
+    ).join("");
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -1524,7 +1698,7 @@ try {
   renderIslOslLegend();
   renderIslOslCharts("all");
   renderWaterfall();
-  renderFrameworkChart();
+  renderFrameworkChart("ISL128/OSL128");
   renderAblation();
   renderTechniqueImpact();
 } catch (e) {

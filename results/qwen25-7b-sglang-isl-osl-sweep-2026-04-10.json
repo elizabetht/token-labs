@@ -1,0 +1,240 @@
+{
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "framework": "sglang",
+  "pod": "qwen25-7b-sglang-leader",
+  "experiment": "framework-comparison-isl-osl-sweep",
+  "timestamp": "2026-04-10T05:07:52Z",
+  "progress": "25/25",
+  "combos": {
+    "ISL128/OSL128": {
+      "isl": 128,
+      "osl": 128,
+      "levels": [
+        {
+          "throughput_tok_s": 12.6,
+          "ttft_p50_ms": 155.76,
+          "ttft_p99_ms": 158.6,
+          "itl_p50_ms": 77.92,
+          "itl_p99_ms": 96.29,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 58.52,
+          "ttft_p50_ms": 171.05,
+          "ttft_p99_ms": 533.23,
+          "itl_p50_ms": 63.76,
+          "itl_p99_ms": 76.94,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 108.36,
+          "ttft_p50_ms": 129.96,
+          "ttft_p99_ms": 150.43,
+          "itl_p50_ms": 64.18,
+          "itl_p99_ms": 68.91,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 184.54,
+          "ttft_p50_ms": 133.03,
+          "ttft_p99_ms": 155.26,
+          "itl_p50_ms": 65.59,
+          "itl_p99_ms": 148.75,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 353.07,
+          "ttft_p50_ms": 159.34,
+          "ttft_p99_ms": 163.64,
+          "itl_p50_ms": 68.33,
+          "itl_p99_ms": 159.68,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL128/OSL512": {
+      "isl": 128,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 12.73,
+          "ttft_p50_ms": 146.54,
+          "ttft_p99_ms": 147.33,
+          "itl_p50_ms": 78.23,
+          "itl_p99_ms": 82.83,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 53.99,
+          "ttft_p50_ms": 132.22,
+          "ttft_p99_ms": 147.14,
+          "itl_p50_ms": 63.97,
+          "itl_p99_ms": 78.66,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 110.71,
+          "ttft_p50_ms": 130.25,
+          "ttft_p99_ms": 147.72,
+          "itl_p50_ms": 64.45,
+          "itl_p99_ms": 66.93,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 190.08,
+          "ttft_p50_ms": 135.11,
+          "ttft_p99_ms": 150.45,
+          "itl_p50_ms": 66.24,
+          "itl_p99_ms": 68.95,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 359.21,
+          "ttft_p50_ms": 155.57,
+          "ttft_p99_ms": 158.94,
+          "itl_p50_ms": 69.58,
+          "itl_p99_ms": 74.63,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL1024/OSL128": {
+      "isl": 1024,
+      "osl": 128,
+      "levels": [
+        {
+          "throughput_tok_s": 12.53,
+          "ttft_p50_ms": 259.27,
+          "ttft_p99_ms": 263.45,
+          "itl_p50_ms": 78.35,
+          "itl_p99_ms": 80.92,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 57.17,
+          "ttft_p50_ms": 395.54,
+          "ttft_p99_ms": 740.12,
+          "itl_p50_ms": 64.46,
+          "itl_p99_ms": 66.9,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 107.98,
+          "ttft_p50_ms": 133.86,
+          "ttft_p99_ms": 149.18,
+          "itl_p50_ms": 65.76,
+          "itl_p99_ms": 68.34,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 182.0,
+          "ttft_p50_ms": 142.82,
+          "ttft_p99_ms": 267.32,
+          "itl_p50_ms": 68.86,
+          "itl_p99_ms": 72.16,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 330.03,
+          "ttft_p50_ms": 288.63,
+          "ttft_p99_ms": 363.81,
+          "itl_p50_ms": 75.14,
+          "itl_p99_ms": 85.14,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL1024/OSL512": {
+      "isl": 1024,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 12.72,
+          "ttft_p50_ms": 148.05,
+          "ttft_p99_ms": 149.08,
+          "itl_p50_ms": 78.34,
+          "itl_p99_ms": 80.94,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 53.35,
+          "ttft_p50_ms": 133.53,
+          "ttft_p99_ms": 145.94,
+          "itl_p50_ms": 64.82,
+          "itl_p99_ms": 79.21,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 108.09,
+          "ttft_p50_ms": 134.44,
+          "ttft_p99_ms": 150.47,
+          "itl_p50_ms": 66.15,
+          "itl_p99_ms": 68.83,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 182.63,
+          "ttft_p50_ms": 142.7,
+          "ttft_p99_ms": 268.39,
+          "itl_p50_ms": 69.5,
+          "itl_p99_ms": 72.77,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 332.14,
+          "ttft_p50_ms": 212.86,
+          "ttft_p99_ms": 289.13,
+          "itl_p50_ms": 75.98,
+          "itl_p99_ms": 82.42,
+          "concurrency": 32
+        }
+      ]
+    },
+    "ISL4096/OSL512": {
+      "isl": 4096,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 12.48,
+          "ttft_p50_ms": 658.77,
+          "ttft_p99_ms": 663.97,
+          "itl_p50_ms": 79.04,
+          "itl_p99_ms": 81.7,
+          "concurrency": 1
+        },
+        {
+          "throughput_tok_s": 49.3,
+          "ttft_p50_ms": 1543.79,
+          "ttft_p99_ms": 2383.65,
+          "itl_p50_ms": 67.67,
+          "itl_p99_ms": 79.84,
+          "concurrency": 4
+        },
+        {
+          "throughput_tok_s": 94.31,
+          "ttft_p50_ms": 757.68,
+          "ttft_p99_ms": 4549.41,
+          "itl_p50_ms": 72.07,
+          "itl_p99_ms": 77.27,
+          "concurrency": 8
+        },
+        {
+          "throughput_tok_s": 160.89,
+          "ttft_p50_ms": 291.74,
+          "ttft_p99_ms": 360.85,
+          "itl_p50_ms": 81.07,
+          "itl_p99_ms": 84.57,
+          "concurrency": 16
+        },
+        {
+          "throughput_tok_s": 265.05,
+          "ttft_p50_ms": 362.96,
+          "ttft_p99_ms": 579.84,
+          "itl_p50_ms": 100.1,
+          "itl_p99_ms": 106.59,
+          "concurrency": 32
+        }
+      ]
+    }
+  }
+}
