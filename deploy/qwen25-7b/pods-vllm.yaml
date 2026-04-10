@@ -70,6 +70,8 @@ spec:
       value: "1"
     - name: NCCL_DEBUG
       value: "WARN"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
