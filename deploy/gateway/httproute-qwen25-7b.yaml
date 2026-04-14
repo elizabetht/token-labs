@@ -14,6 +14,21 @@ spec:
     kind: Gateway
     group: gateway.networking.k8s.io
   rules:
+  # Rewrite /models → /v1/models for playground compatibility
+  - matches:
+    - path:
+        type: Exact
+        value: /models
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplaceFullPath
+          replaceFullPath: /v1/models
+    backendRefs:
+    - name: qwen25-7b-vllm
+      port: 8000
+      weight: 1
   # Route all /v1/* traffic to vLLM (primary) and trtllm-spark01 (secondary)
   - matches:
     - path:
