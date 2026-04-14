@@ -93,6 +93,8 @@ spec:
       value: "0"
     - name: SGLANG_DISABLE_CUDNN_CHECK
       value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache

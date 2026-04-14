@@ -87,6 +87,8 @@ spec:
       value: "WARN"
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
