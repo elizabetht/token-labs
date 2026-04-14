@@ -22,3 +22,10 @@ spec:
     allowedRoutes:
       namespaces:
         from: Same
+  - name: http-8000
+    protocol: HTTP
+    port: 8000
+    hostname: "api.tokenlabs.run"
+    allowedRoutes:
+      namespaces:
+        from: Same
