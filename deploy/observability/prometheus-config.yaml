@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+  labels:
+    app: prometheus
+    app.kubernetes.io/part-of: token-labs-observability
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: token-labs
+
+    scrape_configs:
+      # Dynamic pod discovery — scrapes any pod in token-labs with annotation prometheus.io/scrape: "true"
+      - job_name: token-labs-annotated
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - token-labs
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: "true"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # vLLM — dynamic discovery by label selector
+      - job_name: vllm
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - token-labs
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: qwen25-7b-vllm
+          - source_labels: [__meta_kubernetes_pod_label_role]
+            action: keep
+            regex: leader
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:8000
+            target_label: __address__
+          - target_label: __metrics_path__
+            replacement: /metrics
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # SGLang — dynamic discovery by label selector
+      - job_name: sglang
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - token-labs
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: qwen25-7b-sglang
+          - source_labels: [__meta_kubernetes_pod_label_role]
+            action: keep
+            regex: leader
+          - source_labels: [__address__]
+            action: replace
+            regex: ([^:]+)(?::\d+)?
+            replacement: $1:8000
+            target_label: __address__
+          - target_label: __metrics_path__
+            replacement: /metrics
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+
+      # Static fallback — scrape known LB IPs directly
+      - job_name: vllm-static
+        static_configs:
+          - targets:
+              - "192.168.1.205:8000"
+            labels:
+              app: qwen25-7b-vllm
+              role: leader
+              node: spark-02
+        metrics_path: /metrics
+        scrape_interval: 15s
+
+      - job_name: sglang-static
+        static_configs:
+          - targets:
+              - "192.168.1.204:8000"
+            labels:
+              app: qwen25-7b-sglang
+              role: leader
+              node: spark-01
+        metrics_path: /metrics
+        scrape_interval: 15s
+
+      # Prometheus self-scrape
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - "localhost:9090"
