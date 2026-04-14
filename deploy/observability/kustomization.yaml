@@ -1,14 +1,21 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# This directory integrates token-labs observability into the existing
+# kube-prometheus-stack (managed by Flux in the monitoring namespace).
+#
+# Resources here:
+#   - grafana-dashboard.yaml: ConfigMap with grafana_dashboard=1 label so
+#     the kube-prometheus-stack Grafana sidecar auto-provisions our dashboard.
+#   - scrape-secret.yaml: additionalScrapeConfigs Secret referenced by the
+#     kube-prometheus-stack Prometheus CR to scrape vLLM/SGLang pods.
+#
+# The standalone prometheus/grafana stack has been removed. kube-prometheus-stack
+# provides Alertmanager, node-exporter, kube-state-metrics, and all K8s dashboards.
+
 resources:
-  - namespace.yaml
-  - prometheus-config.yaml
-  - prometheus.yaml
-  - grafana-datasource.yaml
-  - grafana-dashboard-provider.yaml
   - grafana-dashboard.yaml
-  - grafana.yaml
+  - scrape-secret.yaml
 
 labels:
   - pairs:
