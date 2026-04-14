@@ -101,6 +101,7 @@ spec:
     group: gateway.networking.k8s.io
   rules:
   # Rewrite /models → /v1/models for playground compatibility
+  # Fan out across all active backends so any can answer even if one is down
   - matches:
     - path:
         type: Exact
@@ -112,9 +113,15 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /v1/models
     backendRefs:
+    - name: deepseek-r1-7b-vllm
+      port: 8000
+      weight: 34
+    - name: llama-31-8b-sglang
+      port: 8000
+      weight: 33
     - name: qwen25-7b-trtllm-spark01
       port: 8000
-      weight: 1
+      weight: 33
   # Default: Qwen2.5-7B-Instruct via TRT-LLM (spark-01)
   - matches:
     - path:
@@ -126,12 +133,18 @@ spec:
       weight: 1
     timeouts:
       request: 300s
-  # Health / root catch-all
+  # Health / root catch-all — fan out so health check works even if one backend is down
   - matches:
     - path:
         type: PathPrefix
         value: /
     backendRefs:
+    - name: deepseek-r1-7b-vllm
+      port: 8000
+      weight: 34
+    - name: llama-31-8b-sglang
+      port: 8000
+      weight: 33
     - name: qwen25-7b-trtllm-spark01
       port: 8000
-      weight: 1
+      weight: 33
