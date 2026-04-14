@@ -100,8 +100,7 @@ spec:
     kind: Gateway
     group: gateway.networking.k8s.io
   rules:
-  # Rewrite /models → /v1/models for playground compatibility
-  # Fan out across all active backends so any can answer even if one is down
+  # /models and /v1/models → aggregator (merges all backend model lists into one)
   - matches:
     - path:
         type: Exact
@@ -113,15 +112,17 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /v1/models
     backendRefs:
-    - name: deepseek-r1-7b-vllm
+    - name: model-aggregator
       port: 8000
-      weight: 34
-    - name: llama-31-8b-sglang
+      weight: 1
+  - matches:
+    - path:
+        type: Exact
+        value: /v1/models
+    backendRefs:
+    - name: model-aggregator
       port: 8000
-      weight: 33
-    - name: qwen25-7b-trtllm-spark01
-      port: 8000
-      weight: 33
+      weight: 1
   # Default: Qwen2.5-7B-Instruct via TRT-LLM (spark-01)
   - matches:
     - path:
