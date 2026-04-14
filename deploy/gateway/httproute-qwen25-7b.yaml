@@ -1,0 +1,39 @@
+# HTTPRoute — routes Qwen/Qwen2.5-7B-Instruct through the Envoy Gateway
+# Matches on x-ai-eg-model header (set by EAG filter) OR model path prefix.
+# Backend: qwen25-7b-vllm service (ClusterIP after LB removal) on port 8000.
+# A second rule catches the trtllm variant via its service for load spreading.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: qwen25-7b-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  # Route all /v1/* traffic to vLLM (primary) and trtllm-spark01 (secondary)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+    backendRefs:
+    - name: qwen25-7b-vllm
+      port: 8000
+      weight: 50
+    - name: qwen25-7b-trtllm-spark01
+      port: 8000
+      weight: 50
+    timeouts:
+      request: 300s
+  # Health / root catch-all
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: qwen25-7b-vllm
+      port: 8000
+      weight: 1

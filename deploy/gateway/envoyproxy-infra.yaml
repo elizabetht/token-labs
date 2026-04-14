@@ -1,0 +1,16 @@
+# EnvoyProxy — infrastructure configuration for the token-labs gateway
+# Forces MetalLB to allocate 192.168.1.200 to the Envoy-generated LoadBalancer service.
+# Without this, the metallb.io/loadBalancerIPs annotation applied to the generated
+# service is lost on gateway reconciliation.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: token-labs-proxy-config
+  namespace: token-labs
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        annotations:
+          metallb.io/loadBalancerIPs: "192.168.1.200"
