@@ -71,7 +71,7 @@ spec:
         nvidia.com/gpu: "1"
       limits:
         cpu: "12"
-        memory: 80Gi
+        memory: 110Gi
         nvidia.com/gpu: "1"
     env:
     - name: HF_HOME
@@ -124,7 +124,8 @@ spec:
         --gpu-memory-utilization 0.50 \
         --max-model-len 32768 \
         --max-num-seqs 4 \
-        --no-enable-chunked-prefill
+        --no-enable-chunked-prefill \
+        --load-format safetensors
     startupProbe:
       httpGet:
         path: /health
