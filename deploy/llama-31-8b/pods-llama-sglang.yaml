@@ -1,0 +1,143 @@
+# Bare Pod deployment — meta-llama/Llama-3.1-8B-Instruct with SGLang
+# Targets spark-02. mem-fraction-static 0.35 to share node with DeepSeek-R1 vLLM.
+# Requires HF_TOKEN — Llama 3.1 is a gated Meta model.
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-llama-31-8b-spark-02
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 30Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-31-8b-sglang
+  namespace: token-labs
+  labels:
+    app: llama-31-8b-sglang
+spec:
+  type: ClusterIP
+  selector:
+    app: llama-31-8b-sglang
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: llama-31-8b-sglang-leader
+  namespace: token-labs
+  labels:
+    app: llama-31-8b-sglang
+    role: leader
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: sglang
+    image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache/huggingface"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: SGLANG_ENABLE_JIT_DEEPGEMM
+      value: "0"
+    - name: SGLANG_DISABLE_CUDNN_CHECK
+      value: "1"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting Llama-3.1-8B-Instruct with SGLang"
+      python3 -m sglang.launch_server \
+        --model-path meta-llama/Llama-3.1-8B-Instruct \
+        --port 8000 \
+        --host 0.0.0.0 \
+        --tp 1 \
+        --trust-remote-code \
+        --context-length 32768 \
+        --mem-fraction-static 0.35
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 120
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-llama-31-8b-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

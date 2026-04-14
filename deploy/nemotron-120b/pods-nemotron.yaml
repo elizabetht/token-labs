@@ -1,0 +1,157 @@
+# Bare Pod deployment — nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 with vLLM cu130-nightly
+# Targets spark-01. Uses Marlin GEMM backend for SM121 (GB10 Blackwell).
+# MIXED_PRECISION bug requires cu130-nightly (not stable or NGC container).
+# Key env vars prevent FlashInfer FP4 MoE kernels (not supported on single-GPU SM121).
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-nemotron-120b-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemotron-120b-vllm
+  namespace: token-labs
+  labels:
+    app: nemotron-120b-vllm
+spec:
+  type: ClusterIP
+  selector:
+    app: nemotron-120b-vllm
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nemotron-120b-vllm-leader
+  namespace: token-labs
+  labels:
+    app: nemotron-120b-vllm
+    role: leader
+spec:
+  restartPolicy: Never
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: vllm/vllm-openai:cu130-nightly
+    imagePullPolicy: Always
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 80Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    # SM121 (GB10) NVFP4 overrides — use Marlin, disable FlashInfer FP4 MoE
+    - name: VLLM_NVFP4_GEMM_BACKEND
+      value: "marlin"
+    - name: VLLM_USE_FLASHINFER_MOE_FP4
+      value: "0"
+    - name: VLLM_FLASHINFER_ALLREDUCE_BACKEND
+      value: "trtllm"
+    - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+      value: "1"
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting Nemotron-120B with vLLM cu130-nightly (Marlin backend for SM121)"
+      vllm serve nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 \
+        --port 8000 \
+        --host 0.0.0.0 \
+        --tensor-parallel-size 1 \
+        --trust-remote-code \
+        --quantization fp4 \
+        --moe-backend marlin \
+        --kv-cache-dtype fp8 \
+        --gpu-memory-utilization 0.55 \
+        --max-model-len 32768 \
+        --max-num-seqs 4 \
+        --no-enable-chunked-prefill
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 180
+      periodSeconds: 20
+      failureThreshold: 180
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-nemotron-120b-spark-01
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

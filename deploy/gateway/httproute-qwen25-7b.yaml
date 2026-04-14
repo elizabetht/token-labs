@@ -1,7 +1,93 @@
-# HTTPRoute — routes Qwen/Qwen2.5-7B-Instruct through the Envoy Gateway
-# Matches on x-ai-eg-model header (set by EAG filter) OR model path prefix.
-# Backend: qwen25-7b-vllm service (ClusterIP after LB removal) on port 8000.
-# A second rule catches the trtllm variant via its service for load spreading.
+# HTTPRoute — multi-model routing for token-labs gateway
+# Routes by x-ai-eg-model header (set by Envoy AI Gateway from request body "model" field).
+# Models:
+#   nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 → nemotron-120b-vllm (spark-01)
+#   deepseek-ai/DeepSeek-R1-Distill-Qwen-7B        → deepseek-r1-7b-vllm (spark-02)
+#   meta-llama/Llama-3.1-8B-Instruct               → llama-31-8b-sglang  (spark-02)
+#   Qwen/Qwen2.5-7B-Instruct (default)             → qwen25-7b-trtllm-spark01 (spark-01)
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nemotron-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+      headers:
+      - name: x-ai-eg-model
+        value: "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
+    backendRefs:
+    - name: nemotron-120b-vllm
+      port: 8000
+      weight: 1
+    timeouts:
+      request: 600s
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: deepseek-r1-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+      headers:
+      - name: x-ai-eg-model
+        value: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    backendRefs:
+    - name: deepseek-r1-7b-vllm
+      port: 8000
+      weight: 1
+    timeouts:
+      request: 300s
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: llama-31-8b-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - name: token-labs-gateway
+    namespace: token-labs
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/
+      headers:
+      - name: x-ai-eg-model
+        value: "meta-llama/Llama-3.1-8B-Instruct"
+    backendRefs:
+    - name: llama-31-8b-sglang
+      port: 8000
+      weight: 1
+    timeouts:
+      request: 300s
+
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -26,21 +112,18 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /v1/models
     backendRefs:
-    - name: qwen25-7b-vllm
+    - name: qwen25-7b-trtllm-spark01
       port: 8000
       weight: 1
-  # Route all /v1/* traffic to vLLM (primary) and trtllm-spark01 (secondary)
+  # Default: Qwen2.5-7B-Instruct via TRT-LLM (spark-01)
   - matches:
     - path:
         type: PathPrefix
         value: /v1/
     backendRefs:
-    - name: qwen25-7b-vllm
-      port: 8000
-      weight: 50
     - name: qwen25-7b-trtllm-spark01
       port: 8000
-      weight: 50
+      weight: 1
     timeouts:
       request: 300s
   # Health / root catch-all
@@ -49,6 +132,6 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: qwen25-7b-vllm
+    - name: qwen25-7b-trtllm-spark01
       port: 8000
       weight: 1
