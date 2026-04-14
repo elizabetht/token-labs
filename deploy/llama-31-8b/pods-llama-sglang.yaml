@@ -65,7 +65,7 @@ spec:
       name: http
     resources:
       requests:
-        cpu: "8"
+        cpu: "4"
         memory: 32Gi
         nvidia.com/gpu: "1"
       limits:
