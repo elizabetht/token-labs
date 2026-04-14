@@ -10,7 +10,7 @@ metadata:
   labels:
     app: qwen25-7b-vllm
   annotations:
-    metallb.io/loadBalancerIPs: 192.168.1.205
+    metallb.io/loadBalancerIPs: 192.168.1.207
 spec:
   type: LoadBalancer
   selector:

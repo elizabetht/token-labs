@@ -10,7 +10,7 @@ metadata:
   labels:
     app: qwen25-7b-trtllm-spark01
   annotations:
-    metallb.io/loadBalancerIPs: 192.168.1.204
+    metallb.io/loadBalancerIPs: 192.168.1.208
 spec:
   type: LoadBalancer
   selector:
