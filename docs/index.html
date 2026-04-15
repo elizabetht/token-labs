@@ -257,6 +257,13 @@
     /* UTILS */
     .ml-auto{margin-left:auto;}.hidden{display:none!important;}
 
+    /* TOKEN STATS */
+    .token-stats { font-size: 11px; color: #888; margin-top: 6px; }
+
+    /* LIVE BADGE DEGRADED */
+    .live-badge.degraded { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: #fbbf24; }
+    .live-badge.degraded .live-dot { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+
     /* FOOTER */
     .footer { border-top: 1px solid var(--border); padding: 32px; text-align: center; color: var(--text-muted); font-size: 12px; }
     .footer a { color: var(--text-secondary); text-decoration: none; }
@@ -284,14 +291,13 @@
   </a>
   <div class="nav-links">
     <a class="nav-link active" href="#" onclick="showCatalog();return false;">Explore</a>
-    <a class="nav-link" href="benchmark-results.html">Benchmarks</a>
-    <a class="nav-link" href="accuracy-results.html">Accuracy</a>
-    <a class="nav-link" href="comparison-results.html">Comparisons</a>
+    <a class="nav-link" href="https://grafana.tokenlabs.run" target="_blank">Monitoring</a>
   </div>
   <div class="nav-right">
-    <span class="live-badge"><span class="live-dot"></span>LIVE</span>
-    <input type="password" id="api-key-input" class="api-key-input" placeholder="API Key" title="Your Token Labs API key"
-      oninput="saveApiKey(this.value);fetchModels()" />
+    <span class="live-badge" id="live-badge"><span class="live-dot" id="live-dot"></span><span id="live-text">LIVE</span></span>
+    <input type="password" id="api-key-input" class="api-key-input" placeholder="API Key"
+      title="API key for tokenlabs.run — contact admin or see github.com/elizabetht/token-labs"
+      oninput="saveApiKey(this.value)" /><a href="https://github.com/elizabetht/token-labs" target="_blank" style="color:#aaa;text-decoration:none;margin-left:4px" title="Get API key">?</a>
     <a class="btn btn-ghost btn-sm" href="https://github.com/elizabetht/token-labs" target="_blank">GitHub</a>
   </div>
 </nav>
@@ -301,7 +307,7 @@
 
   <section class="hero">
     <h1 class="hero-title">Start Building with <span class="accent">TokenLabs</span></h1>
-    <p class="hero-subtitle">Production-ready inference endpoints powered by NVIDIA DGX Spark. OpenAI-compatible API, pay-per-token pricing.</p>
+    <p class="hero-subtitle">Production-ready inference endpoints powered by NVIDIA DGX Spark. OpenAI-compatible API.</p>
     <div class="hero-search">
       <span class="hero-search-icon">&#128269;</span>
       <input type="text" id="catalog-search" placeholder="Search models..." oninput="filterCatalog(this.value)" />
@@ -309,7 +315,6 @@
     <div class="stats-row" id="hero-stats">
       <div class="stat-block"><div class="stat-number" id="stat-models">-</div><div class="stat-label">Models</div></div>
       <div class="stat-block"><div class="stat-number" id="stat-min-price">—</div><div class="stat-label">From / 1M Input</div></div>
-      <div class="stat-block"><div class="stat-number">99.9%</div><div class="stat-label">Uptime</div></div>
     </div>
   </section>
 
@@ -327,32 +332,6 @@
     </div>
     <div class="model-grid" id="model-grid">
       <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);">Loading models...</div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="section-header">
-      <h2 class="section-title">Platform</h2>
-    </div>
-    <div class="features-grid">
-      <a href="benchmark-results.html" class="feature-card">
-        <div class="feature-icon">&#9889;</div>
-        <div class="feature-title">Performance Benchmarks</div>
-        <div class="feature-desc">Throughput, latency, and pricing across all quantization configs on DGX Spark hardware.</div>
-        <span class="feature-arrow">View benchmarks &rarr;</span>
-      </a>
-      <a href="accuracy-results.html" class="feature-card">
-        <div class="feature-icon">&#127919;</div>
-        <div class="feature-title">Accuracy Evaluation</div>
-        <div class="feature-desc">IFEval instruction-following accuracy for every model and quantization configuration.</div>
-        <span class="feature-arrow">View accuracy &rarr;</span>
-      </a>
-      <a href="comparison-results.html" class="feature-card">
-        <div class="feature-icon">&#128202;</div>
-        <div class="feature-title">Baseline Comparison</div>
-        <div class="feature-desc">Side-by-side comparison against cloud inference providers and baseline configurations.</div>
-        <span class="feature-arrow">View comparisons &rarr;</span>
-      </a>
     </div>
   </section>
 
@@ -399,16 +378,15 @@
             <div class="pricing-row"><div><div class="pricing-row-label">Input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-in">$0.00</div></div>
             <div class="pricing-row"><div><div class="pricing-row-label">Cached input tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-cached">$0.0000</div></div>
             <div class="pricing-row"><div><div class="pricing-row-label">Output tokens</div><div class="pricing-row-unit">per 1M tokens</div></div><div class="pricing-row-price" id="ov-price-out">$0.00</div></div>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Prices derived from CI benchmarks (vLLM on DGX Spark). Free tier available.</p>
+            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;line-height:1.5;">Prices derived from CI benchmarks (vLLM on DGX Spark).</p>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:20px;">
           <div class="info-card">
             <div class="info-card-title">Quick links</div>
             <div class="model-links">
-              <a href="benchmark-results.html" class="model-link"><span>&#9889;</span><span style="flex:1">Performance Benchmarks</span><span class="model-link-arrow">&rarr;</span></a>
-              <a href="accuracy-results.html"  class="model-link"><span>&#127919;</span><span style="flex:1">Accuracy Evaluation (IFEval)</span><span class="model-link-arrow">&rarr;</span></a>
-              <a href="comparison-results.html" class="model-link"><span>&#128202;</span><span style="flex:1">Baseline Comparison</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="https://grafana.tokenlabs.run" target="_blank" class="model-link"><span>&#128200;</span><span style="flex:1">Grafana Monitoring</span><span class="model-link-arrow">&rarr;</span></a>
+              <a href="https://github.com/elizabetht/token-labs" target="_blank" class="model-link"><span>&#128279;</span><span style="flex:1">GitHub Repository</span><span class="model-link-arrow">&rarr;</span></a>
             </div>
           </div>
           <div class="info-card">
@@ -517,7 +495,7 @@
             <div class="chat-input-row">
               <div class="chat-input-wrap">
                 <textarea id="chat-input" placeholder="Ask anything... (Enter to send, Shift+Enter for new line)" rows="1"></textarea>
-                <div class="chat-hint">Powered by vLLM &middot; OpenAI-compatible API</div>
+                <div class="chat-hint">OpenAI-compatible API</div>
               </div>
               <button class="btn btn-primary" id="send-btn" onclick="sendChat()">Send</button>
             </div>
@@ -596,7 +574,7 @@ const MODEL_ENRICHMENT = {
   "Qwen/Qwen2.5-7B-Instruct": {
     displayName:"Qwen2.5-7B-Instruct",
     org:"Qwen", avatar:"Q", avatarBg:"rgba(59,130,246,0.15)", avatarColor:"#60a5fa",
-    context:"32K tokens", gpuType:"NVIDIA DGX Spark GB10 (SM121)", gpuVram:"128 GB unified",
+    context:"32K tokens (128K native)", gpuType:"NVIDIA DGX Spark GB10 (SM121)", gpuVram:"128 GB unified",
     precision:"BF16", quantization:"None", license:"Apache 2.0", params:"7B",
     inputPricePerM:0.06, cachedInputPricePerM:0.03, outputPricePerM:0.18,
     description:"Qwen2.5-7B-Instruct via TensorRT-LLM (PyTorch backend) on DGX Spark GB10. TP=1, BF16.",
@@ -676,8 +654,20 @@ let messagesA = [], messagesB = [];
 let catalogFilter = "all";
 let _pollTimer = null;
 
-function saveApiKey(val) { sessionStorage.setItem("tl_api_key", val); }
-function getApiKey() { return sessionStorage.getItem("tl_api_key") || ""; }
+function saveApiKey(val) { localStorage.setItem("tl_api_key", val); }
+function getApiKey() { return localStorage.getItem("tl_api_key") || ""; }
+
+function updateLiveBadge(ok) {
+  const badge = document.getElementById("live-badge");
+  const text  = document.getElementById("live-text");
+  if (ok) {
+    badge.classList.remove("degraded");
+    text.textContent = "LIVE";
+  } else {
+    badge.classList.add("degraded");
+    text.textContent = "DEGRADED";
+  }
+}
 
 // ==================== VIEW SWITCHING ====================
 function showCatalog() {
@@ -742,15 +732,15 @@ async function fetchModels() {
     const headers = {};
     if (apiKey) headers["Authorization"] = "Bearer " + apiKey;
     const resp = await fetch(`${DEFAULT_API_BASE}/v1/models`, { headers });
-    if (!resp.ok) return false;
+    if (!resp.ok) { updateLiveBadge(false); return false; }
     const data = await resp.json();
     const ids = (data.data || []).map(m => m.id).filter(Boolean);
-    if (!ids.length) return false;
+    if (!ids.length) { updateLiveBadge(false); return false; }
 
     const newModels = buildModels(ids);
     const oldKeys = Object.keys(MODELS).sort().join(",");
     const newKeys = Object.keys(newModels).sort().join(",");
-    if (oldKeys === newKeys) return true;
+    if (oldKeys === newKeys) { updateLiveBadge(true); return true; }
 
     MODELS = newModels;
     if (!MODELS[selectedModelKey]) selectedModelKey = Object.keys(MODELS)[0] || null;
@@ -758,9 +748,11 @@ async function fetchModels() {
     if (selectedModelKey && document.getElementById('detail-view').classList.contains('view-active')) {
       refreshHeader(); refreshOverview(); refreshApiPanel(); refreshPlaygroundSelects(); refreshColHeaders();
     }
+    updateLiveBadge(true);
     return true;
   } catch (e) {
     console.warn("Model fetch failed:", e);
+    updateLiveBadge(false);
     return false;
   }
 }
@@ -946,12 +938,14 @@ async function callModel(cfg,messages,bubbleEl,logEl){
   const msgs=[];
   if(sys)msgs.push({role:"system",content:sys});
   msgs.push(...messages);
+  const t0=Date.now();
   const resp=await fetch(`${cfg.baseUrl}/v1/chat/completions`,{
     method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+apiKey},
     body:JSON.stringify({model:cfg.fullModelName,messages:msgs,max_tokens:maxTok,temperature:temp,top_p:topP,stream:streamOn}),
   });
   if(!resp.ok){const t=await resp.text();throw new Error(`${resp.status} - ${t.slice(0,200)}`);}
   let full="";
+  let usage=null;
   if(streamOn){
     bubbleEl.textContent="";
     const reader=resp.body.getReader(),decoder=new TextDecoder();
@@ -960,11 +954,17 @@ async function callModel(cfg,messages,bubbleEl,logEl){
       for(const line of decoder.decode(value,{stream:true}).split("\n")){
         if(!line.startsWith("data: "))continue;
         const data=line.slice(6);if(data==="[DONE]")continue;
-        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){full+=delta;bubbleEl.textContent=full;logEl.scrollTop=logEl.scrollHeight;}}catch(_){}
+        try{const parsed=JSON.parse(data);const delta=parsed.choices?.[0]?.delta?.content;if(delta){full+=delta;bubbleEl.textContent=full;logEl.scrollTop=logEl.scrollHeight;}if(parsed.usage)usage=parsed.usage;}catch(_){}
       }
     }
   }else{
-    const json=await resp.json();full=json.choices?.[0]?.message?.content??"";bubbleEl.textContent=full;
+    const json=await resp.json();full=json.choices?.[0]?.message?.content??"";bubbleEl.textContent=full;usage=json.usage||null;
+  }
+  const elapsed=(Date.now()-t0)/1000;
+  if(usage&&usage.completion_tokens){
+    const stats=document.createElement("div");stats.className="token-stats";
+    stats.textContent=`${usage.completion_tokens} tokens · ${Math.round(usage.completion_tokens/elapsed)} tok/s`;
+    bubbleEl.parentElement.appendChild(stats);
   }
   return full;
 }
