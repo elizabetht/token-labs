@@ -42,6 +42,28 @@ spec:
     scrapeTimeout: 10s
 
 ---
+---
+# TRT-LLM metrics at /prometheus/metrics (requires --return_perf_metrics flag and PROMETHEUS_MULTIPROC_DIR env).
+# /metrics returns [] (iteration stats JSON, not Prometheus). Actual endpoint is /prometheus/metrics.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: qwen25-7b-trtllm-spark02
+  namespace: token-labs
+  labels:
+    app: qwen25-7b-trtllm-spark02
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: qwen25-7b-trtllm-spark02
+  endpoints:
+  - port: http
+    path: /prometheus/metrics
+    interval: 15s
+    scrapeTimeout: 10s
+
+---
 # SGLang metrics enabled via --enable-metrics flag in pod spec.
 # Exposes sglang:* metrics at /metrics on port 8000.
 apiVersion: monitoring.coreos.com/v1
