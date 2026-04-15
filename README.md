@@ -52,8 +52,11 @@ Client receives response
 
 This produces better tail latency and higher throughput than round-robin or least-connections load balancing.
 
-**[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GB10 GPUs. Served via the `ghcr.io/llm-d/llm-d-cuda:v0.5.0` container image. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves two models:
-- **Llama 3.1 8B Instruct** (spark-01) — general-purpose chat model
+**[vLLM](https://github.com/vllm-project/vllm)** — high-performance LLM inference engine running on DGX Spark GB10 GPUs. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/v1/models`). Currently serves four models across two nodes:
+- **Nemotron-3-Super-120B** (spark-01) — MoE model in NVFP4, served alone to utilize spark-01's full 128GB unified memory pool
+- **DeepSeek-R1 7B** (spark-02) — reasoning model via vLLM
+- **Llama 3.1 8B Instruct** (spark-02) — general-purpose chat model via SGLang
+- **Qwen 2.5 7B Instruct** (spark-02) — chat model via TRT-LLM (PyTorch backend, batch size 8)
 
 ### Infrastructure
 
@@ -66,13 +69,14 @@ This produces better tail latency and higher throughput than round-robin or leas
 │  │  (CPU, ARM64)   │   │  (GB10 GPU)    │   │  (GB10 GPU)    │       │
 │  │                 │   │                │   │                │       │
 │  │  Envoy GW       │   │  vLLM:         │   │  vLLM:         │       │
-│  │  Kuadrant       │   │  Llama 3.1 8B  │   │                │       │
-│  │  llm-d EPPs     │   │  Magpie TTS    │   │  12B FP8       │       │
+│  │  Kuadrant       │   │  Nemotron 120B │   │  DeepSeek-R1   │       │
+│  │  llm-d EPPs     │   │  (NVFP4)       │   │  Llama 3.1 8B  │       │
+│  │                 │   │                │   │  Qwen 2.5 7B   │       │
 │  └────────────────┘   └────────────────┘   └────────────────┘       │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-The cluster has three nodes. The CPU controller runs control-plane components (Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `meta-llama/Llama-3.1-8B-Instruct` (80% GPU utilization) and Magpie TTS (GPU-accelerated, ~700 MB). **spark-02** serves `nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-FP8` (FP8 quantized vision-language model). Both use `tensor_parallelism=1`.
+The cluster has three nodes. The CPU controller runs control-plane components (Envoy Gateway proxy, Kuadrant operators, llm-d EPPs). **spark-01** serves `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4` alone — the 120B MoE model requires the full 128GB unified memory pool (NVFP4 quantization, `--gpu-memory-utilization 0.50`, `tensor_parallelism=1`). **spark-02** serves three smaller models: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B` via vLLM, `meta-llama/Llama-3.1-8B-Instruct` via SGLang, and `Qwen/Qwen2.5-7B-Instruct` via TRT-LLM.
 
 ### Tenant Model
 
