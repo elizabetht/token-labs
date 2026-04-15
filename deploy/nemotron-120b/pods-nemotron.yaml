@@ -112,6 +112,13 @@ spec:
     args:
     - |
       set -e
+      # nixl_ep_cpp is compiled against libcudart.so.12 (CUDA 12 SONAME) but this
+      # image ships CUDA 13 only. For single-GPU inference (--tensor-parallel-size 1),
+      # the expert-parallelism all2all code is never called at runtime — nixl_ep just
+      # needs to import without crashing. Stub it out with a no-op Python module that
+      # satisfies the import and raises clearly if somehow invoked.
+      python3 -c "import os; os.makedirs('/tmp/stubs/nixl_ep', exist_ok=True); open('/tmp/stubs/nixl_ep/__init__.py','w').write('import types,sys\nclass _S(types.ModuleType):\n def __getattr__(self,n): return type(n,(object,),{})\n_m=_S(__name__); _m.__file__=__file__; _m.__spec__=None\nsys.modules[__name__]=_m\n'); print('nixl_ep stub created')"
+      export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
       echo "Starting Nemotron-120B with vLLM cu130-nightly (Marlin backend for SM121)"
       vllm serve nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 \
         --port 8000 \
