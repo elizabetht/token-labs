@@ -113,8 +113,6 @@ spec:
         --trust-remote-code \
         --context-length 32768 \
         --mem-fraction-static 0.40 \
-        --chunked-prefill-size 8192 \
-        --schedule-policy lpm \
         --enable-metrics
     startupProbe:
       httpGet:
