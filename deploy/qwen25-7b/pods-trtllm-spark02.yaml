@@ -1,20 +1,20 @@
 # Bare Pod deployment — Qwen/Qwen2.5-7B-Instruct with TensorRT-LLM (PyTorch backend)
-# Targets spark-01. For token-labs serving while spark-02 runs vLLM sweep.
+# Targets spark-02. Moved from spark-01 to avoid unified memory exhaustion with nemotron-120b.
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: qwen25-7b-trtllm-spark01
+  name: qwen25-7b-trtllm-spark02
   namespace: token-labs
   labels:
-    app: qwen25-7b-trtllm-spark01
+    app: qwen25-7b-trtllm-spark02
   annotations:
     metallb.io/loadBalancerIPs: 192.168.1.208
 spec:
   type: LoadBalancer
   selector:
-    app: qwen25-7b-trtllm-spark01
+    app: qwen25-7b-trtllm-spark02
     role: leader
   ports:
   - name: http
@@ -25,16 +25,16 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: qwen25-7b-trtllm-spark01-leader
+  name: qwen25-7b-trtllm-spark02-leader
   namespace: token-labs
   labels:
-    app: qwen25-7b-trtllm-spark01
+    app: qwen25-7b-trtllm-spark02
     role: leader
 spec:
   restartPolicy: Never
   runtimeClassName: nvidia
   nodeSelector:
-    kubernetes.io/hostname: spark-01
+    kubernetes.io/hostname: spark-02
   tolerations:
   - key: nvidia.com/gpu
     operator: Exists
@@ -50,12 +50,12 @@ spec:
       name: http
     resources:
       requests:
-        cpu: "8"
-        memory: 32Gi
+        cpu: "4"
+        memory: 20Gi
         nvidia.com/gpu: "1"
       limits:
         cpu: "12"
-        memory: 64Gi
+        memory: 24Gi
         nvidia.com/gpu: "1"
     env:
     - name: HF_HOME
@@ -85,7 +85,7 @@ spec:
         --port 8000 \
         --host 0.0.0.0 \
         --tp_size 1 \
-        --max_batch_size 256 \
+        --max_batch_size 8 \
         --trust_remote_code
     startupProbe:
       httpGet:
@@ -116,4 +116,4 @@ spec:
   - name: shm
     emptyDir:
       medium: Memory
-      sizeLimit: 16Gi
+      sizeLimit: 4Gi
