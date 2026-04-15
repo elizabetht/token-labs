@@ -112,7 +112,8 @@ spec:
         --tp 1 \
         --trust-remote-code \
         --context-length 32768 \
-        --mem-fraction-static 0.35
+        --mem-fraction-static 0.35 \
+        --enable-metrics
     startupProbe:
       httpGet:
         path: /health

@@ -1,0 +1,321 @@
+# PrometheusRule — token-labs SLO alerts
+# Implements SLO-1 (availability), SLO-2 (TTFT p99), SLO-3 (error rate), SLO-4 (KV cache).
+# Multi-burn-rate availability alerts follow Google SRE Workbook chapter 5.
+# 30-day SLO window; error budget = 1 - target (e.g. 0.005 for 99.5%).
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: token-labs-slos
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+
+  # ---------------------------------------------------------------------------
+  # Recording rules — reusable SLO inputs
+  # ---------------------------------------------------------------------------
+  - name: token-labs.slo.recording
+    interval: 30s
+    rules:
+
+    # Pod availability: 1 if ready, 0 if not
+    - record: token_labs:pod_available:bool
+      expr: |
+        kube_pod_status_ready{
+          namespace="token-labs",
+          pod=~"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader",
+          condition="true"
+        }
+
+    # 5-min availability ratio per pod (for burn rate calc)
+    - record: token_labs:pod_available:rate5m
+      expr: |
+        avg_over_time(token_labs:pod_available:bool[5m])
+
+    # 1h availability ratio per pod
+    - record: token_labs:pod_available:rate1h
+      expr: |
+        avg_over_time(token_labs:pod_available:bool[1h])
+
+    # 6h availability ratio per pod
+    - record: token_labs:pod_available:rate6h
+      expr: |
+        avg_over_time(token_labs:pod_available:bool[6h])
+
+    # vLLM TTFT p99 — 5-minute window, per model
+    - record: token_labs:ttft_p99:rate5m
+      expr: |
+        histogram_quantile(0.99,
+          sum by (le, model_name) (
+            rate(vllm:time_to_first_token_seconds_bucket{namespace="token-labs"}[5m])
+          )
+        )
+
+    # vLLM error rate — 5-minute window
+    - record: token_labs:error_rate:rate5m
+      expr: |
+        sum by (model_name) (
+          rate(http_request_duration_seconds_count{
+            namespace="token-labs",
+            status=~"5.."
+          }[5m])
+        )
+        /
+        sum by (model_name) (
+          rate(http_request_duration_seconds_count{
+            namespace="token-labs"
+          }[5m])
+        )
+
+    # KV cache utilization — per vLLM model
+    - record: token_labs:kv_cache_usage:current
+      expr: |
+        vllm:kv_cache_usage_perc{namespace="token-labs"}
+
+  # ---------------------------------------------------------------------------
+  # SLO-1: Model availability > 99.5%
+  # Multi-burn-rate: fast (1h) and slow (6h) windows
+  # Error budget = 0.5% → 1h burn threshold = 14.4x, 6h = 6x
+  # ---------------------------------------------------------------------------
+  - name: token-labs.slo.availability
+    rules:
+
+    # Fast burn: pod down for >~4 min in last hour (2% budget burned)
+    - alert: TokenLabsModelDown
+      expr: |
+        token_labs:pod_available:bool == 0
+      for: 2m
+      labels:
+        severity: critical
+        slo: availability
+        team: token-labs
+      annotations:
+        summary: "Model pod {{ $labels.pod }} is not ready"
+        description: >
+          Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been
+          not ready for > 2 minutes. SLO target: 99.5% availability.
+          Error budget is being consumed at maximum rate.
+        runbook: "https://github.com/elizabetht/token-labs/blob/main/postmortems/"
+
+    # Fast burn: availability burn rate > 14.4x over 1h (consumes 2% of 30-day budget)
+    - alert: TokenLabsAvailabilityBurnRateFast
+      expr: |
+        (
+          1 - token_labs:pod_available:rate1h
+        ) > (14.4 * 0.005)
+      for: 2m
+      labels:
+        severity: critical
+        slo: availability
+        team: token-labs
+      annotations:
+        summary: "High availability burn rate for {{ $labels.pod }} (1h window)"
+        description: >
+          Pod {{ $labels.pod }} 1h availability burn rate is {{ $value | humanizePercentage }}
+          error rate, exceeding the 14.4x threshold. At this rate, the 30-day
+          error budget (3h 39m) will be exhausted in ~1 hour.
+
+    # Slow burn: availability burn rate > 6x over 6h (consumes 5% of 30-day budget)
+    - alert: TokenLabsAvailabilityBurnRateSlow
+      expr: |
+        (
+          1 - token_labs:pod_available:rate6h
+        ) > (6 * 0.005)
+      for: 15m
+      labels:
+        severity: warning
+        slo: availability
+        team: token-labs
+      annotations:
+        summary: "Elevated availability burn rate for {{ $labels.pod }} (6h window)"
+        description: >
+          Pod {{ $labels.pod }} 6h availability burn rate is {{ $value | humanizePercentage }}
+          error rate, exceeding the 6x threshold. At this rate, the 30-day
+          error budget will be exhausted in ~5 days.
+
+  # ---------------------------------------------------------------------------
+  # SLO-2: TTFT p99 latency
+  # Small models (7B/8B): p99 TTFT <= 500ms
+  # Nemotron 120B: p99 TTFT <= 3000ms
+  # ---------------------------------------------------------------------------
+  - name: token-labs.slo.ttft
+    rules:
+
+    # Small model TTFT SLO violation
+    - alert: TokenLabsTTFTSLOViolation
+      expr: |
+        token_labs:ttft_p99:rate5m{
+          model_name!~".*Nemotron.*|.*120B.*"
+        } > 0.5
+      for: 5m
+      labels:
+        severity: critical
+        slo: ttft
+        team: token-labs
+      annotations:
+        summary: "TTFT p99 SLO violated for {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} p99 TTFT is {{ $value | humanizeDuration }}
+          over the last 5 minutes, exceeding the 500ms SLO target.
+          Check for queue depth (vllm:num_requests_waiting) and KV cache pressure.
+
+    # Nemotron TTFT SLO violation (higher threshold)
+    - alert: TokenLabsNemotronTTFTSLOViolation
+      expr: |
+        token_labs:ttft_p99:rate5m{
+          model_name=~".*Nemotron.*|.*120B.*"
+        } > 3.0
+      for: 5m
+      labels:
+        severity: critical
+        slo: ttft
+        team: token-labs
+      annotations:
+        summary: "Nemotron TTFT p99 SLO violated"
+        description: >
+          Nemotron-120B p99 TTFT is {{ $value | humanizeDuration }} over the last
+          5 minutes, exceeding the 3000ms SLO target. Single-GPU 120B MoE —
+          check for KV cache exhaustion or GPU memory pressure on spark-01.
+
+    # TTFT warning: 80% of SLO threshold (early warning before violation)
+    - alert: TokenLabsTTFTApproachingSLO
+      expr: |
+        token_labs:ttft_p99:rate5m{
+          model_name!~".*Nemotron.*|.*120B.*"
+        } > 0.4
+      for: 5m
+      labels:
+        severity: warning
+        slo: ttft
+        team: token-labs
+      annotations:
+        summary: "TTFT p99 approaching SLO threshold for {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} p99 TTFT is {{ $value | humanizeDuration }},
+          above the 400ms warning threshold (SLO: 500ms).
+
+  # ---------------------------------------------------------------------------
+  # SLO-3: HTTP 5xx error rate < 1%
+  # ---------------------------------------------------------------------------
+  - name: token-labs.slo.errors
+    rules:
+
+    - alert: TokenLabsHighErrorRate
+      expr: |
+        token_labs:error_rate:rate5m > 0.01
+      for: 5m
+      labels:
+        severity: critical
+        slo: error_rate
+        team: token-labs
+      annotations:
+        summary: "High 5xx error rate for {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} 5-minute 5xx error rate is
+          {{ $value | humanizePercentage }}, exceeding the 1% SLO target.
+
+    - alert: TokenLabsElevatedErrorRate
+      expr: |
+        token_labs:error_rate:rate5m > 0.005
+      for: 5m
+      labels:
+        severity: warning
+        slo: error_rate
+        team: token-labs
+      annotations:
+        summary: "Elevated error rate for {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} 5-minute 5xx error rate is
+          {{ $value | humanizePercentage }} (warning threshold: 0.5%).
+
+  # ---------------------------------------------------------------------------
+  # SLO-4: KV cache saturation < 90%
+  # ---------------------------------------------------------------------------
+  - name: token-labs.slo.kvcache
+    rules:
+
+    - alert: TokenLabsKVCacheSaturation
+      expr: |
+        token_labs:kv_cache_usage:current > 0.90
+      for: 5m
+      labels:
+        severity: warning
+        slo: kv_cache
+        team: token-labs
+      annotations:
+        summary: "KV cache near saturation on {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} KV cache utilization is
+          {{ $value | humanizePercentage }}, above the 90% threshold.
+          New requests may be queued or rejected. Consider reducing
+          max_num_seqs or increasing gpu_memory_utilization.
+
+    - alert: TokenLabsKVCacheExhausted
+      expr: |
+        token_labs:kv_cache_usage:current > 0.98
+      for: 2m
+      labels:
+        severity: critical
+        slo: kv_cache
+        team: token-labs
+      annotations:
+        summary: "KV cache exhausted on {{ $labels.model_name }}"
+        description: >
+          Model {{ $labels.model_name }} KV cache utilization is
+          {{ $value | humanizePercentage }}. Requests are likely being
+          dropped. Immediate action required.
+
+  # ---------------------------------------------------------------------------
+  # Infra: spark-01 node stability (learned from 2026-04-14 postmortem)
+  # ---------------------------------------------------------------------------
+  - name: token-labs.infra
+    rules:
+
+    - alert: SparkNodeNotReady
+      expr: |
+        kube_node_status_condition{
+          node=~"spark-01|spark-02",
+          condition="Ready",
+          status="true"
+        } == 0
+      for: 2m
+      labels:
+        severity: critical
+        team: token-labs
+      annotations:
+        summary: "DGX Spark node {{ $labels.node }} is NotReady"
+        description: >
+          Node {{ $labels.node }} has been NotReady for > 2 minutes.
+          This will terminate all inference pods on the node.
+          Check for OOM, thermal events, or kubelet failure.
+          Historical context: spark-01 has crashed 3x under GPU memory
+          pressure during model loading (see postmortem 2026-04-14).
+
+    # GPU zombie detection: high GPU memory with pod in non-running state
+    # Approximated via process RSS — exact GPU memory requires nvidia-dcgm-exporter
+    - alert: TokenLabsHighMemoryIdlePod
+      expr: |
+        (
+          container_memory_rss{
+            namespace="token-labs",
+            container!=""
+          } > 30 * 1024 * 1024 * 1024
+        )
+        unless on(pod)
+        kube_pod_status_phase{
+          namespace="token-labs",
+          phase="Running"
+        }
+      for: 5m
+      labels:
+        severity: warning
+        team: token-labs
+      annotations:
+        summary: "High RSS in non-running pod {{ $labels.pod }} (potential GPU zombie)"
+        description: >
+          Pod {{ $labels.pod }} has RSS > 30GB but is not in Running phase.
+          This may indicate a CUDA zombie process holding GPU memory.
+          Action: force-delete the pod with --grace-period=0.
+          See postmortem 2026-04-14 for context.
