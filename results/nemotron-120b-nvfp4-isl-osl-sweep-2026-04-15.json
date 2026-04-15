@@ -1,0 +1,211 @@
+{
+  "model": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+  "runtime": "vllm-cu130-nightly",
+  "hardware": "DGX Spark GB10 spark-01 (B200, 128GB unified)",
+  "quantization": "NVFP4 (Marlin backend, fp8 KV cache)",
+  "date": "2026-04-15",
+  "experiment": "isl-osl-sweep",
+  "timestamp": "2026-04-15T19:38:06Z",
+  "combos": {
+    "ISL128/OSL128": {
+      "isl": 128,
+      "osl": 128,
+      "levels": [
+        {
+          "throughput_tok_s": 15.51,
+          "ttft_p50_ms": 341.23,
+          "ttft_p99_ms": 490.83,
+          "itl_p50_ms": 61.63,
+          "itl_p99_ms": 76.24,
+          "e2e_p50_ms": null,
+          "concurrency": 1,
+          "n_requests": 11,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 28.84,
+          "ttft_p50_ms": 444.07,
+          "ttft_p99_ms": 1589.08,
+          "itl_p50_ms": 62.69,
+          "itl_p99_ms": 81.99,
+          "e2e_p50_ms": null,
+          "concurrency": 2,
+          "n_requests": 20,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 45.47,
+          "ttft_p50_ms": 848.35,
+          "ttft_p99_ms": 1004.41,
+          "itl_p50_ms": 83.29,
+          "itl_p99_ms": 174.1,
+          "e2e_p50_ms": null,
+          "concurrency": 4,
+          "n_requests": 20,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 79.7,
+          "ttft_p50_ms": 1110.51,
+          "ttft_p99_ms": 1126.66,
+          "itl_p50_ms": 94.77,
+          "itl_p99_ms": 105.26,
+          "e2e_p50_ms": null,
+          "concurrency": 8,
+          "n_requests": 24,
+          "n_errors": 0
+        }
+      ]
+    },
+    "ISL512/OSL256": {
+      "isl": 512,
+      "osl": 256,
+      "levels": [
+        {
+          "throughput_tok_s": 15.68,
+          "ttft_p50_ms": 537.77,
+          "ttft_p99_ms": 576.81,
+          "itl_p50_ms": 61.69,
+          "itl_p99_ms": 69.32,
+          "e2e_p50_ms": null,
+          "concurrency": 1,
+          "n_requests": 6,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 27.38,
+          "ttft_p50_ms": 829.62,
+          "ttft_p99_ms": 1106.07,
+          "itl_p50_ms": 70.05,
+          "itl_p99_ms": 89.82,
+          "e2e_p50_ms": null,
+          "concurrency": 2,
+          "n_requests": 10,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 37.8,
+          "ttft_p50_ms": 1716.64,
+          "ttft_p99_ms": 13364.67,
+          "itl_p50_ms": 90.83,
+          "itl_p99_ms": 163.88,
+          "e2e_p50_ms": null,
+          "concurrency": 4,
+          "n_requests": 16,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 64.05,
+          "ttft_p50_ms": 2770.82,
+          "ttft_p99_ms": 3372.71,
+          "itl_p50_ms": 114.07,
+          "itl_p99_ms": 133.07,
+          "e2e_p50_ms": null,
+          "concurrency": 8,
+          "n_requests": 24,
+          "n_errors": 0
+        }
+      ]
+    },
+    "ISL1024/OSL512": {
+      "isl": 1024,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 15.71,
+          "ttft_p50_ms": 813.25,
+          "ttft_p99_ms": 816.32,
+          "itl_p50_ms": 61.75,
+          "itl_p99_ms": 74.99,
+          "e2e_p50_ms": null,
+          "concurrency": 1,
+          "n_requests": 3,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 27.03,
+          "ttft_p50_ms": 1676.08,
+          "ttft_p99_ms": 2156.1,
+          "itl_p50_ms": 70.67,
+          "itl_p99_ms": 155.05,
+          "e2e_p50_ms": null,
+          "concurrency": 2,
+          "n_requests": 6,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 36.91,
+          "ttft_p50_ms": 2356.47,
+          "ttft_p99_ms": 3059.44,
+          "itl_p50_ms": 90.55,
+          "itl_p99_ms": 106.52,
+          "e2e_p50_ms": null,
+          "concurrency": 4,
+          "n_requests": 9,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 57.57,
+          "ttft_p50_ms": 2546.03,
+          "ttft_p99_ms": 6082.91,
+          "itl_p50_ms": 123.85,
+          "itl_p99_ms": 197.45,
+          "e2e_p50_ms": null,
+          "concurrency": 8,
+          "n_requests": 16,
+          "n_errors": 0
+        }
+      ]
+    },
+    "ISL2048/OSL512": {
+      "isl": 2048,
+      "osl": 512,
+      "levels": [
+        {
+          "throughput_tok_s": 15.35,
+          "ttft_p50_ms": 1663.1,
+          "ttft_p99_ms": 1695.12,
+          "itl_p50_ms": 61.7,
+          "itl_p99_ms": 140.31,
+          "e2e_p50_ms": null,
+          "concurrency": 1,
+          "n_requests": 3,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 25.48,
+          "ttft_p50_ms": 1925.11,
+          "ttft_p99_ms": 3010.75,
+          "itl_p50_ms": 70.83,
+          "itl_p99_ms": 90.86,
+          "e2e_p50_ms": null,
+          "concurrency": 2,
+          "n_requests": 6,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 37.96,
+          "ttft_p50_ms": 3568.74,
+          "ttft_p99_ms": 5850.24,
+          "itl_p50_ms": 91.33,
+          "itl_p99_ms": 157.31,
+          "e2e_p50_ms": null,
+          "concurrency": 4,
+          "n_requests": 8,
+          "n_errors": 0
+        },
+        {
+          "throughput_tok_s": 49.01,
+          "ttft_p50_ms": 3807.93,
+          "ttft_p99_ms": 11990.26,
+          "itl_p50_ms": 125.47,
+          "itl_p99_ms": 1011.36,
+          "e2e_p50_ms": null,
+          "concurrency": 8,
+          "n_requests": 16,
+          "n_errors": 0
+        }
+      ]
+    }
+  }
+}
