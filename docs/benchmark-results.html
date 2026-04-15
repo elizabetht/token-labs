@@ -433,7 +433,7 @@
           <span class="hw-badge">GB10 · Grace Blackwell</span>
           <span class="hw-badge">128 GB Unified Memory</span>
           <span class="hw-badge">SM121</span>
-          <span class="updated-badge" id="last-updated">Updated 2026-04-08</span>
+          <span class="updated-badge" id="last-updated">Updated 2026-04-15</span>
         </div>
       </div>
     </div>
@@ -444,11 +444,11 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:2.5rem;">
       <div class="card" style="padding:1rem 1.25rem;">
         <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Total Experiments</div>
-        <div style="font-size:1.8rem;font-weight:700;color:var(--text);" id="stat-total">13</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--text);" id="stat-total">14</div>
       </div>
       <div class="card" style="padding:1rem 1.25rem;">
         <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">Completed</div>
-        <div style="font-size:1.8rem;font-weight:700;color:var(--green);" id="stat-done">1</div>
+        <div style="font-size:1.8rem;font-weight:700;color:var(--green);" id="stat-done">2</div>
       </div>
       <div class="card" style="padding:1rem 1.25rem;">
         <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:.3rem;">In Progress / Pending</div>
@@ -580,6 +580,81 @@
       </div>
     </div>
     <div class="legend" id="isl-osl-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
+  </div>
+
+  <!-- ── Nemotron-120B NVFP4 ISL/OSL Sweep ───────────────────── -->
+  <div class="section" id="section-nemotron-120b">
+    <div class="section-title">Nemotron-120B NVFP4 — ISL/OSL Performance Sweep</div>
+    <p class="section-desc">
+      Throughput vs latency across concurrency levels (c=1,2,4,8) and input/output length combinations.
+      Model: <span class="mono">nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4</span> ·
+      NVFP4 (Marlin backend, fp8 KV cache) · vllm-cu130-nightly · DGX Spark GB10 · spark-01 · single B200 · 2026-04-15
+    </p>
+
+    <div class="tab-row" id="nemotron-tabs">
+      <button class="tab-btn active" data-combo="all">All combos</button>
+      <button class="tab-btn" data-combo="ISL128/OSL128">ISL128/OSL128</button>
+      <button class="tab-btn" data-combo="ISL512/OSL256">ISL512/OSL256</button>
+      <button class="tab-btn" data-combo="ISL1024/OSL512">ISL1024/OSL512</button>
+      <button class="tab-btn" data-combo="ISL2048/OSL512">ISL2048/OSL512</button>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-wrap">
+        <div class="chart-label">Throughput vs TTFT p50</div>
+        <div id="nemotron-scatter-ttft-wrap" style="position:relative;height:300px;">
+          <canvas id="nemotron-scatter-ttft" style="display:none;"></canvas>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-label">Throughput vs ITL p50</div>
+        <div id="nemotron-scatter-itl-wrap" style="position:relative;height:300px;">
+          <canvas id="nemotron-scatter-itl" style="display:none;"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="legend" id="nemotron-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
+
+    <!-- Key metrics summary table -->
+    <div class="card" style="margin-top:1.25rem;overflow-x:auto;">
+      <div style="font-size:0.78rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:0.75rem;">Peak Numbers at Max Concurrency (c=8)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border-light);">
+            <th style="text-align:left;padding:0.5rem 0.75rem;color:var(--text-dim);font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;">ISL/OSL</th>
+            <th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-dim);font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;">Peak Throughput</th>
+            <th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-dim);font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;">TTFT p50 (c=1)</th>
+            <th style="text-align:right;padding:0.5rem 0.75rem;color:var(--text-dim);font-size:0.72rem;text-transform:uppercase;letter-spacing:.07em;">TTFT p99 (c=8)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.55rem 0.75rem;font-weight:600;color:#ef4444;">ISL128/OSL128</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">79.7 tok/s</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">341 ms</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">1,127 ms</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.55rem 0.75rem;font-weight:600;color:#ef4444;">ISL512/OSL256</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">64.1 tok/s</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">538 ms</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">3,373 ms</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.55rem 0.75rem;font-weight:600;color:#ef4444;">ISL1024/OSL512</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">57.6 tok/s</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">813 ms</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">6,083 ms</td>
+          </tr>
+          <tr>
+            <td style="padding:0.55rem 0.75rem;font-weight:600;color:#ef4444;">ISL2048/OSL512</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">49.0 tok/s</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">1,663 ms</td>
+            <td style="padding:0.55rem 0.75rem;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">11,990 ms</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- ── Framework Comparison ─────────────────────────────── -->
@@ -1201,6 +1276,19 @@ const REGISTRY_DATA = [
     notes: "Full stack: 298.7 tok/s @ c=32 (-14% vs standalone — cumulative regression from FP8 KV + spec decoding + CUDA graphs). TTFT p50 -36% (282ms→182ms). Best TTFT result of all experiments at c=8: 139.6ms. CUDA graph + spec decoding + FP8 KV combo hurts throughput on GB10 SM121.",
     date: "2026-04-08",
   },
+  // Group: Nemotron-120B NVFP4 ISL/OSL Sweep
+  {
+    _group: "ISL/OSL Sweep — nvidia/Nemotron-120B-NVFP4 · DGX Spark GB10 · spark-01 (B200) · 2026-04-15",
+    id: "nemotron-120b-nvfp4-isl-osl-sweep",
+    name: "Nemotron-120B NVFP4 ISL/OSL Sweep",
+    model: "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+    framework: "vllm",
+    status: "done",
+    throughput: 79.7, ttft_p50: 341, itl_p50: 62,
+    hypothesis: "120B MoE model (12B active params) quantized to NVFP4 with Marlin backend and fp8 KV cache on a single B200. Peak throughput bounded by memory bandwidth; TTFT scales sharply with ISL.",
+    notes: "ISL128/OSL128: 79.7 tok/s peak @ c=8, TTFT p50=341ms @ c=1, TTFT p99=1127ms @ c=8. ISL2048/OSL512: 49.0 tok/s peak, TTFT p99=11990ms @ c=8. ITL p50 stable at 62–125ms across combos. NVFP4 Marlin backend enables a 120B model on a single B200.",
+    date: "2026-04-15",
+  },
 ];
 
 // Placeholder waterfall data — will be replaced when results arrive
@@ -1264,6 +1352,139 @@ const ISL_OSL_DATA = {
     { concurrency: 32, throughput_tok_s: 584.81, ttft_p50_ms: 471.73, itl_p50_ms: 97.95 },
   ]},
 };
+
+// ── Nemotron-120B NVFP4 ISL/OSL Sweep Data (2026-04-15 · vllm-cu130-nightly · spark-01 B200) ──
+const NEMOTRON_COMBO_COLORS = {
+  "ISL128/OSL128":  { line: "#ef4444", bg: "rgba(239,68,68,0.15)" },
+  "ISL512/OSL256":  { line: "#f97316", bg: "rgba(249,115,22,0.15)" },
+  "ISL1024/OSL512": { line: "#eab308", bg: "rgba(234,179,8,0.15)" },
+  "ISL2048/OSL512": { line: "#ec4899", bg: "rgba(236,72,153,0.15)" },
+};
+
+const NEMOTRON_ISL_OSL_DATA = {
+  "ISL128/OSL128": { isl: 128, osl: 128, levels: [
+    { concurrency: 1, throughput_tok_s: 15.51, ttft_p50_ms: 341.23, ttft_p99_ms: 490.83,  itl_p50_ms: 61.63, itl_p99_ms: 76.24  },
+    { concurrency: 2, throughput_tok_s: 28.84, ttft_p50_ms: 444.07, ttft_p99_ms: 1589.08, itl_p50_ms: 62.69, itl_p99_ms: 81.99  },
+    { concurrency: 4, throughput_tok_s: 45.47, ttft_p50_ms: 848.35, ttft_p99_ms: 1004.41, itl_p50_ms: 83.29, itl_p99_ms: 174.10 },
+    { concurrency: 8, throughput_tok_s: 79.70, ttft_p50_ms: 1110.51, ttft_p99_ms: 1126.66, itl_p50_ms: 94.77, itl_p99_ms: 105.26 },
+  ]},
+  "ISL512/OSL256": { isl: 512, osl: 256, levels: [
+    { concurrency: 1, throughput_tok_s: 15.68, ttft_p50_ms: 537.77,  ttft_p99_ms: 576.81,   itl_p50_ms: 61.69, itl_p99_ms: 69.32  },
+    { concurrency: 2, throughput_tok_s: 27.38, ttft_p50_ms: 829.62,  ttft_p99_ms: 1106.07,  itl_p50_ms: 70.05, itl_p99_ms: 89.82  },
+    { concurrency: 4, throughput_tok_s: 37.80, ttft_p50_ms: 1716.64, ttft_p99_ms: 13364.67, itl_p50_ms: 90.83, itl_p99_ms: 163.88 },
+    { concurrency: 8, throughput_tok_s: 64.05, ttft_p50_ms: 2770.82, ttft_p99_ms: 3372.71,  itl_p50_ms: 114.07, itl_p99_ms: 133.07 },
+  ]},
+  "ISL1024/OSL512": { isl: 1024, osl: 512, levels: [
+    { concurrency: 1, throughput_tok_s: 15.71, ttft_p50_ms: 813.25,  ttft_p99_ms: 816.32,  itl_p50_ms: 61.75,  itl_p99_ms: 74.99  },
+    { concurrency: 2, throughput_tok_s: 27.03, ttft_p50_ms: 1676.08, ttft_p99_ms: 2156.10, itl_p50_ms: 70.67,  itl_p99_ms: 155.05 },
+    { concurrency: 4, throughput_tok_s: 36.91, ttft_p50_ms: 2356.47, ttft_p99_ms: 3059.44, itl_p50_ms: 90.55,  itl_p99_ms: 106.52 },
+    { concurrency: 8, throughput_tok_s: 57.57, ttft_p50_ms: 2546.03, ttft_p99_ms: 6082.91, itl_p50_ms: 123.85, itl_p99_ms: 197.45 },
+  ]},
+  "ISL2048/OSL512": { isl: 2048, osl: 512, levels: [
+    { concurrency: 1, throughput_tok_s: 15.35, ttft_p50_ms: 1663.10,  ttft_p99_ms: 1695.12,  itl_p50_ms: 61.70,  itl_p99_ms: 140.31  },
+    { concurrency: 2, throughput_tok_s: 25.48, ttft_p50_ms: 1925.11,  ttft_p99_ms: 3010.75,  itl_p50_ms: 70.83,  itl_p99_ms: 90.86   },
+    { concurrency: 4, throughput_tok_s: 37.96, ttft_p50_ms: 3568.74,  ttft_p99_ms: 5850.24,  itl_p50_ms: 91.33,  itl_p99_ms: 157.31  },
+    { concurrency: 8, throughput_tok_s: 49.01, ttft_p50_ms: 3807.93,  ttft_p99_ms: 11990.26, itl_p50_ms: 125.47, itl_p99_ms: 1011.36 },
+  ]},
+};
+
+let _nemotronTtftChart = null;
+let _nemotronItlChart  = null;
+
+function buildNemotronDatasets(activeCombo, yField) {
+  const combos = activeCombo === "all"
+    ? Object.keys(NEMOTRON_ISL_OSL_DATA)
+    : [activeCombo];
+
+  return combos.map(key => {
+    const c = NEMOTRON_COMBO_COLORS[key];
+    const pts = NEMOTRON_ISL_OSL_DATA[key].levels.map(l => ({
+      x: l.throughput_tok_s,
+      y: l[yField],
+      concurrency: l.concurrency,
+    }));
+    return {
+      label: key,
+      data: pts,
+      borderColor: c.line,
+      backgroundColor: c.line,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      showLine: true,
+      tension: 0.2,
+      borderWidth: 2,
+      fill: false,
+    };
+  });
+}
+
+function renderNemotronCharts(activeCombo) {
+  const ttftCanvas = document.getElementById("nemotron-scatter-ttft");
+  const itlCanvas  = document.getElementById("nemotron-scatter-itl");
+  ttftCanvas.style.display = "block";
+  itlCanvas.style.display  = "block";
+
+  const commonOptions = (yLabel) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { color: "#888", font: { size: 11 }, boxWidth: 12 } },
+      tooltip: {
+        callbacks: {
+          title: (items) => `${items[0].dataset.label}`,
+          label: (item) => [
+            ` c=${item.raw.concurrency}`,
+            ` Throughput: ${item.raw.x.toLocaleString()} tok/s`,
+            ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
+          ],
+        },
+        backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
+        titleColor: "#ef4444", bodyColor: "#999", padding: 10,
+      },
+    },
+    scales: {
+      x: {
+        title: { display: true, text: "Output Throughput (tok/s)  →  higher is better", color: "#666", font: { size: 11 } },
+        grid: { color: "rgba(255,255,255,0.04)" },
+        ticks: { color: "#666", font: { size: 11 } },
+        border: { color: "#2a2a2a" },
+      },
+      y: {
+        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#666", font: { size: 11 } },
+        grid: { color: "rgba(255,255,255,0.04)" },
+        ticks: { color: "#666", font: { size: 11 } },
+        border: { color: "#2a2a2a" },
+      },
+    },
+  });
+
+  if (_nemotronTtftChart) { _nemotronTtftChart.destroy(); _nemotronTtftChart = null; }
+  if (_nemotronItlChart)  { _nemotronItlChart.destroy();  _nemotronItlChart  = null; }
+
+  _nemotronTtftChart = new Chart(ttftCanvas.getContext("2d"), {
+    type: "scatter",
+    data: { datasets: buildNemotronDatasets(activeCombo, "ttft_p50_ms") },
+    options: commonOptions("TTFT p50"),
+  });
+
+  _nemotronItlChart = new Chart(itlCanvas.getContext("2d"), {
+    type: "scatter",
+    data: { datasets: buildNemotronDatasets(activeCombo, "itl_p50_ms") },
+    options: commonOptions("ITL p50"),
+  });
+}
+
+function renderNemotronLegend() {
+  const el = document.getElementById("nemotron-legend");
+  let html = "";
+  Object.entries(NEMOTRON_COMBO_COLORS).forEach(([label, c]) => {
+    html += `<div class="legend-item">
+      <div class="legend-dot" style="background:${c.line}"></div>
+      <span>${label}</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
 
 let _islOslTtftChart = null;
 let _islOslItlChart  = null;
@@ -1424,6 +1645,14 @@ document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
   document.querySelectorAll("#isl-osl-tabs .tab-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
   renderIslOslCharts(btn.dataset.combo);
+});
+
+document.getElementById("nemotron-tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll("#nemotron-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderNemotronCharts(btn.dataset.combo);
 });
 
 document.getElementById("fw-tabs").addEventListener("click", (e) => {
@@ -1742,6 +1971,8 @@ try {
   Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
   renderIslOslLegend();
   renderIslOslCharts("all");
+  renderNemotronLegend();
+  renderNemotronCharts("all");
   renderWaterfall();
   renderFrameworkChart("ISL128/OSL128");
   renderAblation();
