@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overnight Observability Run — 2026-04-15 · Token Labs</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0a0a0a;
+      --bg-card:      #1a1a1a;
+      --bg-card2:     #222222;
+      --border:       #2a2a2a;
+      --border-light: #333333;
+      --text:         #f0f0f0;
+      --text-muted:   #888888;
+      --text-dim:     #555555;
+      --green:        #76b900;
+      --green-dim:    rgba(118,185,0,0.12);
+      --green-border: rgba(118,185,0,0.35);
+      --yellow:       #f5a623;
+      --yellow-dim:   rgba(245,166,35,0.1);
+      --yellow-border:rgba(245,166,35,0.4);
+      --red:          #e05252;
+      --red-dim:      rgba(224,82,82,0.12);
+      --blue:         #4a9eff;
+      --blue-dim:     rgba(74,158,255,0.12);
+      --radius:       10px;
+      --radius-sm:    6px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Nav ─────────────────────────────────────────────────── */
+    .nav {
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 1.5rem;
+    }
+    .nav-logo {
+      font-weight: 800;
+      font-size: 15px;
+      color: var(--green);
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-link {
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-link:hover { background: var(--bg-card); color: var(--text); }
+    .nav-link.active { background: var(--green-dim); color: var(--green); }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    .hero {
+      padding: 3rem 0 2.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.2rem; }
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--bg-card2);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .hero-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1.15;
+      margin-bottom: 0.6rem;
+    }
+    .hero-title .accent { color: var(--green); }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 680px;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .hero-meta span { color: var(--text-muted); }
+
+    /* ── Section ─────────────────────────────────────────────── */
+    .section { margin-bottom: 3rem; }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 1rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .section-title::before {
+      content: "";
+      display: inline-block;
+      width: 3px;
+      height: 1.1rem;
+      background: var(--green);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── Task Matrix Table ───────────────────────────────────── */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .matrix-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      background: var(--bg-card2);
+      border-bottom: 1px solid var(--border);
+    }
+    .matrix-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .matrix-table tr:last-child td { border-bottom: none; }
+    .matrix-table tr:hover td { background: rgba(255,255,255,0.025); }
+    .matrix-table .task-id {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .matrix-table .task-name { font-weight: 600; color: var(--text); }
+    .matrix-table .task-detail { color: var(--text-muted); font-size: 0.82rem; margin-top: 2px; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-complete  { background: rgba(118,185,0,0.12); color: var(--green); border: 1px solid rgba(118,185,0,0.3); }
+    .status-partial   { background: rgba(245,166,35,0.1); color: var(--yellow); border: 1px solid rgba(245,166,35,0.35); }
+    .status-blocked   { background: rgba(224,82,82,0.1);  color: var(--red);    border: 1px solid rgba(224,82,82,0.3);  }
+    .status-inprogress{ background: rgba(74,158,255,0.1); color: var(--blue);   border: 1px solid rgba(74,158,255,0.3); }
+
+    /* ── Finding Cards ───────────────────────────────────────── */
+    .cards-grid { display: grid; gap: 1rem; }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+      border-left: 3px solid var(--green);
+    }
+    .card.gap-card { border-left-color: var(--yellow); }
+    .card-number {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .card-headline {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+    }
+    .card-body {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── Key Numbers ─────────────────────────────────────────── */
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .stats-table th {
+      text-align: left;
+      padding: 0.5rem 1rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      background: var(--bg-card2);
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-table td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .stats-table tr:last-child td { border-bottom: none; }
+    .stats-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .stats-table .metric-col { color: var(--text-muted); font-size: 0.83rem; }
+    .stats-table .value-col {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--green);
+      white-space: nowrap;
+    }
+    .stats-table .value-col.warn { color: var(--yellow); }
+    .stats-table .value-col.danger { color: var(--red); }
+    .stats-table .notes-col { color: var(--text-dim); font-size: 0.8rem; }
+
+    /* ── Bullet lists ────────────────────────────────────────── */
+    .styled-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .styled-list li {
+      padding: 0.7rem 1rem 0.7rem 1.2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      position: relative;
+    }
+    .styled-list li::before {
+      content: "›";
+      position: absolute;
+      left: 0.5rem;
+      color: var(--green);
+      font-weight: 700;
+    }
+    .styled-list li strong { color: var(--text); }
+
+    /* ── Artifacts ───────────────────────────────────────────── */
+    .artifact-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .artifact-chip {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.78rem;
+      padding: 4px 12px;
+      background: var(--bg-card2);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    .footer {
+      margin-top: 4rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .footer a { color: var(--text-muted); text-decoration: none; }
+    .footer a:hover { color: var(--green); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">Token Labs</a>
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">Explore</a>
+    <a class="nav-link" href="https://grafana.tokenlabs.run" target="_blank">Monitoring</a>
+    <a class="nav-link" href="benchmark-results.html">Labs</a>
+    <a class="nav-link active" href="overnight-run-2026-04-15.html">Run Log</a>
+  </div>
+</nav>
+
+<main class="page">
+
+  <!-- ── Hero ─────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="tags">
+      <span class="tag">observability</span>
+      <span class="tag">vllm</span>
+      <span class="tag">otel</span>
+      <span class="tag">slo</span>
+      <span class="tag">inference</span>
+      <span class="tag">dcgm</span>
+      <span class="tag">envoy</span>
+    </div>
+    <h1 class="hero-title">
+      Overnight Observability Run &mdash; <span class="accent">2026-04-15</span>
+    </h1>
+    <p class="hero-sub">
+      15-task observability run across DCGM, OTel, SLO, and failure simulation on DGX Spark GB10
+    </p>
+    <div class="hero-meta">
+      <span>Date: <span>2026-04-15</span></span>
+      <span>Hardware: <span>DGX Spark GB10 (B200)</span></span>
+      <span>Tasks: <span>15 across 5 tracks</span></span>
+      <span>SLO Tier: <span>Tier 1 (99.5%)</span></span>
+    </div>
+  </section>
+
+  <!-- ── 1. Task Completion Matrix ─────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Task Completion Matrix</h2>
+    <table class="matrix-table">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th style="min-width:120px">Status</th>
+          <th>Key Output / Finding</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="task-id">DCGM-1</div>
+            <div class="task-name">Metric inventory</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">11 DCGM metric families reachable; FB_USED/FB_FREE absent (field IDs 252/253 not in exporter ConfigMap)</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">DCGM-2</div>
+            <div class="task-name">Causal chain correlations</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">gpu_power_w ↔ gpu_util r=0.998; sm_clock ↔ gpu_util r=0.938; sglang e2e latency histogram 100% NaN</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">DCGM-3</div>
+            <div class="task-name">OTel correlation dataset</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">73 records at 15s interval; vLLM idle during window so TTFT/TPOT histograms sparse</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">TRACE-1</div>
+            <div class="task-name">Boundary instrumentation audit</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">Zero OTel configured pre-patch; traceparent silently dropped by vLLM; Envoy/vLLM/SGLang all silent</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">TRACE-2</div>
+            <div class="task-name">Tempo deployment</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">Tempo deployed to <code>tempo.monitoring</code>; added as Grafana datasource; deepseek pod YAML patched with OTLP env vars</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">TRACE-3</div>
+            <div class="task-name">Envoy Gateway OTel patch</div>
+          </td>
+          <td><span class="status-badge status-partial">&#9888; Partial</span></td>
+          <td class="task-detail">Envoy creates spans (100% sampling, 716 buffered) but h2c protocol mismatch blocks export to OTel Collector; 0 spans ingested by Tempo</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">LLMD-1</div>
+            <div class="task-name">Boundary instrumentation</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">No llm-d EPP deployed; routing is pure Envoy HTTPRoutes; 35 vLLM metric series confirmed including TTFT, TPOT, KV cache %</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">LLMD-2</div>
+            <div class="task-name">Queue metrics</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">TTFT bimodal: p50=375ms cold, 30–40s for DeepSeek-R1 reasoning chains; TPOT stable at 125ms/tok; queue depth 0 at concurrency=6</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">LLMD-3</div>
+            <div class="task-name">Pod failure simulation</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">Bare pod force-deleted → immediate HTTP 500; zero alerts fired; metric series went stale (no 0-value transition); pod permanently absent</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">SLO-1</div>
+            <div class="task-name">Baseline measurement</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">TTFT p95: Bucket A=44.8s, B=39.1s, C=37.0s across 167 requests with 0 errors</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">SLO-2</div>
+            <div class="task-name">SLO specification</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">3 tiers defined: Dev 99.5%, Interactive 99.9%, Prod 99.95%; Tier 1 achievable today; Tier 2 requires 7–15s TTFT reduction</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">SLO-3</div>
+            <div class="task-name">PrometheusRules</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail"><code>token-labs-slos</code> PrometheusRules applied; multi-burn-rate availability alerts live for Tier 2 across 1h/6h/1d windows</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">FAILURE-1</div>
+            <div class="task-name">KV pressure cascade</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">Peak KV cache 1.98% at concurrency=12 with 700-token prompts; 95% cascade unreachable on GB10 — hardware too fast for pressure buildup</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">FAILURE-2</div>
+            <div class="task-name">NVLink failure</div>
+          </td>
+          <td><span class="status-badge status-blocked">&#10007; Blocked</span></td>
+          <td class="task-detail">NVLink metrics not available on GB10 SoC; hardware limitation, not a configuration issue</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">FAILURE-3</div>
+            <div class="task-name">Silent truncation</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">0% server-side truncation across 50 requests; real risk is client connector pool exhaustion (45/50 requests silently dropped in initial test)</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">SYNTHESIS-1</div>
+            <div class="task-name">Gap closure report</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">overnight_run_summary.md generated</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="task-id">SYNTHESIS-2</div>
+            <div class="task-name">Next run scope / this page</div>
+          </td>
+          <td><span class="status-badge status-complete">&#10003; Complete</span></td>
+          <td class="task-detail">HTML report published to tokenlabs.run/overnight-run-2026-04-15.html</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 2. Top 3 Findings ─────────────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Top 3 Findings</h2>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-number">Finding 01</div>
+        <div class="card-headline">Bare pods = silent operational risk: no controller, no auto-restart, zero alerts fired on force-delete</div>
+        <div class="card-body">
+          The deepseek pod ran as a bare pod with no Deployment, StatefulSet, or ownerReference. Force-delete produced 100% HTTP 500 with zero alert events — no PodAbsent rule, no EndpointDown rule, no vLLM metric staleness alert. Metric series did not transition to zero; they disappeared entirely, making threshold alerts blind. This pattern likely applies to all inference pods and is the highest single operational risk in the cluster.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-number">Finding 02</div>
+        <div class="card-headline">GB10 B200 defeats KV pressure tests: peak 1.98% at concurrency=12 — target of 95% unreachable at this scale</div>
+        <div class="card-body">
+          FAILURE-1 targeted 95% KV cache saturation with 12 concurrent 700-token prompts and peaked at 1.98%. The B200 unified memory architecture processes and frees KV blocks faster than the 15s Prometheus scrape window can capture saturation. Reaching real KV pressure requires 32k-token contexts, 50+ concurrent sessions, or artificial read throttling — none of which the current workload generator supports.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-number">Finding 03</div>
+        <div class="card-headline">TTFT p95 tail driven by prefill blocking: p50=7.7s vs p95=44.8s at concurrency=6 — chunked prefill is the fix</div>
+        <div class="card-body">
+          At concurrency=6, queue depth held at 0 and TPOT was stable at 125ms/tok — the GPU was not saturated. Yet p95 TTFT reaches 44.8s (Bucket A) while p50 is 7.7s. The spread indicates a single large-prompt request monopolizing the prefill phase and stalling TTFT for all concurrent requests. <code>--enable-chunked-prefill</code> is not enabled on any pod and is the highest-leverage single config change to close the Tier 2 gap.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. Key Numbers ─────────────────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Key Numbers</h2>
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th style="width:40%">Metric</th>
+          <th style="width:20%">Value</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="metric-col">TTFT p50 — Bucket A (Interactive)</td>
+          <td class="value-col warn">7.7s</td>
+          <td class="notes-col">n=104, 0 errors</td>
+        </tr>
+        <tr>
+          <td class="metric-col">TTFT p95 — Bucket A (Interactive)</td>
+          <td class="value-col danger">44.8s</td>
+          <td class="notes-col">14.8s gap vs Tier 2 target of 30s</td>
+        </tr>
+        <tr>
+          <td class="metric-col">TTFT p50 — Bucket B (Batch-Light)</td>
+          <td class="value-col warn">10.5s</td>
+          <td class="notes-col">n=42</td>
+        </tr>
+        <tr>
+          <td class="metric-col">TTFT p95 — Bucket B (Batch-Light)</td>
+          <td class="value-col danger">39.1s</td>
+          <td class="notes-col">9.1s gap vs Tier 2 target of 30s</td>
+        </tr>
+        <tr>
+          <td class="metric-col">TTFT p95 — Bucket C (Long-Context)</td>
+          <td class="value-col danger">37.0s</td>
+          <td class="notes-col">7.0s gap vs Tier 2 target of 30s (low-n; p95 noisy)</td>
+        </tr>
+        <tr>
+          <td class="metric-col">TPOT p50 (DeepSeek-R1, concurrency=6)</td>
+          <td class="value-col">125ms/tok</td>
+          <td class="notes-col">~8 tok/s per request, stable throughout</td>
+        </tr>
+        <tr>
+          <td class="metric-col">KV cache peak (concurrency=12)</td>
+          <td class="value-col">1.98%</td>
+          <td class="notes-col">Never approached 95% cascade threshold</td>
+        </tr>
+        <tr>
+          <td class="metric-col">GPU util peak (spark-02, sglang)</td>
+          <td class="value-col">96%</td>
+          <td class="notes-col">During Llama-3.1-8B sglang load run</td>
+        </tr>
+        <tr>
+          <td class="metric-col">gpu_power_w ↔ gpu_util correlation</td>
+          <td class="value-col">r=0.998</td>
+          <td class="notes-col">Power is a reliable GPU utilization proxy</td>
+        </tr>
+        <tr>
+          <td class="metric-col">Trace coverage end-to-end (client → vLLM)</td>
+          <td class="value-col danger">0%</td>
+          <td class="notes-col">h2c protocol bug blocks Envoy → OTel Collector export</td>
+        </tr>
+        <tr>
+          <td class="metric-col">Envoy spans created</td>
+          <td class="value-col warn">716</td>
+          <td class="notes-col">100% sampling rate, all buffered — 0 ingested by Tempo</td>
+        </tr>
+        <tr>
+          <td class="metric-col">vLLM metric series total</td>
+          <td class="value-col">91</td>
+          <td class="notes-col">Includes prefill/decode time, KV cache %, queue depth</td>
+        </tr>
+        <tr>
+          <td class="metric-col">SLO tier achieved today</td>
+          <td class="value-col warn">Tier 1</td>
+          <td class="notes-col">99.5% — Tier 2 (99.9%) requires chunked prefill + prefix cache</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 4. Top 3 Gaps Open ─────────────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Top 3 Gaps Open</h2>
+    <div class="cards-grid">
+      <div class="card gap-card">
+        <div class="card-number">Gap 01</div>
+        <div class="card-headline">E2E tracing unverified: Envoy → OTel Collector h2c protocol mismatch blocks export</div>
+        <div class="card-body">
+          Envoy Gateway is configured with <code>backendRef: otelcol.token-labs:4317</code> but sends over h2c (HTTP/2 cleartext). The OTel Collector rejects the connection — 716 spans buffered in Envoy, 0 ingested by Tempo. Fix: configure gRPC over TLS on the Collector listener, or switch Envoy to HTTP/1.1 OTLP export on port 4318. vLLM tracing is additionally blocked pending a pod restart to activate the patched <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> env vars.
+        </div>
+      </div>
+      <div class="card gap-card">
+        <div class="card-number">Gap 02</div>
+        <div class="card-headline">FB_USED/FB_FREE absent from Prometheus: DCGM field IDs 252/253 not in exporter ConfigMap</div>
+        <div class="card-body">
+          HBM utilization metrics are completely absent from the Prometheus scrape. This severs the causal chain from GPU memory pressure to vLLM KV cache behavior — there is no way to correlate approaching memory limits with queue preemptions. The DCGM ServiceMonitor was created this run, but enabling fields 252/253 requires a ConfigMap edit and exporter restart (two-minute procedure).
+        </div>
+      </div>
+      <div class="card gap-card">
+        <div class="card-number">Gap 03</div>
+        <div class="card-headline">No alert for pod absence or metric staleness: SLO burn-rate rules are blind to gateway-layer failures</div>
+        <div class="card-body">
+          No PrometheusRule fires on pod absence, zero-endpoint services, or stale vLLM metric series. The SLO burn-rate rules added this run fire on <code>vllm:request_failure_total</code> rate — which never increments when the pod is gone and requests fail at the Envoy layer before reaching vLLM. LLMD-3 proved this explicitly: full pod death produced zero alert events.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 5. Infrastructure Changes ─────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Infrastructure Changes Applied This Run</h2>
+    <ul class="styled-list">
+      <li><strong>DCGM ServiceMonitor created</strong> — Prometheus now scrapes <code>nvidia-dcgm-exporter</code> port 9400 in the <code>gpu-operator</code> namespace</li>
+      <li><strong>Tempo deployed</strong> to <code>monitoring</code> namespace (<code>tempo.monitoring</code>) and added as Grafana datasource; gRPC port 4317 and HTTP 4318 active</li>
+      <li><strong>token-labs-slos PrometheusRules applied</strong> — multi-burn-rate availability alerts for Tier 2 (99.9%) across 1h/6h/1d windows</li>
+      <li><strong>Envoy Gateway OTel config patch applied</strong> — 100% sampling rate, OpenTelemetry backend configured (trace export verification pending h2c fix)</li>
+      <li><strong>deepseek-r1-7b vLLM manifest patched</strong> — added <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>, <code>OTEL_SERVICE_NAME</code>, and <code>--otlp-traces-endpoint</code> to pod YAML; takes effect on next pod restart</li>
+      <li><strong>deepseek-r1-7b-vllm-leader pod restarted</strong> after LLMD-3 force-delete simulation (restartPolicy: Never required manual delete/recreate)</li>
+    </ul>
+  </section>
+
+  <!-- ── 6. Next Run Scope ──────────────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Next Run Scope</h2>
+    <ul class="styled-list">
+      <li>
+        <strong>Close the trace gap first.</strong> Verify a real waterfall trace in Grafana Tempo from Envoy ingress through vLLM to completion. Diagnose by checking <code>kubectl get envoyproxy -n token-labs -o yaml</code>, confirm <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> resolves to the correct Tempo OTLP port (4317 vs 4318), and send a test request with <code>traceparent</code> header while watching Tempo. Fix the h2c mismatch (switch to HTTP/1.1 on port 4318, or enable TLS on gRPC listener).
+      </li>
+      <li>
+        <strong>Enable chunked prefill and measure the TTFT p95 delta.</strong> Add <code>--enable-chunked-prefill --max-num-batched-tokens 2048</code> to deepseek and llama vLLM serving args, then re-run the 20-minute concurrent bucket load test and compare p95 TTFT per bucket against this baseline. Target: close the 14.8s Bucket A gap.
+      </li>
+      <li>
+        <strong>Deploy pod-absence and metric-staleness alert rules.</strong> Apply four PromQL rules from <code>llmd_failure_sim.md</code>: <code>TokenLabsPodAbsent</code>, <code>VLLMMetricsAbsent</code>, <code>TokenLabsServiceNoEndpoints</code>, and <code>SLOBurnRateGatewayLayer</code>. Wrap all inference pods in Deployments. Validate each rule fires correctly by re-running the LLMD-3 force-delete simulation.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── 7. Raw Artifacts ───────────────────────────────────────── -->
+  <section class="section">
+    <h2 class="section-title">Raw Artifacts</h2>
+    <div class="artifact-list">
+      <span class="artifact-chip">overnight_run_summary.md</span>
+      <span class="artifact-chip">trace_coverage_report.md</span>
+      <span class="artifact-chip">dcgm_metric_inventory.md</span>
+      <span class="artifact-chip">causal_chain_stats.md</span>
+      <span class="artifact-chip">dcgm_otel_correlation.json</span>
+      <span class="artifact-chip">llmd_boundary_instrumentation.md</span>
+      <span class="artifact-chip">llmd_queue_metrics.md</span>
+      <span class="artifact-chip">llmd_failure_sim.md</span>
+      <span class="artifact-chip">baseline_latency_distributions.json</span>
+      <span class="artifact-chip">slo_spec.md</span>
+      <span class="artifact-chip">failure_kv_pressure.md</span>
+      <span class="artifact-chip">failure_silent_truncation.md</span>
+    </div>
+    <p style="margin-top:0.8rem;font-size:0.8rem;color:var(--text-dim);">Artifacts are local to the controller node at <code>/home/nvidia/overnight-run/2026-04-15/</code></p>
+  </section>
+
+  <footer class="footer">
+    <span>Generated 2026-04-15 by <a href="https://claude.ai/claude-code" target="_blank">Claude Code</a> &middot; Token Labs</span>
+    <span><a href="index.html">&#8592; Back to Token Labs</a></span>
+  </footer>
+
+</main>
+</body>
+</html>

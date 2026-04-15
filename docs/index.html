@@ -293,6 +293,7 @@
     <a class="nav-link active" href="#" onclick="showCatalog();return false;">Explore</a>
     <a class="nav-link" href="https://grafana.tokenlabs.run" target="_blank">Monitoring</a>
     <a class="nav-link" href="benchmark-results.html" target="_blank">Labs</a>
+    <a class="nav-link" href="overnight-run-2026-04-15.html" target="_blank">Run Log</a>
   </div>
   <div class="nav-right">
     <span class="live-badge" id="live-badge"><span class="live-dot" id="live-dot"></span><span id="live-text">LIVE</span></span>
@@ -334,6 +335,27 @@
     <div class="model-grid" id="model-grid">
       <div style="grid-column:1/-1;text-align:center;padding:48px;color:var(--text-muted);">Loading models...</div>
     </div>
+  </section>
+
+  <section class="section" style="padding-bottom:40px;">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Recent Run</h2>
+        <p class="section-subtitle">Latest overnight observability run results</p>
+      </div>
+    </div>
+    <a href="overnight-run-2026-04-15.html" target="_blank" style="text-decoration:none;display:block;max-width:560px;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:20px 22px;transition:all 0.2s;cursor:pointer;" onmouseover="this.style.background='var(--bg-card-hover)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='var(--bg-card)';this.style.transform='none'">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:6px;font-family:monospace;">2026-04-15 &middot; Observability Run</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">Overnight Observability Run — 15 Tasks</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px;">DCGM, OTel, SLO, and failure simulation on DGX Spark GB10. Top finding: chunked prefill is the highest-leverage fix for 44.8s TTFT p95.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(118,185,0,0.1);border:1px solid rgba(118,185,0,0.25);color:var(--accent);font-weight:600;">SLO Tier 1 ✓</span>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#ef4444;font-weight:600;">E2E Traces ✗</span>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);color:#3b82f6;font-weight:600;">TTFT p95 44.8s</span>
+        </div>
+      </div>
+    </a>
   </section>
 
   <footer class="footer">
