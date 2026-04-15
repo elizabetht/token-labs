@@ -11,7 +11,7 @@ data:
       "uid": "token-labs-slo",
       "title": "token-labs SLO Dashboard",
       "schemaVersion": 38,
-      "version": 1,
+      "version": 2,
       "refresh": "30s",
       "time": { "from": "now-3h", "to": "now" },
       "timezone": "browser",
@@ -125,7 +125,7 @@ data:
           },
           "targets": [
             {
-              "expr": "kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\"}",
+              "expr": "max by (pod, namespace) (kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\", pod=~\"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader\"})",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }

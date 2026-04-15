@@ -23,11 +23,13 @@ spec:
     # Pod availability: 1 if ready, 0 if not
     - record: token_labs:pod_available:bool
       expr: |
-        kube_pod_status_ready{
-          namespace="token-labs",
-          pod=~"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader",
-          condition="true"
-        }
+        max by (pod, namespace) (
+          kube_pod_status_ready{
+            namespace="token-labs",
+            pod=~"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader",
+            condition="true"
+          }
+        )
 
     # 5-min availability ratio per pod (for burn rate calc)
     - record: token_labs:pod_available:rate5m
