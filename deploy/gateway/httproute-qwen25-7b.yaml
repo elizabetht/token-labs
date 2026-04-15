@@ -4,7 +4,7 @@
 #   nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 → nemotron-120b-vllm (spark-01)
 #   deepseek-ai/DeepSeek-R1-Distill-Qwen-7B        → deepseek-r1-7b-vllm (spark-02)
 #   meta-llama/Llama-3.1-8B-Instruct               → llama-31-8b-sglang  (spark-02)
-#   Qwen/Qwen2.5-7B-Instruct (default)             → qwen25-7b-trtllm-spark01 (spark-01)
+#   Qwen/Qwen2.5-7B-Instruct (default)             → qwen25-7b-trtllm-spark02 (spark-01)
 
 ---
 apiVersion: gateway.networking.k8s.io/v1
@@ -129,7 +129,7 @@ spec:
         type: PathPrefix
         value: /v1/
     backendRefs:
-    - name: qwen25-7b-trtllm-spark01
+    - name: qwen25-7b-trtllm-spark02
       port: 8000
       weight: 1
     timeouts:
@@ -146,6 +146,6 @@ spec:
     - name: llama-31-8b-sglang
       port: 8000
       weight: 33
-    - name: qwen25-7b-trtllm-spark01
+    - name: qwen25-7b-trtllm-spark02
       port: 8000
       weight: 33
