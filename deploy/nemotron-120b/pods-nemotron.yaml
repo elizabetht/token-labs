@@ -71,7 +71,7 @@ spec:
         nvidia.com/gpu: "1"
       limits:
         cpu: "12"
-        memory: 110Gi
+        memory: 120Gi
         nvidia.com/gpu: "1"
     env:
     - name: HF_HOME
@@ -121,8 +121,8 @@ spec:
         --quantization fp4 \
         --moe-backend marlin \
         --kv-cache-dtype fp8 \
-        --gpu-memory-utilization 0.70 \
-        --max-model-len 32768 \
+        --gpu-memory-utilization 0.85 \
+        --max-model-len 16384 \
         --max-num-seqs 4 \
         --no-enable-chunked-prefill \
         --load-format safetensors
