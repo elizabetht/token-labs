@@ -121,7 +121,7 @@ spec:
         --quantization fp4 \
         --moe-backend marlin \
         --kv-cache-dtype fp8 \
-        --gpu-memory-utilization 0.50 \
+        --gpu-memory-utilization 0.70 \
         --max-model-len 32768 \
         --max-num-seqs 4 \
         --no-enable-chunked-prefill \
