@@ -89,6 +89,10 @@ spec:
       value: "1"
     - name: HF_HUB_DISABLE_XET
       value: "1"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://tempo.monitoring:4317"
+    - name: OTEL_SERVICE_NAME
+      value: "deepseek-r1-7b-vllm"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
@@ -106,7 +110,8 @@ spec:
         --trust-remote-code \
         --max-model-len 32768 \
         --gpu-memory-utilization 0.40 \
-        --enable-prefix-caching
+        --enable-prefix-caching \
+        --otlp-traces-endpoint http://tempo.monitoring:4317
     startupProbe:
       httpGet:
         path: /health

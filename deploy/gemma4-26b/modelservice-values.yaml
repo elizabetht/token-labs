@@ -9,6 +9,14 @@
 #
 # Gemma 4 26B A4B weight size: ~52 GB bfloat16
 # GB10 unified DRAM: 128 GB — fits comfortably with KV cache headroom
+#
+# Fix: --no-disable-hybrid-kv-cache-manager is required for Gemma 4 MoE
+# because vLLM automatically disables the hybrid KV cache manager when
+# --kv-transfer-config is set. Gemma 4 has heterogeneous head dimensions
+# (head_dim=256 for local layers, global_head_dim=512 for global layers),
+# and without the hybrid KV cache manager, NixlConnector's register_kv_caches
+# asserts all tensors have the same size — which fails for Gemma 4.
+# NixlConnector implements SupportsHMA so this flag is safe to set.
 
 multinode: false
 
@@ -60,8 +68,6 @@ decode:
       image: ghcr.io/elizabetht/inference-images/llm-d-serve:2.0.0
       modelCommand: vllmServe
       args:
-        - "--block-size"
-        - "128"
         - "--kv-transfer-config"
         - '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
         - "--disable-uvicorn-access-log"
@@ -70,6 +76,7 @@ decode:
         - "--dtype"
         - "bfloat16"
         - "--trust-remote-code"
+        - "--no-disable-hybrid-kv-cache-manager"
       env:
         - name: VLLM_NIXL_SIDE_CHANNEL_HOST
           valueFrom:
@@ -169,8 +176,6 @@ prefill:
       image: ghcr.io/elizabetht/inference-images/llm-d-serve:2.0.0
       modelCommand: vllmServe
       args:
-        - "--block-size"
-        - "128"
         - "--kv-transfer-config"
         - '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
         - "--disable-uvicorn-access-log"
@@ -179,6 +184,7 @@ prefill:
         - "--dtype"
         - "bfloat16"
         - "--trust-remote-code"
+        - "--no-disable-hybrid-kv-cache-manager"
       env:
         - name: VLLM_NIXL_SIDE_CHANNEL_HOST
           valueFrom:
