@@ -111,6 +111,9 @@ spec:
         --max-model-len 32768 \
         --gpu-memory-utilization 0.40 \
         --enable-prefix-caching \
+        --enable-chunked-prefill \
+        --max-num-batched-tokens 8192 \
+        --speculative-config '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4}' \
         --otlp-traces-endpoint http://tempo.monitoring:4317
     startupProbe:
       httpGet:
