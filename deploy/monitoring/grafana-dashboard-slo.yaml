@@ -11,7 +11,7 @@ data:
       "uid": "token-labs-slo",
       "title": "token-labs SLO Dashboard",
       "schemaVersion": 38,
-      "version": 2,
+      "version": 3,
       "refresh": "30s",
       "time": { "from": "now-3h", "to": "now" },
       "timezone": "browser",
@@ -50,7 +50,7 @@ data:
           },
           "targets": [
             {
-              "expr": "token_labs:pod_available:rate1h",
+              "expr": "max by (pod) (token_labs:pod_available:rate1h)",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
@@ -87,7 +87,7 @@ data:
           },
           "targets": [
             {
-              "expr": "clamp_min(1 - (1 - avg_over_time(token_labs:pod_available:bool[30d])) / 0.005, 0)",
+              "expr": "clamp_min(1 - (1 - max by (pod) (avg_over_time(token_labs:pod_available:bool[30d]))) / 0.005, 0)",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
@@ -161,7 +161,7 @@ data:
           },
           "targets": [
             {
-              "expr": "1 - token_labs:pod_available:rate1h",
+              "expr": "1 - max by (pod) (token_labs:pod_available:rate1h)",
               "legendFormat": "{{pod}} burn rate",
               "refId": "A"
             }
