@@ -20,6 +20,22 @@ spec:
 
 ---
 apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen35-27b-spark-02
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-02
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: qwen35-27b-vllm

@@ -61,6 +61,29 @@ teardown_pod() {
     sleep 30  # allow GPU memory to release
 }
 
+# ── spark-02 production pod management ───────────────────────────────────────
+SPARK02_PRODUCTION_PODS="deepseek-r1-7b-vllm-leader llama-31-8b-sglang-leader qwen25-7b-trtllm-spark02-leader"
+
+stop_spark02_production() {
+    log "Stopping spark-02 production pods for exclusive GPU access..."
+    for pod in $SPARK02_PRODUCTION_PODS; do
+        kubectl delete pod -n "$NAMESPACE" "$pod" --ignore-not-found --wait=false 2>/dev/null || true
+    done
+    # Wait for all to terminate
+    for pod in $SPARK02_PRODUCTION_PODS; do
+        kubectl wait --for=delete pod/"$pod" -n "$NAMESPACE" --timeout=120s 2>/dev/null || true
+    done
+    log "spark-02 production pods stopped"
+}
+
+restore_spark02_production() {
+    log "Restoring spark-02 production pods..."
+    kubectl apply -f "$REPO/deploy/models/deepseek-r1-7b/pods-deepseek-r1.yaml" -n "$NAMESPACE" || true
+    kubectl apply -f "$REPO/deploy/models/llama-31-8b/pods-llama-sglang.yaml" -n "$NAMESPACE" || true
+    kubectl apply -f "$REPO/deploy/models/qwen25-7b/pods-trtllm-spark02.yaml" -n "$NAMESPACE" || true
+    log "spark-02 production pods restored"
+}
+
 # ── Core benchmark runner ─────────────────────────────────────────────────────
 # run_benchmark manifest pod container framework model quant [technique]
 run_benchmark() {
@@ -143,24 +166,116 @@ except Exception:
     log "=== DONE: $output ==="
 }
 
+# ── spark-02 benchmark runner ─────────────────────────────────────────────────
+# run_benchmark_spark02 manifest pod container framework model quant [technique]
+# Identical to run_benchmark — pod manifests already have nodeSelector: spark-02.
+SPARK02_HOST="nvidia@192.168.1.77"
+
+run_benchmark_spark02() {
+    local manifest=$1
+    local pod=$2
+    local container=$3
+    local framework=$4
+    local model=$5
+    local quant=$6
+    local technique=${7:-baseline}
+
+    local output="$RESULTS_DIR/qwen35-27b-${framework}-${quant}-${technique}-spark02-${DATE}.json"
+
+    # Skip if already complete
+    if [[ -f "$output" ]]; then
+        local progress done total
+        progress=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$output'))
+    print(d.get('progress', '0/0'))
+except Exception:
+    print('0/0')
+" 2>/dev/null || echo "0/0")
+        done=$(echo "$progress" | cut -d/ -f1)
+        total=$(echo "$progress" | cut -d/ -f2)
+        if [[ "$done" == "$total" && "$total" != "0" ]]; then
+            log "SKIP: $output already complete ($progress)"
+            return 0
+        fi
+    fi
+
+    log "=== START (spark-02): framework=$framework quant=$quant technique=$technique ==="
+    teardown_pod "$pod" || true
+
+    local extra_args=""
+    local fw_upper
+    fw_upper=$(echo "$framework" | tr '[:lower:]' '[:upper:]')
+
+    if [[ "$technique" != "baseline" ]]; then
+        extra_args=$(python3 "$SCRIPTS_DIR/bench.py" \
+            --print-technique-flags "$framework" "$technique" 2>/dev/null \
+            | python3 -c "import json,sys; flags=json.load(sys.stdin); print(' '.join(flags))" \
+            || echo "")
+    fi
+
+    if [[ -n "$extra_args" ]]; then
+        local tmp
+        tmp=$(mktemp --suffix=.yaml)
+        sed "s|\(EXTRA_${fw_upper}_ARGS.*value:\s*\)\"\"|\1\"${extra_args}\"|g" \
+            "$manifest" > "$tmp"
+        kubectl apply -f "$tmp" -n "$NAMESPACE"
+        rm -f "$tmp"
+        log "  Applied manifest with EXTRA_${fw_upper}_ARGS='${extra_args}'"
+    else
+        kubectl apply -f "$manifest" -n "$NAMESPACE"
+    fi
+
+    if ! wait_pod_ready "$pod" "$container" 1800; then
+        log "ERROR: $pod not ready, skipping"
+        teardown_pod "$pod"
+        return 1
+    fi
+
+    log "Running benchmark (spark-02): $framework/$quant/$technique"
+    python3 "$SCRIPTS_DIR/bench.py" \
+        --framework   "$framework" \
+        --model       "$model" \
+        --quantization "$quant" \
+        --technique   "$technique" \
+        --pod         "$pod" \
+        --container   "$container" \
+        --output      "$output" \
+        --num-warmups 10
+
+    teardown_pod "$pod"
+    log "=== DONE (spark-02): $output ==="
+}
+
 # ── Phase A: Framework × Model Baselines ─────────────────────────────────────
 run_phase_a() {
-    log "=== PHASE A: Framework × Model Baselines ==="
+    log "=== PHASE A: Framework × Model Baselines (spark-01: vLLM | spark-02: SGLang+TRT-LLM) ==="
 
-    # vLLM × 3 quantizations
-    run_benchmark "$DEPLOY_DIR/pods-vllm-bf16.yaml"      qwen35-27b-vllm-bf16-leader       vllm   vllm   "Qwen/Qwen3.5-27B"           bf16      baseline
-    run_benchmark "$DEPLOY_DIR/pods-vllm-fp8.yaml"       qwen35-27b-vllm-fp8-leader        vllm   vllm   "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-    run_benchmark "$DEPLOY_DIR/pods-vllm-gptq-int4.yaml" qwen35-27b-vllm-gptq-int4-leader  vllm   vllm   "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+    stop_spark02_production
 
-    # SGLang × 3 quantizations
-    run_benchmark "$DEPLOY_DIR/pods-sglang-bf16.yaml"      qwen35-27b-sglang-bf16-leader       sglang sglang "Qwen/Qwen3.5-27B"           bf16      baseline
-    run_benchmark "$DEPLOY_DIR/pods-sglang-fp8.yaml"       qwen35-27b-sglang-fp8-leader        sglang sglang "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-    run_benchmark "$DEPLOY_DIR/pods-sglang-gptq-int4.yaml" qwen35-27b-sglang-gptq-int4-leader  sglang sglang "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+    # spark-02: SGLang + TRT-LLM (background)
+    (
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-bf16-spark02.yaml"      qwen35-27b-sglang-bf16-spark02-leader      sglang  sglang  "Qwen/Qwen3.5-27B"           bf16      baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-fp8-spark02.yaml"       qwen35-27b-sglang-fp8-spark02-leader       sglang  sglang  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-gptq-int4-spark02.yaml" qwen35-27b-sglang-gptq-int4-spark02-leader sglang  sglang  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-bf16-spark02.yaml"      qwen35-27b-trtllm-bf16-spark02-leader      trtllm  trtllm  "Qwen/Qwen3.5-27B"           bf16      baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-fp8-spark02.yaml"       qwen35-27b-trtllm-fp8-spark02-leader       trtllm  trtllm  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-gptq-int4-spark02.yaml" qwen35-27b-trtllm-gptq-int4-spark02-leader trtllm  trtllm  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+    ) &
+    SPARK02_PID=$!
 
-    # TRT-LLM × 3 quantizations
-    run_benchmark "$DEPLOY_DIR/pods-trtllm-bf16.yaml"      qwen35-27b-trtllm-bf16-leader       trtllm trtllm "Qwen/Qwen3.5-27B"           bf16      baseline
-    run_benchmark "$DEPLOY_DIR/pods-trtllm-fp8.yaml"       qwen35-27b-trtllm-fp8-leader        trtllm trtllm "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-    run_benchmark "$DEPLOY_DIR/pods-trtllm-gptq-int4.yaml" qwen35-27b-trtllm-gptq-int4-leader  trtllm trtllm "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+    # spark-01: vLLM (foreground)
+    run_benchmark "$DEPLOY_DIR/pods-vllm-bf16.yaml"      qwen35-27b-vllm-bf16-leader      vllm vllm "Qwen/Qwen3.5-27B"           bf16      baseline
+    run_benchmark "$DEPLOY_DIR/pods-vllm-fp8.yaml"       qwen35-27b-vllm-fp8-leader       vllm vllm "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
+    run_benchmark "$DEPLOY_DIR/pods-vllm-gptq-int4.yaml" qwen35-27b-vllm-gptq-int4-leader vllm vllm "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+
+    # Wait for spark-02 to finish
+    log "Waiting for spark-02 benchmarks to complete..."
+    wait $SPARK02_PID
+    log "Both nodes complete"
+
+    restore_spark02_production
 }
 
 # ── Phase B: Technique Sweep on best Phase A winner ──────────────────────────

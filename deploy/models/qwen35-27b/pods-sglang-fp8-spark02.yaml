@@ -1,0 +1,125 @@
+# Bare Pod — Qwen/Qwen3.5-27B-FP8 with SGLang, FP8 quantization
+# Targets spark-02. Part of qwen35-27b framework/quant benchmark suite.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen35-27b-sglang-fp8-spark02-leader
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-sglang
+    role: leader
+    quant: fp8
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 120
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: sglang
+    image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 120Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
+    - name: SGLANG_ENABLE_JIT_DEEPGEMM
+      value: "0"
+    - name: SGLANG_DISABLE_CUDNN_CHECK
+      value: "1"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://tempo.monitoring:4317"
+    - name: OTEL_SERVICE_NAME
+      value: "qwen35-27b-sglang-fp8-spark02"
+    - name: EXTRA_SGLANG_ARGS
+      value: ""
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting Qwen3.5-27B SGLang fp8"
+      python3 -m sglang.launch_server \
+        --model-path Qwen/Qwen3.5-27B-FP8 \
+        --port 8000 --host 0.0.0.0 \
+        --tp 1 \
+        --trust-remote-code \
+        --context-length 16384 \
+        --mem-fraction-static 0.85 \
+        --enable-metrics \
+        --chunked-prefill-size 8192 \
+        --quantization fp8 \
+        ${EXTRA_SGLANG_ARGS:-}
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 120
+      periodSeconds: 20
+      failureThreshold: 360
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen35-27b-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

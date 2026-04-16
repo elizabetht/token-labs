@@ -1,0 +1,125 @@
+# Bare Pod — Qwen/Qwen3.5-27B with TRT-LLM (PyTorch backend), BF16 (native precision)
+# Targets spark-02. Part of qwen35-27b framework/quant benchmark suite.
+# PyTorch backend: no engine compilation required, serves HF checkpoint directly.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen35-27b-trtllm-bf16-spark02-leader
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-trtllm
+    role: leader
+    quant: bf16
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 120
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: trtllm
+    image: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc10
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 120Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
+    - name: PROMETHEUS_MULTIPROC_DIR
+      value: "/tmp/prometheus_multiproc"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://tempo.monitoring:4317"
+    - name: OTEL_SERVICE_NAME
+      value: "qwen35-27b-trtllm-bf16-spark02"
+    - name: EXTRA_TRTLLM_ARGS
+      value: ""
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      mkdir -p /tmp/prometheus_multiproc
+      printf 'return_perf_metrics: true\n' > /tmp/trtllm-extra.yaml
+      echo "Starting Qwen3.5-27B TRT-LLM bf16"
+      trtllm-serve Qwen/Qwen3.5-27B \
+        --backend pytorch \
+        --port 8000 --host 0.0.0.0 \
+        --tp_size 1 \
+        --trust_remote_code \
+        --max_batch_size 256 \
+        --max_num_tokens 32768 \
+        --free_gpu_memory_fraction 0.15 \
+        --extra_llm_api_options /tmp/trtllm-extra.yaml \
+        ${EXTRA_TRTLLM_ARGS:-}
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 180
+      periodSeconds: 30
+      failureThreshold: 240
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen35-27b-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi
