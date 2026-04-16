@@ -33,9 +33,9 @@ NAMESPACE    = "token-labs"
 COMBOS = [
     (1024, 1024),   # balanced — general chat
     (8192, 1024),   # prefill-heavy — RAG / long-context ingestion
-    (1024, 8192),   # decode-heavy — long generation (reports, code)
+    (1024, 4096),   # decode-heavy — long generation (reports, code)
 ]
-CONCURRENCY_LEVELS = [1, 4, 8, 16, 32]
+CONCURRENCY_LEVELS = [1, 8, 32]
 
 HARDWARE = "DGX Spark GB10 spark-01 (SM 12.1, 128GB)"
 
@@ -107,7 +107,7 @@ def collect_dcgm(start_ts: float, end_ts: float) -> dict:
 
 def run_params(isl, osl, concurrency):
     est_req_s = max(0.1, isl / 4096.0) + osl * 0.085
-    n = max(5, min(50, int(280 * concurrency / est_req_s)))
+    n = max(3, min(50, int(280 * concurrency / est_req_s)))
     total_est_s = math.ceil(n / concurrency) * est_req_s
     timeout = max(300, int(total_est_s * 2 + 120))
     return n, timeout
@@ -209,8 +209,8 @@ def main():
     parser.add_argument("--pod",          help="Kubernetes pod name")
     parser.add_argument("--container",    help="Container name in the pod")
     parser.add_argument("--output",       help="Path to output JSON file")
-    parser.add_argument("--num-warmups",  type=int, default=10,
-                        help="Number of warmup requests before measurement (default: 10)")
+    parser.add_argument("--num-warmups",  type=int, default=5,
+                        help="Number of warmup requests before measurement (default: 5)")
 
     args = parser.parse_args()
 
