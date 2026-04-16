@@ -1,5 +1,39 @@
 # Model Aggregator — merges /v1/models from all inference backends
 # Runs on controller node (no GPU needed). Gateway /v1/models route points here.
+# Dynamically discovers backends via label: token-labs/model=true on Services.
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-aggregator
+  namespace: token-labs
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: model-aggregator-service-reader
+  namespace: token-labs
+rules:
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: model-aggregator-service-reader
+  namespace: token-labs
+subjects:
+- kind: ServiceAccount
+  name: model-aggregator
+  namespace: token-labs
+roleRef:
+  kind: Role
+  name: model-aggregator-service-reader
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 apiVersion: v1
@@ -9,52 +43,7 @@ metadata:
   namespace: token-labs
 data:
   aggregator.py: |
-    import asyncio
-    import httpx
-    from fastapi import FastAPI
-    from fastapi.responses import JSONResponse
-
-    app = FastAPI()
-
-    BACKENDS = [
-        ("qwen25-7b-trtllm-spark02",  "http://qwen25-7b-trtllm-spark02.token-labs.svc.cluster.local:8000"),
-        ("deepseek-r1-7b-vllm",       "http://deepseek-r1-7b-vllm.token-labs.svc.cluster.local:8000"),
-        ("llama-31-8b-sglang",        "http://llama-31-8b-sglang.token-labs.svc.cluster.local:8000"),
-        ("nemotron-120b-vllm",        "http://nemotron-120b-vllm.token-labs.svc.cluster.local:8000"),
-    ]
-
-    async def fetch_models(client, name, base_url):
-        try:
-            r = await client.get(f"{base_url}/v1/models", timeout=3.0)
-            if r.status_code == 200:
-                return r.json().get("data", [])
-        except Exception:
-            pass
-        return []
-
-    @app.get("/v1/models")
-    async def list_models():
-        async with httpx.AsyncClient() as client:
-            results = await asyncio.gather(*[
-                fetch_models(client, name, url) for name, url in BACKENDS
-            ])
-        models = []
-        seen = set()
-        for backend_models in results:
-            for m in backend_models:
-                mid = m.get("id", "")
-                if mid and mid not in seen:
-                    seen.add(mid)
-                    models.append(m)
-        return JSONResponse({"object": "list", "data": models})
-
-    @app.get("/health")
-    async def health():
-        return {"status": "ok"}
-
-    @app.get("/models")
-    async def models_compat():
-        return await list_models()
+    # loaded from deploy/models/model-aggregator/aggregator.py via kubectl patch
 
 ---
 apiVersion: apps/v1
@@ -74,6 +63,7 @@ spec:
       labels:
         app: model-aggregator
     spec:
+      serviceAccountName: model-aggregator
       nodeSelector:
         kubernetes.io/hostname: controller
       tolerations:
@@ -86,7 +76,7 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
         - |
-          pip install fastapi uvicorn httpx --quiet
+          pip install fastapi uvicorn httpx kubernetes --quiet
           uvicorn aggregator:app --host 0.0.0.0 --port 8000 --app-dir /app
         ports:
         - containerPort: 8000
