@@ -13,7 +13,7 @@ set -euo pipefail
 REPO="/home/nvidia/src/github.com/elizabetht/token-labs"
 NAMESPACE="token-labs"
 RESULTS_DIR="$REPO/results"
-SCRIPTS_DIR="$REPO/scripts"
+SCRIPTS_DIR="$REPO/scripts/qwen35-27b"
 DEPLOY_DIR="$REPO/deploy/models/qwen35-27b"
 DATE=$(date +%Y-%m-%d)
 
@@ -103,7 +103,7 @@ except Exception:
     fw_upper=$(echo "$framework" | tr '[:lower:]' '[:upper:]')
 
     if [[ "$technique" != "baseline" ]]; then
-        extra_args=$(python3 "$SCRIPTS_DIR/bench_qwen35_27b.py" \
+        extra_args=$(python3 "$SCRIPTS_DIR/bench.py" \
             --print-technique-flags "$framework" "$technique" 2>/dev/null \
             | python3 -c "import json,sys; flags=json.load(sys.stdin); print(' '.join(flags))" \
             || echo "")
@@ -129,7 +129,7 @@ except Exception:
     fi
 
     log "Running benchmark: $framework/$quant/$technique"
-    python3 "$SCRIPTS_DIR/bench_qwen35_27b.py" \
+    python3 "$SCRIPTS_DIR/bench.py" \
         --framework   "$framework" \
         --model       "$model" \
         --quantization "$quant" \
@@ -220,7 +220,7 @@ main() {
         *)   echo "Usage: PHASE={A|B|C|ALL} $0"; exit 1 ;;
     esac
 
-    log "All done. Run: python3 $SCRIPTS_DIR/aggregate_qwen35_27b.py"
+    log "All done. Run: python3 $SCRIPTS_DIR/aggregate.py"
 }
 
 main "$@"

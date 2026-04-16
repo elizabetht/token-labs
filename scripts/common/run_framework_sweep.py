@@ -116,7 +116,7 @@ def parse_output(text):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--framework", required=True, choices=["sglang", "trtllm"])
+    parser.add_argument("--framework", required=True, choices=["sglang", "trtllm", "vllm"])
     parser.add_argument("--pod",       required=True)
     parser.add_argument("--container", required=True)
     args = parser.parse_args()
