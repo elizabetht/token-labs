@@ -14,7 +14,7 @@ REPO="/home/nvidia/src/github.com/elizabetht/token-labs"
 NAMESPACE="token-labs"
 RESULTS_DIR="$REPO/results"
 SCRIPTS_DIR="$REPO/scripts"
-DEPLOY_DIR="$REPO/deploy/qwen35-27b"
+DEPLOY_DIR="$REPO/deploy/models/qwen35-27b"
 DATE=$(date +%Y-%m-%d)
 
 # Phase tracking: set PHASE=A (default), B, C, or ALL via env var
