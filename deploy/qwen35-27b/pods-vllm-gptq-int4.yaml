@@ -23,8 +23,8 @@ spec:
     effect: NoSchedule
   containers:
   - name: vllm
-    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.19.0
-    imagePullPolicy: IfNotPresent
+    image: vllm/vllm-openai:cu130-nightly
+    imagePullPolicy: Always
     securityContext:
       privileged: true
     ports:
@@ -81,6 +81,9 @@ spec:
     args:
     - |
       set -e
+      python3 -c "import os; os.makedirs('/tmp/stubs/nixl_ep', exist_ok=True); open('/tmp/stubs/nixl_ep/__init__.py','w').write('import types,sys\nclass _S(types.ModuleType):\n def __getattr__(self,n): return type(n,(object,),{})\n_m=_S(__name__); _m.__file__=__file__; _m.__spec__=None\nsys.modules[__name__]=_m\n'); print('nixl_ep stub created')"
+      export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
+      pip install pandas -q --no-deps 2>&1 | tail -1
       echo "Starting Qwen3.5-27B vLLM gptq-int4"
       vllm serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
         --port 8000 --host 0.0.0.0 \
@@ -91,7 +94,6 @@ spec:
         --enable-prefix-caching \
         --enable-chunked-prefill \
         --max-num-batched-tokens 8192 \
-        --enable-metrics \
         --otlp-traces-endpoint http://tempo.monitoring:4317 \
         --quantization gptq_marlin \
         ${EXTRA_VLLM_ARGS:-}
