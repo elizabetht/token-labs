@@ -92,6 +92,7 @@ spec:
         --enable-metrics \
         --chunked-prefill-size 8192 \
         --quantization fp8 \
+        --attention-backend triton \
         ${EXTRA_SGLANG_ARGS:-}
     startupProbe:
       httpGet:

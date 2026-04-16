@@ -98,6 +98,7 @@ spec:
         --enable-metrics \
         --chunked-prefill-size 8192 \
         --quantization gptq_marlin \
+        --attention-backend triton \
         ${EXTRA_SGLANG_ARGS:-}
     startupProbe:
       httpGet:

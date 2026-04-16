@@ -91,6 +91,7 @@ spec:
         --mem-fraction-static 0.85 \
         --enable-metrics \
         --chunked-prefill-size 8192 \
+        --attention-backend triton \
         ${EXTRA_SGLANG_ARGS:-}
     startupProbe:
       httpGet:
