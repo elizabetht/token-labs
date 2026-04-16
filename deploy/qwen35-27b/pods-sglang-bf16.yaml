@@ -87,7 +87,7 @@ spec:
         --port 8000 --host 0.0.0.0 \
         --tp 1 \
         --trust-remote-code \
-        --context-length 32768 \
+        --context-length 8192 \
         --mem-fraction-static 0.85 \
         --enable-metrics \
         --chunked-prefill-size 8192 \
