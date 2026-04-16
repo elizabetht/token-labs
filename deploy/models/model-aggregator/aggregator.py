@@ -11,10 +11,7 @@ from fastapi.responses import JSONResponse
 app = FastAPI()
 
 BACKENDS = [
-    ("qwen25-7b-trtllm-spark02",  "http://qwen25-7b-trtllm-spark02.token-labs.svc.cluster.local:8000"),
-    ("deepseek-r1-7b-vllm",       "http://deepseek-r1-7b-vllm.token-labs.svc.cluster.local:8000"),
-    ("llama-31-8b-sglang",        "http://llama-31-8b-sglang.token-labs.svc.cluster.local:8000"),
-    ("nemotron-120b-vllm",        "http://nemotron-120b-vllm.token-labs.svc.cluster.local:8000"),
+    ("qwen35-27b-vllm",  "http://qwen35-27b-vllm.token-labs.svc.cluster.local:8000"),
 ]
 
 async def fetch_models(client: httpx.AsyncClient, name: str, base_url: str):
