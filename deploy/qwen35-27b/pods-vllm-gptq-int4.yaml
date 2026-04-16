@@ -1,0 +1,127 @@
+# Bare Pod — Qwen/Qwen3.5-27B-GPTQ-Int4 with vLLM, GPTQ-Int4 (gptq_marlin)
+# Targets spark-01. Part of qwen35-27b framework/quant benchmark suite.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen35-27b-vllm-gptq-int4-leader
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-vllm
+    role: leader
+    quant: gptq-int4
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 120
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: ghcr.io/elizabetht/inference-images/vllm-serve:0.19.0
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "8"
+        memory: 32Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "12"
+        memory: 120Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    - name: NCCL_IB_DISABLE
+      value: "1"
+    - name: NCCL_SOCKET_IFNAME
+      value: "eth0"
+    - name: NCCL_P2P_DISABLE
+      value: "1"
+    - name: NCCL_DEBUG
+      value: "WARN"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
+    - name: VLLM_NVFP4_GEMM_BACKEND
+      value: "marlin"
+    - name: VLLM_USE_FLASHINFER_MOE_FP4
+      value: "0"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://tempo.monitoring:4317"
+    - name: OTEL_SERVICE_NAME
+      value: "qwen35-27b-vllm-gptq-int4"
+    - name: EXTRA_VLLM_ARGS
+      value: ""
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      set -e
+      echo "Starting Qwen3.5-27B vLLM gptq-int4"
+      vllm serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
+        --port 8000 --host 0.0.0.0 \
+        --tensor-parallel-size 1 \
+        --trust-remote-code \
+        --max-model-len 32768 \
+        --gpu-memory-utilization 0.85 \
+        --enable-prefix-caching \
+        --enable-chunked-prefill \
+        --max-num-batched-tokens 8192 \
+        --enable-metrics \
+        --otlp-traces-endpoint http://tempo.monitoring:4317 \
+        --quantization gptq_marlin \
+        ${EXTRA_VLLM_ARGS:-}
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 120
+      periodSeconds: 20
+      failureThreshold: 360
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 15
+      failureThreshold: 3
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 5
+      timeoutSeconds: 10
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen35-27b-spark-01
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 16Gi

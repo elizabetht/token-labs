@@ -1,0 +1,79 @@
+# PVC + Services for Qwen3.5-27B benchmarks on spark-01
+# One shared PVC for all frameworks/quants (only one pod runs at a time).
+# Three LoadBalancer Services (one per framework) — the orchestrator launches pods one at a time.
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-qwen35-27b-spark-01
+  namespace: token-labs
+  annotations:
+    volume.kubernetes.io/selected-node: spark-01
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: longhorn-model-cache
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen35-27b-vllm
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-vllm
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.201
+spec:
+  type: LoadBalancer
+  selector:
+    app: qwen35-27b-vllm
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen35-27b-sglang
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-sglang
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.202
+spec:
+  type: LoadBalancer
+  selector:
+    app: qwen35-27b-sglang
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen35-27b-trtllm
+  namespace: token-labs
+  labels:
+    app: qwen35-27b-trtllm
+  annotations:
+    metallb.io/loadBalancerIPs: 192.168.1.203
+spec:
+  type: LoadBalancer
+  selector:
+    app: qwen35-27b-trtllm
+    role: leader
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
