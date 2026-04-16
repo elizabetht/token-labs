@@ -648,6 +648,7 @@
       <div class="filter-group">
         <span class="filter-label">Y-Axis Metric</span>
         <select class="filter-select" id="isl-osl-ymetric-select">
+          <option value="throughput_per_gpu" selected>Throughput / GPU (tok/s/GPU)</option>
           <option value="ttft_p50_ms">TTFT p50 (ms)</option>
           <option value="itl_p50_ms">ITL p50 (ms)</option>
         </select>
@@ -655,7 +656,8 @@
       <div class="filter-group">
         <span class="filter-label">X-Axis</span>
         <select class="filter-select" id="isl-osl-xmode-select">
-          <option value="throughput">Throughput (tok/s)</option>
+          <option value="throughput_per_user" selected>Throughput / User (tok/s/user)</option>
+          <option value="throughput">Total Throughput (tok/s)</option>
           <option value="concurrency">Concurrency</option>
         </select>
       </div>
@@ -690,6 +692,7 @@
       <div class="filter-group">
         <span class="filter-label">Y-Axis Metric</span>
         <select class="filter-select" id="nemotron-ymetric-select">
+          <option value="throughput_per_gpu" selected>Throughput / GPU (tok/s/GPU)</option>
           <option value="ttft_p50_ms">TTFT p50 (ms)</option>
           <option value="itl_p50_ms">ITL p50 (ms)</option>
         </select>
@@ -697,7 +700,8 @@
       <div class="filter-group">
         <span class="filter-label">X-Axis</span>
         <select class="filter-select" id="nemotron-xmode-select">
-          <option value="throughput">Throughput (tok/s)</option>
+          <option value="throughput_per_user" selected>Throughput / User (tok/s/user)</option>
+          <option value="throughput">Total Throughput (tok/s)</option>
           <option value="concurrency">Concurrency</option>
         </select>
       </div>
@@ -1398,6 +1402,10 @@ const WATERFALL_PLACEHOLDER = [
   { name: "TP=2 + disable-custom-ar",     delta: null, expected: null },
 ];
 
+// GPUs used per experiment — used to normalise throughput to tok/s/GPU
+const QWEN_NUM_GPUS     = 1;   // DGX Spark GB10 single-chip, spark-02
+const NEMOTRON_NUM_GPUS = 1;   // single B200, spark-01
+
 // ── ISL/OSL combo colors ──────────────────────────────────────────────────────
 const COMBO_COLORS = {
   "ISL128/OSL128":  { line: "#76b900", bg: "rgba(118,185,0,0.15)" },
@@ -1494,8 +1502,8 @@ function renderNemotronChart() {
     document.getElementById("nemotron-chart").getContext("2d"),
     {
       type: "scatter",
-      data: { datasets: buildIslOslDatasets(NEMOTRON_ISL_OSL_DATA, NEMOTRON_COMBO_COLORS, combo, yField, xMode) },
-      options: makeChartOptions(yLabel, xMode, "#ef4444"),
+      data: { datasets: buildIslOslDatasets(NEMOTRON_ISL_OSL_DATA, NEMOTRON_COMBO_COLORS, combo, yField, xMode, NEMOTRON_NUM_GPUS) },
+      options: makeChartOptions(yField, yLabel, xMode, "#ef4444"),
       plugins: [premiumZonePlugin],
     }
   );
@@ -1556,20 +1564,28 @@ const premiumZonePlugin = {
 };
 
 const Y_METRIC_LABELS = {
-  ttft_p50_ms: "TTFT p50",
-  itl_p50_ms:  "ITL p50",
+  throughput_per_gpu: "Throughput / GPU",
+  ttft_p50_ms:        "TTFT p50",
+  itl_p50_ms:         "ITL p50",
 };
 
-function buildIslOslDatasets(data, colors, activeCombo, yField, xMode) {
+// True when the Y metric is a latency (ms) value; false for throughput metrics
+function isLatencyMetric(yField) { return yField.endsWith("_ms"); }
+
+function buildIslOslDatasets(data, colors, activeCombo, yField, xMode, numGpus) {
   const combos = activeCombo === "all" ? Object.keys(data) : [activeCombo];
   return combos.map(key => {
     const c = colors[key];
-    const pts = data[key].levels.map(l => ({
-      x: xMode === "concurrency" ? l.concurrency : l.throughput_tok_s,
-      y: l[yField],
-      concurrency: l.concurrency,
-      throughput: l.throughput_tok_s,
-    }));
+    const pts = data[key].levels.map(l => {
+      const xVal =
+        xMode === "throughput_per_user" ? l.throughput_tok_s / l.concurrency :
+        xMode === "concurrency"         ? l.concurrency :
+        /* throughput */                  l.throughput_tok_s;
+      const yVal = yField === "throughput_per_gpu"
+        ? l.throughput_tok_s / numGpus
+        : l[yField];
+      return { x: xVal, y: yVal, concurrency: l.concurrency, throughput: l.throughput_tok_s };
+    });
     return {
       label: key, data: pts,
       borderColor: c.line, backgroundColor: c.line,
@@ -1579,10 +1595,15 @@ function buildIslOslDatasets(data, colors, activeCombo, yField, xMode) {
   });
 }
 
-function makeChartOptions(yLabel, xMode, accentColor) {
-  const xLabel = xMode === "concurrency"
-    ? "Concurrency (requests)  →  higher = more load"
-    : "Output Throughput (tok/s)  →  higher is better";
+function makeChartOptions(yField, yLabel, xMode, accentColor) {
+  const xLabelMap = {
+    throughput_per_user: "Throughput / User (tok/s/user)  →  higher is better",
+    throughput:          "Output Throughput (tok/s)  →  higher is better",
+    concurrency:         "Concurrency (requests)  →  higher = more load",
+  };
+  const latency = isLatencyMetric(yField);
+  const yUnit      = latency ? "ms"    : "tok/s";
+  const yDirection = latency ? "lower" : "higher";
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -1593,8 +1614,8 @@ function makeChartOptions(yLabel, xMode, accentColor) {
           title: (items) => items[0].dataset.label,
           label: (item) => [
             ` c=${item.raw.concurrency}`,
-            ` Throughput: ${item.raw.throughput.toLocaleString()} tok/s`,
-            ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
+            ` Throughput: ${item.raw.throughput.toFixed(1)} tok/s`,
+            ` ${yLabel}: ${item.raw.y.toFixed(2)} ${yUnit}`,
           ],
         },
         backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
@@ -1604,13 +1625,13 @@ function makeChartOptions(yLabel, xMode, accentColor) {
     },
     scales: {
       x: {
-        title: { display: true, text: xLabel, color: "#555", font: { size: 11 } },
+        title: { display: true, text: xLabelMap[xMode] || xMode, color: "#555", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
       },
       y: {
-        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#555", font: { size: 11 } },
+        title: { display: true, text: `${yLabel} (${yUnit})  →  ${yDirection} is better`, color: "#555", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
@@ -1630,8 +1651,8 @@ function renderIslOslChart() {
     document.getElementById("isl-osl-chart").getContext("2d"),
     {
       type: "scatter",
-      data: { datasets: buildIslOslDatasets(ISL_OSL_DATA, COMBO_COLORS, combo, yField, xMode) },
-      options: makeChartOptions(yLabel, xMode, "#76b900"),
+      data: { datasets: buildIslOslDatasets(ISL_OSL_DATA, COMBO_COLORS, combo, yField, xMode, QWEN_NUM_GPUS) },
+      options: makeChartOptions(yField, yLabel, xMode, "#76b900"),
       plugins: [premiumZonePlugin],
     }
   );
