@@ -96,7 +96,7 @@ spec:
         --max-num-batched-tokens 8192 \
         --otlp-traces-endpoint http://tempo.monitoring:4317 \
         --quantization fp8 \
-        --limit-mm-per-prompt '{"image":0,"video":0,"audio":0}' \
+        --language-model-only \
         ${EXTRA_VLLM_ARGS:-}
     startupProbe:
       httpGet:
