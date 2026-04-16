@@ -48,6 +48,7 @@ metadata:
     role: leader
 spec:
   restartPolicy: Never
+  terminationGracePeriodSeconds: 120
   runtimeClassName: nvidia
   nodeSelector:
     kubernetes.io/hostname: spark-01
@@ -64,6 +65,14 @@ spec:
     ports:
     - containerPort: 8000
       name: http
+    lifecycle:
+      preStop:
+        exec:
+          command:
+            # TODO(human): implement graceful drain before termination
+            - /bin/sh
+            - -c
+            - "echo 'TODO: add drain command'"
     resources:
       requests:
         cpu: "4"
@@ -103,11 +112,16 @@ spec:
       value: "WARN"
     - name: FLASHINFER_DISABLE_VERSION_CHECK
       value: "1"
+    - name: LMCACHE_CONFIG_FILE
+      value: "/etc/lmcache/config.yaml"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
     - name: shm
       mountPath: /dev/shm
+    - name: lmcache-config
+      mountPath: /etc/lmcache
+      readOnly: true
     command: ["/bin/bash", "-c"]
     args:
     - |
@@ -132,6 +146,8 @@ spec:
         --max-model-len 16384 \
         --max-num-seqs 16 \
         --enable-prefix-caching \
+        --enable-chunked-prefill \
+        --max-num-batched-tokens 8192 \
         --load-format safetensors
     startupProbe:
       httpGet:
@@ -163,3 +179,6 @@ spec:
     emptyDir:
       medium: Memory
       sizeLimit: 16Gi
+  - name: lmcache-config
+    configMap:
+      name: lmcache-cpu-offload-config

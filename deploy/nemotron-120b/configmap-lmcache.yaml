@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lmcache-cpu-offload-config
+  namespace: token-labs
+data:
+  config.yaml: |
+    chunk_size: 8
+    local_cpu: true
+    max_local_cpu_size: 5.0
