@@ -302,6 +302,56 @@
       flex-shrink: 0;
     }
 
+    /* ── ISL/OSL filter bar (SemiAnalysis style) ────────────── */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.1rem;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .filter-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .filter-select {
+      background: var(--bg-card2);
+      border: 1px solid var(--border-light);
+      color: #ccc;
+      font-size: 0.78rem;
+      font-family: inherit;
+      font-weight: 500;
+      padding: 0.3rem 1.8rem 0.3rem 0.65rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.55rem center;
+      transition: border-color 0.12s, color 0.12s;
+      min-width: 140px;
+    }
+    .filter-select:hover, .filter-select:focus {
+      border-color: var(--green);
+      color: #eee;
+      outline: none;
+    }
+    .filter-select option { background: #222; }
+    /* single wide chart replacing old 2-col grid */
+    .chart-single {
+      position: relative;
+      height: 380px;
+      margin-bottom: 0.75rem;
+    }
     /* ── ISL/OSL tab selector & x-axis toggle ───────────────── */
     .xaxis-toggle-row {
       display: flex;
@@ -583,36 +633,38 @@
       Model: <span class="mono">Qwen/Qwen2.5-7B-Instruct</span> · Full-stack config (exp9) · DGX Spark GB10 · spark-02
     </p>
 
-    <div class="tab-row" id="isl-osl-tabs">
-      <button class="tab-btn active" data-combo="all">All combos</button>
-      <button class="tab-btn" data-combo="ISL128/OSL128">ISL128/OSL128</button>
-      <button class="tab-btn" data-combo="ISL128/OSL512">ISL128/OSL512</button>
-      <button class="tab-btn" data-combo="ISL1024/OSL128">ISL1024/OSL128</button>
-      <button class="tab-btn" data-combo="ISL1024/OSL512">ISL1024/OSL512</button>
-      <button class="tab-btn" data-combo="ISL4096/OSL512">ISL4096/OSL512</button>
-    </div>
-
-    <div class="xaxis-toggle-row" id="isl-osl-xaxis-toggle">
-      <span class="xaxis-toggle-label">X-axis:</span>
-      <button class="xaxis-btn active" data-mode="throughput">Throughput (tok/s)</button>
-      <button class="xaxis-btn" data-mode="concurrency">Concurrency (Interactivity)</button>
-    </div>
-
-    <div class="chart-grid">
-      <div class="chart-wrap">
-        <div class="chart-label" id="isl-osl-ttft-label">Throughput vs TTFT p50</div>
-        <div id="scatter-ttft-wrap" style="position:relative;height:300px;">
-          <canvas id="isl-osl-scatter-ttft" style="display:none;"></canvas>
-        </div>
+    <div class="filter-bar" id="isl-osl-filters">
+      <div class="filter-group">
+        <span class="filter-label">ISL / OSL</span>
+        <select class="filter-select" id="isl-osl-combo-select">
+          <option value="all">All combos</option>
+          <option value="ISL128/OSL128">ISL128 / OSL128</option>
+          <option value="ISL128/OSL512">ISL128 / OSL512</option>
+          <option value="ISL1024/OSL128">ISL1024 / OSL128</option>
+          <option value="ISL1024/OSL512">ISL1024 / OSL512</option>
+          <option value="ISL4096/OSL512">ISL4096 / OSL512</option>
+        </select>
       </div>
-      <div class="chart-wrap">
-        <div class="chart-label" id="isl-osl-itl-label">Throughput vs ITL p50</div>
-        <div id="scatter-itl-wrap" style="position:relative;height:300px;">
-          <canvas id="isl-osl-scatter-itl" style="display:none;"></canvas>
-        </div>
+      <div class="filter-group">
+        <span class="filter-label">Y-Axis Metric</span>
+        <select class="filter-select" id="isl-osl-ymetric-select">
+          <option value="ttft_p50_ms">TTFT p50 (ms)</option>
+          <option value="itl_p50_ms">ITL p50 (ms)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">X-Axis</span>
+        <select class="filter-select" id="isl-osl-xmode-select">
+          <option value="throughput">Throughput (tok/s)</option>
+          <option value="concurrency">Concurrency</option>
+        </select>
       </div>
     </div>
-    <div class="legend" id="isl-osl-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
+
+    <div class="chart-single">
+      <canvas id="isl-osl-chart"></canvas>
+    </div>
+    <div class="legend" id="isl-osl-legend" style="padding:0 0.25rem;"></div>
   </div>
 
   <!-- ── Nemotron-120B NVFP4 ISL/OSL Sweep ───────────────────── -->
@@ -624,35 +676,37 @@
       NVFP4 (Marlin backend, fp8 KV cache) · vllm-cu130-nightly · DGX Spark GB10 · spark-01 · single B200 · 2026-04-15
     </p>
 
-    <div class="tab-row" id="nemotron-tabs">
-      <button class="tab-btn active" data-combo="all">All combos</button>
-      <button class="tab-btn" data-combo="ISL128/OSL128">ISL128/OSL128</button>
-      <button class="tab-btn" data-combo="ISL512/OSL256">ISL512/OSL256</button>
-      <button class="tab-btn" data-combo="ISL1024/OSL512">ISL1024/OSL512</button>
-      <button class="tab-btn" data-combo="ISL2048/OSL512">ISL2048/OSL512</button>
-    </div>
-
-    <div class="xaxis-toggle-row" id="nemotron-xaxis-toggle">
-      <span class="xaxis-toggle-label">X-axis:</span>
-      <button class="xaxis-btn active" data-mode="throughput">Throughput (tok/s)</button>
-      <button class="xaxis-btn" data-mode="concurrency">Concurrency (Interactivity)</button>
-    </div>
-
-    <div class="chart-grid">
-      <div class="chart-wrap">
-        <div class="chart-label" id="nemotron-ttft-label">Throughput vs TTFT p50</div>
-        <div id="nemotron-scatter-ttft-wrap" style="position:relative;height:300px;">
-          <canvas id="nemotron-scatter-ttft" style="display:none;"></canvas>
-        </div>
+    <div class="filter-bar" id="nemotron-filters">
+      <div class="filter-group">
+        <span class="filter-label">ISL / OSL</span>
+        <select class="filter-select" id="nemotron-combo-select">
+          <option value="all">All combos</option>
+          <option value="ISL128/OSL128">ISL128 / OSL128</option>
+          <option value="ISL512/OSL256">ISL512 / OSL256</option>
+          <option value="ISL1024/OSL512">ISL1024 / OSL512</option>
+          <option value="ISL2048/OSL512">ISL2048 / OSL512</option>
+        </select>
       </div>
-      <div class="chart-wrap">
-        <div class="chart-label" id="nemotron-itl-label">Throughput vs ITL p50</div>
-        <div id="nemotron-scatter-itl-wrap" style="position:relative;height:300px;">
-          <canvas id="nemotron-scatter-itl" style="display:none;"></canvas>
-        </div>
+      <div class="filter-group">
+        <span class="filter-label">Y-Axis Metric</span>
+        <select class="filter-select" id="nemotron-ymetric-select">
+          <option value="ttft_p50_ms">TTFT p50 (ms)</option>
+          <option value="itl_p50_ms">ITL p50 (ms)</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">X-Axis</span>
+        <select class="filter-select" id="nemotron-xmode-select">
+          <option value="throughput">Throughput (tok/s)</option>
+          <option value="concurrency">Concurrency</option>
+        </select>
       </div>
     </div>
-    <div class="legend" id="nemotron-legend" style="margin-top:1rem;padding:0 0.25rem;"></div>
+
+    <div class="chart-single">
+      <canvas id="nemotron-chart"></canvas>
+    </div>
+    <div class="legend" id="nemotron-legend" style="padding:0 0.25rem;"></div>
 
     <!-- Key metrics summary table -->
     <div class="card" style="margin-top:1.25rem;overflow-x:auto;">
@@ -1427,103 +1481,24 @@ const NEMOTRON_ISL_OSL_DATA = {
   ]},
 };
 
-let _nemotronTtftChart = null;
-let _nemotronItlChart  = null;
-let _nemotronXMode     = "throughput";   // "throughput" | "concurrency"
+let _nemotronChart = null;
 
-function buildNemotronDatasets(activeCombo, yField, xMode) {
-  const combos = activeCombo === "all" ? Object.keys(NEMOTRON_ISL_OSL_DATA) : [activeCombo];
-  return combos.map(key => {
-    const c = NEMOTRON_COMBO_COLORS[key];
-    const pts = NEMOTRON_ISL_OSL_DATA[key].levels.map(l => ({
-      x: xMode === "concurrency" ? l.concurrency : l.throughput_tok_s,
-      y: l[yField],
-      concurrency: l.concurrency,
-      throughput: l.throughput_tok_s,
-    }));
-    return {
-      label: key,
-      data: pts,
-      borderColor: c.line,
-      backgroundColor: c.line,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      showLine: true,
-      tension: 0.2,
-      borderWidth: 2,
-      fill: false,
-    };
-  });
-}
+function renderNemotronChart() {
+  const combo  = document.getElementById("nemotron-combo-select").value;
+  const yField = document.getElementById("nemotron-ymetric-select").value;
+  const xMode  = document.getElementById("nemotron-xmode-select").value;
+  const yLabel = Y_METRIC_LABELS[yField];
 
-function renderNemotronCharts(activeCombo, xMode) {
-  xMode = xMode || _nemotronXMode;
-  _nemotronXMode = xMode;
-
-  const xLabel = xMode === "concurrency"
-    ? "Concurrency (requests)  →  higher = more load"
-    : "Output Throughput (tok/s)  →  higher is better";
-  const xTitle = xMode === "concurrency" ? "Concurrency vs" : "Throughput vs";
-
-  document.getElementById("nemotron-ttft-label").textContent = `${xTitle} TTFT p50`;
-  document.getElementById("nemotron-itl-label").textContent  = `${xTitle} ITL p50`;
-
-  const ttftCanvas = document.getElementById("nemotron-scatter-ttft");
-  const itlCanvas  = document.getElementById("nemotron-scatter-itl");
-  ttftCanvas.style.display = "block";
-  itlCanvas.style.display  = "block";
-
-  const commonOptions = (yLabel) => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: true, labels: { color: "#888", font: { size: 11 }, boxWidth: 12 } },
-      tooltip: {
-        callbacks: {
-          title: (items) => `${items[0].dataset.label}`,
-          label: (item) => [
-            ` c=${item.raw.concurrency}`,
-            ` Throughput: ${item.raw.throughput.toLocaleString()} tok/s`,
-            ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
-          ],
-        },
-        backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
-        titleColor: "#ef4444", bodyColor: "#999", padding: 10,
-      },
-      premiumZone: {},
-    },
-    scales: {
-      x: {
-        title: { display: true, text: xLabel, color: "#666", font: { size: 11 } },
-        grid: { color: "rgba(255,255,255,0.04)" },
-        ticks: { color: "#666", font: { size: 11 } },
-        border: { color: "#2a2a2a" },
-      },
-      y: {
-        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#666", font: { size: 11 } },
-        grid: { color: "rgba(255,255,255,0.04)" },
-        ticks: { color: "#666", font: { size: 11 } },
-        border: { color: "#2a2a2a" },
-      },
-    },
-  });
-
-  if (_nemotronTtftChart) { _nemotronTtftChart.destroy(); _nemotronTtftChart = null; }
-  if (_nemotronItlChart)  { _nemotronItlChart.destroy();  _nemotronItlChart  = null; }
-
-  _nemotronTtftChart = new Chart(ttftCanvas.getContext("2d"), {
-    type: "scatter",
-    data: { datasets: buildNemotronDatasets(activeCombo, "ttft_p50_ms", xMode) },
-    options: commonOptions("TTFT p50"),
-    plugins: [premiumZonePlugin],
-  });
-
-  _nemotronItlChart = new Chart(itlCanvas.getContext("2d"), {
-    type: "scatter",
-    data: { datasets: buildNemotronDatasets(activeCombo, "itl_p50_ms", xMode) },
-    options: commonOptions("ITL p50"),
-    plugins: [premiumZonePlugin],
-  });
+  if (_nemotronChart) { _nemotronChart.destroy(); _nemotronChart = null; }
+  _nemotronChart = new Chart(
+    document.getElementById("nemotron-chart").getContext("2d"),
+    {
+      type: "scatter",
+      data: { datasets: buildIslOslDatasets(NEMOTRON_ISL_OSL_DATA, NEMOTRON_COMBO_COLORS, combo, yField, xMode) },
+      options: makeChartOptions(yLabel, xMode, "#ef4444"),
+      plugins: [premiumZonePlugin],
+    }
+  );
 }
 
 function renderNemotronLegend() {
@@ -1538,9 +1513,7 @@ function renderNemotronLegend() {
   el.innerHTML = html;
 }
 
-let _islOslTtftChart = null;
-let _islOslItlChart  = null;
-let _islOslXMode     = "throughput";   // "throughput" | "concurrency"
+let _islOslChart = null;
 
 // TODO(human): Define the "premium operating zone" — the X-axis range where
 // customers get optimal latency (the efficiency sweet spot). Return { xMin, xMax }
@@ -1558,8 +1531,9 @@ function getPremiumZone(xMode) {
 // Inline Chart.js plugin — draws a shaded "premium zone" band before datasets paint
 const premiumZonePlugin = {
   id: "premiumZone",
-  beforeDatasetsDraw(chart) {
-    const zone = getPremiumZone(_islOslXMode);
+  beforeDatasetsDraw(chart, _args, opts) {
+    const xMode = opts.xMode || "throughput";
+    const zone = getPremiumZone(xMode);
     if (!zone || zone.xMin == null || zone.xMax == null) return;
     const { ctx, chartArea, scales } = chart;
     const x1 = scales.x.getPixelForValue(zone.xMin);
@@ -1581,56 +1555,42 @@ const premiumZonePlugin = {
   },
 };
 
-function buildIslOslDatasets(activeCombo, yField, xMode) {
-  const combos = activeCombo === "all" ? Object.keys(ISL_OSL_DATA) : [activeCombo];
+const Y_METRIC_LABELS = {
+  ttft_p50_ms: "TTFT p50",
+  itl_p50_ms:  "ITL p50",
+};
+
+function buildIslOslDatasets(data, colors, activeCombo, yField, xMode) {
+  const combos = activeCombo === "all" ? Object.keys(data) : [activeCombo];
   return combos.map(key => {
-    const c = COMBO_COLORS[key];
-    const pts = ISL_OSL_DATA[key].levels.map(l => ({
+    const c = colors[key];
+    const pts = data[key].levels.map(l => ({
       x: xMode === "concurrency" ? l.concurrency : l.throughput_tok_s,
       y: l[yField],
       concurrency: l.concurrency,
       throughput: l.throughput_tok_s,
     }));
     return {
-      label: key,
-      data: pts,
-      borderColor: c.line,
-      backgroundColor: c.line,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      showLine: true,
-      tension: 0.2,
-      borderWidth: 2,
-      fill: false,
+      label: key, data: pts,
+      borderColor: c.line, backgroundColor: c.line,
+      pointRadius: 5, pointHoverRadius: 7,
+      showLine: true, tension: 0.2, borderWidth: 2, fill: false,
     };
   });
 }
 
-function renderIslOslCharts(activeCombo, xMode) {
-  xMode = xMode || _islOslXMode;
-  _islOslXMode = xMode;
-
+function makeChartOptions(yLabel, xMode, accentColor) {
   const xLabel = xMode === "concurrency"
     ? "Concurrency (requests)  →  higher = more load"
     : "Output Throughput (tok/s)  →  higher is better";
-  const xTitle = xMode === "concurrency" ? "Concurrency vs" : "Throughput vs";
-
-  document.getElementById("isl-osl-ttft-label").textContent = `${xTitle} TTFT p50`;
-  document.getElementById("isl-osl-itl-label").textContent  = `${xTitle} ITL p50`;
-
-  const ttftCanvas = document.getElementById("isl-osl-scatter-ttft");
-  const itlCanvas  = document.getElementById("isl-osl-scatter-itl");
-  ttftCanvas.style.display = "block";
-  itlCanvas.style.display  = "block";
-
-  const commonOptions = (yLabel) => ({
+  return {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, labels: { color: "#888", font: { size: 11 }, boxWidth: 12 } },
+      legend: { display: true, position: "bottom", labels: { color: "#888", font: { size: 11 }, boxWidth: 12, padding: 16 } },
       tooltip: {
         callbacks: {
-          title: (items) => `${items[0].dataset.label}`,
+          title: (items) => items[0].dataset.label,
           label: (item) => [
             ` c=${item.raw.concurrency}`,
             ` Throughput: ${item.raw.throughput.toLocaleString()} tok/s`,
@@ -1638,43 +1598,43 @@ function renderIslOslCharts(activeCombo, xMode) {
           ],
         },
         backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
-        titleColor: "#76b900", bodyColor: "#999", padding: 10,
+        titleColor: accentColor, bodyColor: "#999", padding: 10,
       },
-      premiumZone: {},
+      premiumZone: { xMode },
     },
     scales: {
       x: {
-        type: xMode === "concurrency" ? "linear" : "linear",
-        title: { display: true, text: xLabel, color: "#666", font: { size: 11 } },
+        title: { display: true, text: xLabel, color: "#555", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
       },
       y: {
-        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#666", font: { size: 11 } },
+        title: { display: true, text: `${yLabel} (ms)  →  lower is better`, color: "#555", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
       },
     },
-  });
+  };
+}
 
-  if (_islOslTtftChart) { _islOslTtftChart.destroy(); _islOslTtftChart = null; }
-  if (_islOslItlChart)  { _islOslItlChart.destroy();  _islOslItlChart  = null; }
+function renderIslOslChart() {
+  const combo  = document.getElementById("isl-osl-combo-select").value;
+  const yField = document.getElementById("isl-osl-ymetric-select").value;
+  const xMode  = document.getElementById("isl-osl-xmode-select").value;
+  const yLabel = Y_METRIC_LABELS[yField];
 
-  _islOslTtftChart = new Chart(ttftCanvas.getContext("2d"), {
-    type: "scatter",
-    data: { datasets: buildIslOslDatasets(activeCombo, "ttft_p50_ms", xMode) },
-    options: commonOptions("TTFT p50"),
-    plugins: [premiumZonePlugin],
-  });
-
-  _islOslItlChart = new Chart(itlCanvas.getContext("2d"), {
-    type: "scatter",
-    data: { datasets: buildIslOslDatasets(activeCombo, "itl_p50_ms", xMode) },
-    options: commonOptions("ITL p50"),
-    plugins: [premiumZonePlugin],
-  });
+  if (_islOslChart) { _islOslChart.destroy(); _islOslChart = null; }
+  _islOslChart = new Chart(
+    document.getElementById("isl-osl-chart").getContext("2d"),
+    {
+      type: "scatter",
+      data: { datasets: buildIslOslDatasets(ISL_OSL_DATA, COMBO_COLORS, combo, yField, xMode) },
+      options: makeChartOptions(yLabel, xMode, "#76b900"),
+      plugins: [premiumZonePlugin],
+    }
+  );
 }
 
 // ── Render Registry Table ─────────────────────────────────────────────────────
@@ -1743,39 +1703,14 @@ function renderIslOslLegend() {
   el.innerHTML = html;
 }
 
-// ── ISL/OSL tab & x-axis toggle handling ─────────────────────────────────────
-document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  document.querySelectorAll("#isl-osl-tabs .tab-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  renderIslOslCharts(btn.dataset.combo, _islOslXMode);
+// ── ISL/OSL filter wiring ─────────────────────────────────────────────────────
+["isl-osl-combo-select", "isl-osl-ymetric-select", "isl-osl-xmode-select"].forEach(id => {
+  document.getElementById(id).addEventListener("change", renderIslOslChart);
 });
 
-document.getElementById("isl-osl-xaxis-toggle").addEventListener("click", (e) => {
-  const btn = e.target.closest(".xaxis-btn");
-  if (!btn) return;
-  document.querySelectorAll("#isl-osl-xaxis-toggle .xaxis-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  const activeCombo = document.querySelector("#isl-osl-tabs .tab-btn.active").dataset.combo;
-  renderIslOslCharts(activeCombo, btn.dataset.mode);
-});
-
-document.getElementById("nemotron-tabs").addEventListener("click", (e) => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  document.querySelectorAll("#nemotron-tabs .tab-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  renderNemotronCharts(btn.dataset.combo, _nemotronXMode);
-});
-
-document.getElementById("nemotron-xaxis-toggle").addEventListener("click", (e) => {
-  const btn = e.target.closest(".xaxis-btn");
-  if (!btn) return;
-  document.querySelectorAll("#nemotron-xaxis-toggle .xaxis-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  const activeCombo = document.querySelector("#nemotron-tabs .tab-btn.active").dataset.combo;
-  renderNemotronCharts(activeCombo, btn.dataset.mode);
+// ── Nemotron filter wiring ────────────────────────────────────────────────────
+["nemotron-combo-select", "nemotron-ymetric-select", "nemotron-xmode-select"].forEach(id => {
+  document.getElementById(id).addEventListener("change", renderNemotronChart);
 });
 
 document.getElementById("fw-tabs").addEventListener("click", (e) => {
@@ -2093,9 +2028,9 @@ try {
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.borderColor = "rgba(255,255,255,0.05)";
   renderIslOslLegend();
-  renderIslOslCharts("all");
+  renderIslOslChart();
   renderNemotronLegend();
-  renderNemotronCharts("all");
+  renderNemotronChart();
   renderWaterfall();
   renderFrameworkChart("ISL128/OSL128");
   renderAblation();
