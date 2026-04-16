@@ -302,7 +302,34 @@
       flex-shrink: 0;
     }
 
-    /* ── ISL/OSL tab selector ────────────────────────────────── */
+    /* ── ISL/OSL tab selector & x-axis toggle ───────────────── */
+    .xaxis-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.85rem;
+    }
+    .xaxis-toggle-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .xaxis-btn {
+      background: var(--bg-card2);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .xaxis-btn:hover { border-color: #4a9eff; color: #4a9eff; }
+    .xaxis-btn.active { background: rgba(74,158,255,0.12); border-color: #4a9eff; color: #4a9eff; }
     .tab-row {
       display: flex;
       flex-wrap: wrap;
@@ -565,15 +592,21 @@
       <button class="tab-btn" data-combo="ISL4096/OSL512">ISL4096/OSL512</button>
     </div>
 
+    <div class="xaxis-toggle-row" id="isl-osl-xaxis-toggle">
+      <span class="xaxis-toggle-label">X-axis:</span>
+      <button class="xaxis-btn active" data-mode="throughput">Throughput (tok/s)</button>
+      <button class="xaxis-btn" data-mode="concurrency">Concurrency (Interactivity)</button>
+    </div>
+
     <div class="chart-grid">
       <div class="chart-wrap">
-        <div class="chart-label">Throughput vs TTFT p50</div>
+        <div class="chart-label" id="isl-osl-ttft-label">Throughput vs TTFT p50</div>
         <div id="scatter-ttft-wrap" style="position:relative;height:300px;">
           <canvas id="isl-osl-scatter-ttft" style="display:none;"></canvas>
         </div>
       </div>
       <div class="chart-wrap">
-        <div class="chart-label">Throughput vs ITL p50</div>
+        <div class="chart-label" id="isl-osl-itl-label">Throughput vs ITL p50</div>
         <div id="scatter-itl-wrap" style="position:relative;height:300px;">
           <canvas id="isl-osl-scatter-itl" style="display:none;"></canvas>
         </div>
@@ -599,15 +632,21 @@
       <button class="tab-btn" data-combo="ISL2048/OSL512">ISL2048/OSL512</button>
     </div>
 
+    <div class="xaxis-toggle-row" id="nemotron-xaxis-toggle">
+      <span class="xaxis-toggle-label">X-axis:</span>
+      <button class="xaxis-btn active" data-mode="throughput">Throughput (tok/s)</button>
+      <button class="xaxis-btn" data-mode="concurrency">Concurrency (Interactivity)</button>
+    </div>
+
     <div class="chart-grid">
       <div class="chart-wrap">
-        <div class="chart-label">Throughput vs TTFT p50</div>
+        <div class="chart-label" id="nemotron-ttft-label">Throughput vs TTFT p50</div>
         <div id="nemotron-scatter-ttft-wrap" style="position:relative;height:300px;">
           <canvas id="nemotron-scatter-ttft" style="display:none;"></canvas>
         </div>
       </div>
       <div class="chart-wrap">
-        <div class="chart-label">Throughput vs ITL p50</div>
+        <div class="chart-label" id="nemotron-itl-label">Throughput vs ITL p50</div>
         <div id="nemotron-scatter-itl-wrap" style="position:relative;height:300px;">
           <canvas id="nemotron-scatter-itl" style="display:none;"></canvas>
         </div>
@@ -1390,18 +1429,17 @@ const NEMOTRON_ISL_OSL_DATA = {
 
 let _nemotronTtftChart = null;
 let _nemotronItlChart  = null;
+let _nemotronXMode     = "throughput";   // "throughput" | "concurrency"
 
-function buildNemotronDatasets(activeCombo, yField) {
-  const combos = activeCombo === "all"
-    ? Object.keys(NEMOTRON_ISL_OSL_DATA)
-    : [activeCombo];
-
+function buildNemotronDatasets(activeCombo, yField, xMode) {
+  const combos = activeCombo === "all" ? Object.keys(NEMOTRON_ISL_OSL_DATA) : [activeCombo];
   return combos.map(key => {
     const c = NEMOTRON_COMBO_COLORS[key];
     const pts = NEMOTRON_ISL_OSL_DATA[key].levels.map(l => ({
-      x: l.throughput_tok_s,
+      x: xMode === "concurrency" ? l.concurrency : l.throughput_tok_s,
       y: l[yField],
       concurrency: l.concurrency,
+      throughput: l.throughput_tok_s,
     }));
     return {
       label: key,
@@ -1418,7 +1456,18 @@ function buildNemotronDatasets(activeCombo, yField) {
   });
 }
 
-function renderNemotronCharts(activeCombo) {
+function renderNemotronCharts(activeCombo, xMode) {
+  xMode = xMode || _nemotronXMode;
+  _nemotronXMode = xMode;
+
+  const xLabel = xMode === "concurrency"
+    ? "Concurrency (requests)  →  higher = more load"
+    : "Output Throughput (tok/s)  →  higher is better";
+  const xTitle = xMode === "concurrency" ? "Concurrency vs" : "Throughput vs";
+
+  document.getElementById("nemotron-ttft-label").textContent = `${xTitle} TTFT p50`;
+  document.getElementById("nemotron-itl-label").textContent  = `${xTitle} ITL p50`;
+
   const ttftCanvas = document.getElementById("nemotron-scatter-ttft");
   const itlCanvas  = document.getElementById("nemotron-scatter-itl");
   ttftCanvas.style.display = "block";
@@ -1434,17 +1483,18 @@ function renderNemotronCharts(activeCombo) {
           title: (items) => `${items[0].dataset.label}`,
           label: (item) => [
             ` c=${item.raw.concurrency}`,
-            ` Throughput: ${item.raw.x.toLocaleString()} tok/s`,
+            ` Throughput: ${item.raw.throughput.toLocaleString()} tok/s`,
             ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
           ],
         },
         backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
         titleColor: "#ef4444", bodyColor: "#999", padding: 10,
       },
+      premiumZone: {},
     },
     scales: {
       x: {
-        title: { display: true, text: "Output Throughput (tok/s)  →  higher is better", color: "#666", font: { size: 11 } },
+        title: { display: true, text: xLabel, color: "#666", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
@@ -1463,14 +1513,16 @@ function renderNemotronCharts(activeCombo) {
 
   _nemotronTtftChart = new Chart(ttftCanvas.getContext("2d"), {
     type: "scatter",
-    data: { datasets: buildNemotronDatasets(activeCombo, "ttft_p50_ms") },
+    data: { datasets: buildNemotronDatasets(activeCombo, "ttft_p50_ms", xMode) },
     options: commonOptions("TTFT p50"),
+    plugins: [premiumZonePlugin],
   });
 
   _nemotronItlChart = new Chart(itlCanvas.getContext("2d"), {
     type: "scatter",
-    data: { datasets: buildNemotronDatasets(activeCombo, "itl_p50_ms") },
+    data: { datasets: buildNemotronDatasets(activeCombo, "itl_p50_ms", xMode) },
     options: commonOptions("ITL p50"),
+    plugins: [premiumZonePlugin],
   });
 }
 
@@ -1488,18 +1540,56 @@ function renderNemotronLegend() {
 
 let _islOslTtftChart = null;
 let _islOslItlChart  = null;
+let _islOslXMode     = "throughput";   // "throughput" | "concurrency"
 
-function buildIslOslDatasets(activeCombo, yField) {
-  const combos = activeCombo === "all"
-    ? Object.keys(ISL_OSL_DATA)
-    : [activeCombo];
+// TODO(human): Define the "premium operating zone" — the X-axis range where
+// customers get optimal latency (the efficiency sweet spot). Return { xMin, xMax }
+// or null to hide the annotation. Hint: look at where ITL is minimised in the data
+// (ISL128/OSL128 drops from 79ms at c=1 to 67ms at c=4 then climbs back).
+// In concurrency mode: which concurrency band should be highlighted?
+// In throughput mode: which tok/s band corresponds to that concurrency?
+function getPremiumZone(xMode) {
+  if (xMode === "concurrency") {
+    return { xMin: null, xMax: null };   // e.g. { xMin: 4, xMax: 16 }
+  }
+  return { xMin: null, xMax: null };     // e.g. { xMin: 100, xMax: 500 }
+}
 
+// Inline Chart.js plugin — draws a shaded "premium zone" band before datasets paint
+const premiumZonePlugin = {
+  id: "premiumZone",
+  beforeDatasetsDraw(chart) {
+    const zone = getPremiumZone(_islOslXMode);
+    if (!zone || zone.xMin == null || zone.xMax == null) return;
+    const { ctx, chartArea, scales } = chart;
+    const x1 = scales.x.getPixelForValue(zone.xMin);
+    const x2 = scales.x.getPixelForValue(zone.xMax);
+    ctx.save();
+    ctx.fillStyle = "rgba(118,185,0,0.07)";
+    ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.height);
+    ctx.strokeStyle = "rgba(118,185,0,0.25)";
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, chartArea.top); ctx.lineTo(x1, chartArea.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, chartArea.top); ctx.lineTo(x2, chartArea.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(118,185,0,0.55)";
+    ctx.font = "10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("◆ premium zone", (x1 + x2) / 2, chartArea.top + 14);
+    ctx.restore();
+  },
+};
+
+function buildIslOslDatasets(activeCombo, yField, xMode) {
+  const combos = activeCombo === "all" ? Object.keys(ISL_OSL_DATA) : [activeCombo];
   return combos.map(key => {
     const c = COMBO_COLORS[key];
     const pts = ISL_OSL_DATA[key].levels.map(l => ({
-      x: l.throughput_tok_s,
+      x: xMode === "concurrency" ? l.concurrency : l.throughput_tok_s,
       y: l[yField],
       concurrency: l.concurrency,
+      throughput: l.throughput_tok_s,
     }));
     return {
       label: key,
@@ -1516,7 +1606,18 @@ function buildIslOslDatasets(activeCombo, yField) {
   });
 }
 
-function renderIslOslCharts(activeCombo) {
+function renderIslOslCharts(activeCombo, xMode) {
+  xMode = xMode || _islOslXMode;
+  _islOslXMode = xMode;
+
+  const xLabel = xMode === "concurrency"
+    ? "Concurrency (requests)  →  higher = more load"
+    : "Output Throughput (tok/s)  →  higher is better";
+  const xTitle = xMode === "concurrency" ? "Concurrency vs" : "Throughput vs";
+
+  document.getElementById("isl-osl-ttft-label").textContent = `${xTitle} TTFT p50`;
+  document.getElementById("isl-osl-itl-label").textContent  = `${xTitle} ITL p50`;
+
   const ttftCanvas = document.getElementById("isl-osl-scatter-ttft");
   const itlCanvas  = document.getElementById("isl-osl-scatter-itl");
   ttftCanvas.style.display = "block";
@@ -1532,17 +1633,19 @@ function renderIslOslCharts(activeCombo) {
           title: (items) => `${items[0].dataset.label}`,
           label: (item) => [
             ` c=${item.raw.concurrency}`,
-            ` Throughput: ${item.raw.x.toLocaleString()} tok/s`,
+            ` Throughput: ${item.raw.throughput.toLocaleString()} tok/s`,
             ` ${yLabel}: ${item.raw.y.toLocaleString()} ms`,
           ],
         },
         backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
         titleColor: "#76b900", bodyColor: "#999", padding: 10,
       },
+      premiumZone: {},
     },
     scales: {
       x: {
-        title: { display: true, text: "Output Throughput (tok/s)  →  higher is better", color: "#666", font: { size: 11 } },
+        type: xMode === "concurrency" ? "linear" : "linear",
+        title: { display: true, text: xLabel, color: "#666", font: { size: 11 } },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: { color: "#666", font: { size: 11 } },
         border: { color: "#2a2a2a" },
@@ -1561,14 +1664,16 @@ function renderIslOslCharts(activeCombo) {
 
   _islOslTtftChart = new Chart(ttftCanvas.getContext("2d"), {
     type: "scatter",
-    data: { datasets: buildIslOslDatasets(activeCombo, "ttft_p50_ms") },
+    data: { datasets: buildIslOslDatasets(activeCombo, "ttft_p50_ms", xMode) },
     options: commonOptions("TTFT p50"),
+    plugins: [premiumZonePlugin],
   });
 
   _islOslItlChart = new Chart(itlCanvas.getContext("2d"), {
     type: "scatter",
-    data: { datasets: buildIslOslDatasets(activeCombo, "itl_p50_ms") },
+    data: { datasets: buildIslOslDatasets(activeCombo, "itl_p50_ms", xMode) },
     options: commonOptions("ITL p50"),
+    plugins: [premiumZonePlugin],
   });
 }
 
@@ -1638,13 +1743,22 @@ function renderIslOslLegend() {
   el.innerHTML = html;
 }
 
-// ── ISL/OSL tab handling ──────────────────────────────────────────────────────
+// ── ISL/OSL tab & x-axis toggle handling ─────────────────────────────────────
 document.getElementById("isl-osl-tabs").addEventListener("click", (e) => {
   const btn = e.target.closest(".tab-btn");
   if (!btn) return;
   document.querySelectorAll("#isl-osl-tabs .tab-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
-  renderIslOslCharts(btn.dataset.combo);
+  renderIslOslCharts(btn.dataset.combo, _islOslXMode);
+});
+
+document.getElementById("isl-osl-xaxis-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest(".xaxis-btn");
+  if (!btn) return;
+  document.querySelectorAll("#isl-osl-xaxis-toggle .xaxis-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const activeCombo = document.querySelector("#isl-osl-tabs .tab-btn.active").dataset.combo;
+  renderIslOslCharts(activeCombo, btn.dataset.mode);
 });
 
 document.getElementById("nemotron-tabs").addEventListener("click", (e) => {
@@ -1652,7 +1766,16 @@ document.getElementById("nemotron-tabs").addEventListener("click", (e) => {
   if (!btn) return;
   document.querySelectorAll("#nemotron-tabs .tab-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
-  renderNemotronCharts(btn.dataset.combo);
+  renderNemotronCharts(btn.dataset.combo, _nemotronXMode);
+});
+
+document.getElementById("nemotron-xaxis-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest(".xaxis-btn");
+  if (!btn) return;
+  document.querySelectorAll("#nemotron-xaxis-toggle .xaxis-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const activeCombo = document.querySelector("#nemotron-tabs .tab-btn.active").dataset.combo;
+  renderNemotronCharts(activeCombo, btn.dataset.mode);
 });
 
 document.getElementById("fw-tabs").addEventListener("click", (e) => {
