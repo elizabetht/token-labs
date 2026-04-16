@@ -89,7 +89,7 @@ spec:
         --port 8000 --host 0.0.0.0 \
         --tensor-parallel-size 1 \
         --trust-remote-code \
-        --max-model-len 8192 \
+        --max-model-len 16384 \
         --gpu-memory-utilization 0.85 \
         --enable-prefix-caching \
         --enable-chunked-prefill \

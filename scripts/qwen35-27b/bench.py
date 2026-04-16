@@ -31,10 +31,9 @@ PROM_URL     = "http://10.111.136.60:9090"
 NAMESPACE    = "token-labs"
 
 COMBOS = [
-    (128,  128),
-    (512,  256),
-    (1024, 512),
-    (2048, 512),
+    (1024, 1024),   # balanced — general chat
+    (8192, 1024),   # prefill-heavy — RAG / long-context ingestion
+    (1024, 8192),   # decode-heavy — long generation (reports, code)
 ]
 CONCURRENCY_LEVELS = [1, 4, 8, 16, 32]
 
