@@ -5,7 +5,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: qwen35-27b-vllm-gptq-int4-leader
+  name: qwen35-27b-vllm-gptq-int4-spark01-leader
   namespace: token-labs
   labels:
     app: qwen35-27b-vllm

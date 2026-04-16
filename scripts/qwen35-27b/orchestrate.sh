@@ -266,9 +266,9 @@ run_phase_a() {
     SPARK02_PID=$!
 
     # spark-01: vLLM (foreground)
-    run_benchmark "$DEPLOY_DIR/pods-vllm-bf16.yaml"      qwen35-27b-vllm-bf16-leader      vllm vllm "Qwen/Qwen3.5-27B"           bf16      baseline
-    run_benchmark "$DEPLOY_DIR/pods-vllm-fp8.yaml"       qwen35-27b-vllm-fp8-leader       vllm vllm "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-    run_benchmark "$DEPLOY_DIR/pods-vllm-gptq-int4.yaml" qwen35-27b-vllm-gptq-int4-leader vllm vllm "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+    run_benchmark "$DEPLOY_DIR/pods-vllm-bf16.yaml"      qwen35-27b-vllm-bf16-spark01-leader      vllm vllm "Qwen/Qwen3.5-27B"           bf16      baseline
+    run_benchmark "$DEPLOY_DIR/pods-vllm-fp8.yaml"       qwen35-27b-vllm-fp8-spark01-leader       vllm vllm "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
+    run_benchmark "$DEPLOY_DIR/pods-vllm-gptq-int4.yaml" qwen35-27b-vllm-gptq-int4-spark01-leader vllm vllm "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
 
     # Wait for spark-02 to finish
     log "Waiting for spark-02 benchmarks to complete..."
@@ -282,7 +282,8 @@ run_phase_a() {
 run_phase_b() {
     log "=== PHASE B: Technique Sweep on best=$BEST_FRAMEWORK/$BEST_QUANT ==="
     local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
-    local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}"
+    local node_suffix; [[ "$BEST_FRAMEWORK" == "vllm" ]] && node_suffix="spark01" || node_suffix="spark02"
+    local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}"
 
     local techniques
     if [[ "$BEST_FRAMEWORK" == "vllm" ]]; then
@@ -309,7 +310,8 @@ run_phase_b() {
 run_phase_c() {
     log "=== PHASE C: Best Combination ==="
     local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
-    local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}"
+    local node_suffix; [[ "$BEST_FRAMEWORK" == "vllm" ]] && node_suffix="spark01" || node_suffix="spark02"
+    local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}"
 
     if [[ "$BEST_FRAMEWORK" == "vllm" ]]; then
         run_benchmark "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+lmcache"
