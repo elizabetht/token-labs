@@ -92,7 +92,7 @@ spec:
         apt-get install -y --no-install-recommends nsight-systems-cli 2>/dev/null || true
       fi
       if command -v nsys >/dev/null 2>&1; then
-        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --output=${NSYS_OUT}"
+        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --duration=600 --output=${NSYS_OUT}"
         echo "nsys enabled → ${NSYS_OUT}"
       else
         NSYS_PFX=""; echo "nsys not available, profiling disabled"
