@@ -82,8 +82,22 @@ spec:
       set -e
       mkdir -p /tmp/prometheus_multiproc
       printf 'return_perf_metrics: true\n' > /tmp/trtllm-extra.yaml
+      # ── nsys profiling ───────────────────────────────────────────────────────
+      mkdir -p /model-cache/profiles
+      NSYS_OUT="/model-cache/profiles/$(hostname).nsys-rep"
+      if ! command -v nsys >/dev/null 2>&1; then
+        apt-get update -qq 2>/dev/null && \
+        apt-get install -y --no-install-recommends nsight-systems-cli 2>/dev/null || true
+      fi
+      if command -v nsys >/dev/null 2>&1; then
+        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --output=${NSYS_OUT}"
+        echo "nsys enabled → ${NSYS_OUT}"
+      else
+        NSYS_PFX=""; echo "nsys not available, profiling disabled"
+      fi
+      # ─────────────────────────────────────────────────────────────────────────
       echo "Starting Qwen3.5-27B TRT-LLM gptq-int4"
-      trtllm-serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
+      ${NSYS_PFX} trtllm-serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
         --backend pytorch \
         --port 8000 --host 0.0.0.0 \
         --tp_size 1 \

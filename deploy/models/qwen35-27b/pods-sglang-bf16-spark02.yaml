@@ -81,8 +81,14 @@ spec:
     args:
     - |
       set -e
+      # ── nsys profiling ───────────────────────────────────────────────────────
+      mkdir -p /model-cache/profiles
+      NSYS_OUT="/model-cache/profiles/$(hostname).nsys-rep"
+      NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --output=${NSYS_OUT}"
+      echo "nsys enabled → ${NSYS_OUT}"
+      # ─────────────────────────────────────────────────────────────────────────
       echo "Starting Qwen3.5-27B SGLang bf16"
-      python3 -m sglang.launch_server \
+      ${NSYS_PFX} python3 -m sglang.launch_server \
         --model-path Qwen/Qwen3.5-27B \
         --port 8000 --host 0.0.0.0 \
         --tp 1 \

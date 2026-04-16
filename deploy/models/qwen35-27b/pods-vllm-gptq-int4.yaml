@@ -84,8 +84,22 @@ spec:
       python3 -c "import os; os.makedirs('/tmp/stubs/nixl_ep', exist_ok=True); open('/tmp/stubs/nixl_ep/__init__.py','w').write('import types,sys\nclass _S(types.ModuleType):\n def __getattr__(self,n): return type(n,(object,),{})\n_m=_S(__name__); _m.__file__=__file__; _m.__spec__=None\nsys.modules[__name__]=_m\n'); print('nixl_ep stub created')"
       export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
       pip install pandas -q --no-deps 2>&1 | tail -1
+      # ── nsys profiling ───────────────────────────────────────────────────────
+      mkdir -p /model-cache/profiles
+      NSYS_OUT="/model-cache/profiles/$(hostname).nsys-rep"
+      if ! command -v nsys >/dev/null 2>&1; then
+        apt-get update -qq 2>/dev/null && \
+        apt-get install -y --no-install-recommends nsight-systems-cli 2>/dev/null || true
+      fi
+      if command -v nsys >/dev/null 2>&1; then
+        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --output=${NSYS_OUT}"
+        echo "nsys enabled → ${NSYS_OUT}"
+      else
+        NSYS_PFX=""; echo "nsys not available, profiling disabled"
+      fi
+      # ─────────────────────────────────────────────────────────────────────────
       echo "Starting Qwen3.5-27B vLLM gptq-int4"
-      vllm serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
+      ${NSYS_PFX} vllm serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
         --port 8000 --host 0.0.0.0 \
         --tensor-parallel-size 1 \
         --trust-remote-code \
