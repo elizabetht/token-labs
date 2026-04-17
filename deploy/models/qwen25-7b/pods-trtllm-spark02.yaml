@@ -63,6 +63,10 @@ spec:
       value: "/model-cache/huggingface"
     - name: HF_HUB_CACHE
       value: "/model-cache/huggingface/hub"
+    - name: HF_HUB_OFFLINE
+      value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
     - name: NCCL_IB_DISABLE
       value: "1"
     - name: NCCL_SOCKET_IFNAME
