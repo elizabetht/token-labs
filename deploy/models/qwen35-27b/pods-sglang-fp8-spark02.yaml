@@ -84,7 +84,7 @@ spec:
       # ── nsys profiling ───────────────────────────────────────────────────────
       mkdir -p /model-cache/profiles
       NSYS_OUT="/model-cache/profiles/$(hostname).nsys-rep"
-      NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --duration=600 --output=${NSYS_OUT}"
+      NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --stats=true --output=${NSYS_OUT}"
       echo "nsys enabled → ${NSYS_OUT}"
       # ─────────────────────────────────────────────────────────────────────────
       echo "Starting Qwen3.5-27B SGLang fp8"
