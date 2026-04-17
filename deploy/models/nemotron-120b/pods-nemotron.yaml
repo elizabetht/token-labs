@@ -59,7 +59,7 @@ spec:
   containers:
   - name: vllm
     image: vllm/vllm-openai:cu130-nightly
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true
     ports:
@@ -111,6 +111,10 @@ spec:
     - name: NCCL_DEBUG
       value: "WARN"
     - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
+    - name: HF_HUB_OFFLINE
       value: "1"
     - name: LMCACHE_CONFIG_FILE
       value: "/etc/lmcache/config.yaml"

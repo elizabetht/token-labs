@@ -56,7 +56,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: sglang
-    image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
+    image: lmsysorg/sglang:spark
     imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true
@@ -74,7 +74,11 @@ spec:
         nvidia.com/gpu: "1"
     env:
     - name: HF_HOME
-      value: "/model-cache/huggingface"
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_HUB_OFFLINE
+      value: "1"
     - name: HF_TOKEN
       valueFrom:
         secretKeyRef:

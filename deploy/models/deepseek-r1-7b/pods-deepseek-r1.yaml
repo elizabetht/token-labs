@@ -89,6 +89,8 @@ spec:
       value: "1"
     - name: HF_HUB_DISABLE_XET
       value: "1"
+    - name: HF_HUB_OFFLINE
+      value: "1"
     - name: OTEL_EXPORTER_OTLP_ENDPOINT
       value: "http://tempo.monitoring:4317"
     - name: OTEL_SERVICE_NAME
