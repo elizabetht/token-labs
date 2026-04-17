@@ -22,7 +22,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: vllm
-    image: vllm/vllm-openai:v0.8.3
+    image: vllm/vllm-openai:cu130-nightly
     imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true
@@ -58,15 +58,25 @@ spec:
       mountPath: /model-cache
     - name: shm
       mountPath: /dev/shm
-    command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+    command: ["/bin/bash", "-c"]
     args:
-    - "--model=Qwen/Qwen2.5-7B-Instruct"
-    - "--port=8000"
-    - "--host=0.0.0.0"
-    - "--trust-remote-code"
-    - "--max-model-len=8192"
-    - "--gpu-memory-utilization=0.7"
-    - "--max-num-seqs=64"
+    - |
+      set -e
+      python3 -c "import os; os.makedirs('/tmp/stubs/nixl_ep', exist_ok=True); open('/tmp/stubs/nixl_ep/__init__.py','w').write('import types,sys\nclass _S(types.ModuleType):\n def __getattr__(self,n): return type(n,(object,),{})\n_m=_S(__name__); _m.__file__=__file__; _m.__spec__=None\nsys.modules[__name__]=_m\n'); print('nixl_ep stub created')"
+      export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
+      pip install pandas -q --no-deps 2>&1 | tail -1
+      echo "Starting Qwen3.5-27B-GPTQ-Int4 (RL demo)"
+      vllm serve Qwen/Qwen3.5-27B-GPTQ-Int4 \
+        --port 8000 \
+        --host 0.0.0.0 \
+        --trust-remote-code \
+        --max-model-len 16384 \
+        --gpu-memory-utilization 0.60 \
+        --enforce-eager \
+        --max-num-seqs 32 \
+        --quantization gptq_marlin \
+        --language-model-only \
+        --enable-prefix-caching
     startupProbe:
       httpGet:
         path: /health

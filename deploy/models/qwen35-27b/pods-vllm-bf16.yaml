@@ -70,6 +70,10 @@ spec:
       value: "http://tempo.monitoring:4317"
     - name: OTEL_SERVICE_NAME
       value: "qwen35-27b-vllm-bf16"
+    - name: VLLM_WORKER_MULTIPROC_METHOD
+      value: "spawn"
+    - name: VLLM_RPC_TIMEOUT
+      value: "1800000"
     - name: EXTRA_VLLM_ARGS
       value: ""
     volumeMounts:
@@ -77,10 +81,13 @@ spec:
       mountPath: /model-cache
     - name: shm
       mountPath: /dev/shm
+    - name: nsys
+      mountPath: /opt/nvidia/nsight-systems
     command: ["/bin/bash", "-c"]
     args:
     - |
       set -e
+      export PATH="/opt/nvidia/nsight-systems/2025.3.2/target-linux-sbsa-armv8:${PATH}"
       python3 -c "import os; os.makedirs('/tmp/stubs/nixl_ep', exist_ok=True); open('/tmp/stubs/nixl_ep/__init__.py','w').write('import types,sys\nclass _S(types.ModuleType):\n def __getattr__(self,n): return type(n,(object,),{})\n_m=_S(__name__); _m.__file__=__file__; _m.__spec__=None\nsys.modules[__name__]=_m\n'); print('nixl_ep stub created')"
       export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
       pip install pandas -q --no-deps 2>&1 | tail -1
@@ -92,7 +99,7 @@ spec:
         apt-get install -y --no-install-recommends nsight-systems-cli 2>/dev/null || true
       fi
       if command -v nsys >/dev/null 2>&1; then
-        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --duration=600 --output=${NSYS_OUT}"
+        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --stats=true --output=${NSYS_OUT}"
         echo "nsys enabled → ${NSYS_OUT}"
       else
         NSYS_PFX=""; echo "nsys not available, profiling disabled"
@@ -141,3 +148,7 @@ spec:
     emptyDir:
       medium: Memory
       sizeLimit: 16Gi
+  - name: nsys
+    hostPath:
+      path: /opt/nvidia/nsight-systems
+      type: Directory
