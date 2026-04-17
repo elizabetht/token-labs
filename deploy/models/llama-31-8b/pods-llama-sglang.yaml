@@ -121,7 +121,7 @@ spec:
         --enable-metrics
     startupProbe:
       httpGet:
-        path: /health
+        path: /health_generate
         port: 8000
       initialDelaySeconds: 60
       periodSeconds: 15
@@ -129,7 +129,7 @@ spec:
       timeoutSeconds: 10
     readinessProbe:
       httpGet:
-        path: /health
+        path: /health_generate
         port: 8000
       periodSeconds: 15
       failureThreshold: 3
