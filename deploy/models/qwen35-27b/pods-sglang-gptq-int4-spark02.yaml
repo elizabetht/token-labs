@@ -86,8 +86,12 @@ spec:
       # ── nsys profiling ───────────────────────────────────────────────────────
       mkdir -p /model-cache/profiles
       NSYS_OUT="/model-cache/profiles/$(hostname).nsys-rep"
-      NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --stats=true --output=${NSYS_OUT}"
-      echo "nsys enabled → ${NSYS_OUT}"
+      if command -v nsys >/dev/null 2>&1; then
+        NSYS_PFX="nsys profile --trace=cuda,nvtx,cudnn,cublas --sample=none --force-overwrite=true --stats=true --output=${NSYS_OUT}"
+        echo "nsys enabled → ${NSYS_OUT}"
+      else
+        NSYS_PFX=""; echo "nsys not available, profiling disabled"
+      fi
       # ─────────────────────────────────────────────────────────────────────────
       echo "Starting Qwen3.5-27B SGLang gptq-int4"
       ${NSYS_PFX} python3 -m sglang.launch_server \
