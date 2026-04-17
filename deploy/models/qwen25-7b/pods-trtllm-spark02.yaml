@@ -90,7 +90,10 @@ spec:
       echo "Starting TRT-LLM (pytorch backend), HF_HUB_CACHE=$HF_HUB_CACHE"
       mkdir -p /tmp/prometheus_multiproc
       printf 'return_perf_metrics: true\n' > /tmp/trtllm-extra.yaml
-      trtllm-serve Qwen/Qwen2.5-7B-Instruct \
+      SNAP=$(cat "$HF_HUB_CACHE/models--Qwen--Qwen2.5-7B-Instruct/refs/main")
+      MODEL_PATH="$HF_HUB_CACHE/models--Qwen--Qwen2.5-7B-Instruct/snapshots/$SNAP"
+      echo "Model path: $MODEL_PATH"
+      trtllm-serve "$MODEL_PATH" \
         --backend pytorch \
         --port 8000 \
         --host 0.0.0.0 \
