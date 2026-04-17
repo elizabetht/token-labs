@@ -26,6 +26,7 @@ metadata:
   namespace: token-labs
   labels:
     app: deepseek-r1-7b-vllm
+    token-labs/model: "true"
 spec:
   type: ClusterIP
   selector:

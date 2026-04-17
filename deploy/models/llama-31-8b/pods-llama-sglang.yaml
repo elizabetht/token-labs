@@ -26,6 +26,7 @@ metadata:
   namespace: token-labs
   labels:
     app: llama-31-8b-sglang
+    token-labs/model: "true"
 spec:
   type: ClusterIP
   selector:
@@ -116,7 +117,7 @@ spec:
         --tp 1 \
         --trust-remote-code \
         --context-length 32768 \
-        --mem-fraction-static 0.40 \
+        --mem-fraction-static 0.25 \
         --enable-metrics
     startupProbe:
       httpGet:
