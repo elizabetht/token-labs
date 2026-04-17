@@ -43,6 +43,8 @@ spec:
       value: "/model-cache"
     - name: HF_HUB_CACHE
       value: "/model-cache/hub"
+    - name: HF_HUB_OFFLINE
+      value: "1"
     - name: HF_TOKEN
       valueFrom:
         secretKeyRef:
