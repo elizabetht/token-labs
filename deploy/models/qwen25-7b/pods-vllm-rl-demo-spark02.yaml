@@ -1,0 +1,92 @@
+# Bare Pod — Qwen/Qwen2.5-7B-Instruct with vLLM for RL demo on spark-02
+# Lightweight: no nsys, no benchmarking overhead. For interactive learning only.
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qwen25-7b-vllm-rl-demo-spark02
+  namespace: token-labs
+  labels:
+    app: rl-demo
+    role: inference
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 60
+  runtimeClassName: nvidia
+  nodeSelector:
+    kubernetes.io/hostname: spark-02
+  tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  containers:
+  - name: vllm
+    image: vllm/vllm-openai:v0.8.3
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    ports:
+    - containerPort: 8000
+      name: http
+    resources:
+      requests:
+        cpu: "4"
+        memory: 16Gi
+        nvidia.com/gpu: "1"
+      limits:
+        cpu: "8"
+        memory: 64Gi
+        nvidia.com/gpu: "1"
+    env:
+    - name: HF_HOME
+      value: "/model-cache"
+    - name: HF_HUB_CACHE
+      value: "/model-cache/hub"
+    - name: HF_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: llm-d-hf-token
+          key: HF_TOKEN
+          optional: true
+    - name: HF_HUB_DISABLE_XET
+      value: "1"
+    - name: FLASHINFER_DISABLE_VERSION_CHECK
+      value: "1"
+    volumeMounts:
+    - name: model-cache
+      mountPath: /model-cache
+    - name: shm
+      mountPath: /dev/shm
+    command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+    args:
+    - "--model=Qwen/Qwen2.5-7B-Instruct"
+    - "--port=8000"
+    - "--host=0.0.0.0"
+    - "--trust-remote-code"
+    - "--max-model-len=8192"
+    - "--gpu-memory-utilization=0.7"
+    - "--max-num-seqs=64"
+    startupProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 120
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 10
+      failureThreshold: 3
+      timeoutSeconds: 5
+  volumes:
+  - name: model-cache
+    persistentVolumeClaim:
+      claimName: model-cache-qwen35-27b-spark-02
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 8Gi
