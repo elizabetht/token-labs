@@ -106,7 +106,7 @@ spec:
         --max_num_tokens 32768 \
         --free_gpu_memory_fraction 0.15 \
         --extra_llm_api_options /tmp/trtllm-extra.yaml \
-        --quant_config '{"quant_algo":"FP8","kv_cache_quant_algo":"FP8"}' \
+
         ${EXTRA_TRTLLM_ARGS:-}
     startupProbe:
       httpGet:
