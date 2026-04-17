@@ -94,6 +94,7 @@ spec:
       MODEL_PATH="$HF_HUB_CACHE/models--Qwen--Qwen2.5-7B-Instruct/snapshots/$SNAP"
       echo "Model path: $MODEL_PATH"
       trtllm-serve "$MODEL_PATH" \
+        --served_model_name Qwen/Qwen2.5-7B-Instruct \
         --backend pytorch \
         --port 8000 \
         --host 0.0.0.0 \
