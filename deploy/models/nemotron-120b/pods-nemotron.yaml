@@ -140,8 +140,11 @@ spec:
       export PYTHONPATH=/tmp/stubs:${PYTHONPATH:-}
       # cu130-nightly _aiter_ops.py (ROCm shim) unconditionally imports pandas which is absent
       pip install pandas -q --no-deps 2>&1 | tail -1
-      echo "Starting Nemotron-120B with vLLM cu130-nightly (Marlin backend for SM121)"
-      vllm serve nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 \
+      SNAP=$(cat "$HF_HUB_CACHE/models--nvidia--NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/refs/main")
+      MODEL_PATH="$HF_HUB_CACHE/models--nvidia--NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4/snapshots/$SNAP"
+      echo "Starting Nemotron-120B with vLLM cu130-nightly (Marlin backend for SM121, path: $MODEL_PATH)"
+      vllm serve "$MODEL_PATH" \
+        --served-model-name nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 \
         --port 8000 \
         --host 0.0.0.0 \
         --tensor-parallel-size 1 \

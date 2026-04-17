@@ -105,8 +105,11 @@ spec:
     args:
     - |
       set -e
-      echo "Starting DeepSeek-R1-Distill-Qwen-7B with standalone vLLM"
-      vllm serve deepseek-ai/DeepSeek-R1-Distill-Qwen-7B \
+      SNAP=$(cat "$HF_HUB_CACHE/models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B/refs/main")
+      MODEL_PATH="$HF_HUB_CACHE/models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B/snapshots/$SNAP"
+      echo "Starting DeepSeek-R1-Distill-Qwen-7B with standalone vLLM (path: $MODEL_PATH)"
+      vllm serve "$MODEL_PATH" \
+        --served-model-name deepseek-ai/DeepSeek-R1-Distill-Qwen-7B \
         --port 8000 \
         --host 0.0.0.0 \
         --tensor-parallel-size 1 \
