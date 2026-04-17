@@ -1,9 +1,7 @@
-# Bare Pod — Qwen/Qwen3.5-27B-GPTQ-Int4 with SGLang, GPTQ-Int4 (gptq, Triton path)
+# Bare Pod — Qwen/Qwen3.5-27B-GPTQ-Int4 with SGLang, GPTQ-Int4
 # Targets spark-02. Part of qwen35-27b framework/quant benchmark suite.
-# NOTE: gptq_marlin fails on SM 12.1 (no precompiled Marlin kernel for GB10).
-# gptq requires --dtype float16 which breaks Qwen3.5's Mamba causal_conv1d layers.
-# Using --quantization compressed-tensors: reads quant config from checkpoint,
-# SM-agnostic Triton path, compatible with bfloat16 (default).
+# Using lmsysorg/sglang:spark (DGX Spark SM121 experimental branch, PR #11299/#11606)
+# with gptq_marlin — this image may have SM121 Marlin kernels compiled.
 
 ---
 apiVersion: v1
@@ -27,7 +25,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: sglang
-    image: lmsysorg/sglang:nightly-dev-cu13-20260318-cb1e63ab
+    image: lmsysorg/sglang:spark
     imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true
@@ -101,7 +99,7 @@ spec:
         --mem-fraction-static 0.85 \
         --enable-metrics \
         --chunked-prefill-size 8192 \
-        --quantization compressed-tensors \
+        --quantization gptq_marlin \
         --attention-backend triton \
         ${EXTRA_SGLANG_ARGS:-}
     startupProbe:
