@@ -1,5 +1,7 @@
-# Bare Pod — Qwen/Qwen3.5-27B-GPTQ-Int4 with SGLang, GPTQ-Int4 (gptq_marlin)
+# Bare Pod — Qwen/Qwen3.5-27B-GPTQ-Int4 with SGLang, GPTQ-Int4 (gptq, Triton path)
 # Targets spark-02. Part of qwen35-27b framework/quant benchmark suite.
+# NOTE: gptq_marlin fails on SM 12.1 (no precompiled Marlin kernel for GB10).
+# Using --quantization gptq which routes through Triton JIT and is SM-agnostic.
 
 ---
 apiVersion: v1
@@ -97,7 +99,7 @@ spec:
         --mem-fraction-static 0.85 \
         --enable-metrics \
         --chunked-prefill-size 8192 \
-        --quantization gptq_marlin \
+        --quantization gptq \
         --attention-backend triton \
         ${EXTRA_SGLANG_ARGS:-}
     startupProbe:
