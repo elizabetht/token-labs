@@ -256,12 +256,12 @@ run_phase_a() {
 
     # spark-02: SGLang + TRT-LLM (background)
     (
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-bf16-spark02.yaml"      qwen35-27b-sglang-bf16-spark02-leader      sglang  sglang  "Qwen/Qwen3.5-27B"           bf16      baseline
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-fp8-spark02.yaml"       qwen35-27b-sglang-fp8-spark02-leader       sglang  sglang  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-gptq-int4-spark02.yaml" qwen35-27b-sglang-gptq-int4-spark02-leader sglang  sglang  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-bf16-spark02.yaml"      qwen35-27b-trtllm-bf16-spark02-leader      trtllm  trtllm  "Qwen/Qwen3.5-27B"           bf16      baseline
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-fp8-spark02.yaml"       qwen35-27b-trtllm-fp8-spark02-leader       trtllm  trtllm  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
-        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-gptq-int4-spark02.yaml" qwen35-27b-trtllm-gptq-int4-spark02-leader trtllm  trtllm  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-bf16-spark02.yaml"      qwen35-27b-sglang-bf16-spark02-leader      sglang  sglang  "Qwen/Qwen3.5-27B"           bf16      baseline || true
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-fp8-spark02.yaml"       qwen35-27b-sglang-fp8-spark02-leader       sglang  sglang  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline || true
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-sglang-gptq-int4-spark02.yaml" qwen35-27b-sglang-gptq-int4-spark02-leader sglang  sglang  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline || true
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-bf16-spark02.yaml"      qwen35-27b-trtllm-bf16-spark02-leader      trtllm  trtllm  "Qwen/Qwen3.5-27B"           bf16      baseline || true
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-fp8-spark02.yaml"       qwen35-27b-trtllm-fp8-spark02-leader       trtllm  trtllm  "Qwen/Qwen3.5-27B-FP8"       fp8       baseline || true
+        run_benchmark_spark02 "$DEPLOY_DIR/pods-trtllm-gptq-int4-spark02.yaml" qwen35-27b-trtllm-gptq-int4-spark02-leader trtllm  trtllm  "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline || true
     ) &
     SPARK02_PID=$!
 
@@ -270,9 +270,9 @@ run_phase_a() {
     run_benchmark "$DEPLOY_DIR/pods-vllm-fp8.yaml"       qwen35-27b-vllm-fp8-spark01-leader       vllm vllm "Qwen/Qwen3.5-27B-FP8"       fp8       baseline
     run_benchmark "$DEPLOY_DIR/pods-vllm-gptq-int4.yaml" qwen35-27b-vllm-gptq-int4-spark01-leader vllm vllm "Qwen/Qwen3.5-27B-GPTQ-Int4" gptq-int4 baseline
 
-    # Wait for spark-02 to finish
+    # Wait for spark-02 to finish (tolerate early exit from pod failures)
     log "Waiting for spark-02 benchmarks to complete..."
-    wait $SPARK02_PID
+    wait $SPARK02_PID || true
     log "Both nodes complete"
 
     restore_spark02_production
