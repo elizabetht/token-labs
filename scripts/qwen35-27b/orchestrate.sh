@@ -97,13 +97,15 @@ run_benchmark() {
 
     local output="$RESULTS_DIR/qwen35-27b-${framework}-${quant}-${technique}-${DATE}.json"
 
-    # Skip if already complete
-    if [[ -f "$output" ]]; then
+    # Skip if any date-variant of this run is already complete
+    local existing
+    existing=$(ls "$RESULTS_DIR"/qwen35-27b-${framework}-${quant}-${technique}-[0-9]*.json 2>/dev/null | head -1 || true)
+    if [[ -n "$existing" ]]; then
         local progress done total
         progress=$(python3 -c "
 import json, sys
 try:
-    d = json.load(open('$output'))
+    d = json.load(open('$existing'))
     print(d.get('progress', '0/0'))
 except Exception:
     print('0/0')
@@ -111,7 +113,7 @@ except Exception:
         done=$(echo "$progress" | cut -d/ -f1)
         total=$(echo "$progress" | cut -d/ -f2)
         if [[ "$done" == "$total" && "$total" != "0" ]]; then
-            log "SKIP: $output already complete ($progress)"
+            log "SKIP: $existing already complete ($progress)"
             return 0
         fi
     fi
@@ -182,13 +184,15 @@ run_benchmark_spark02() {
 
     local output="$RESULTS_DIR/qwen35-27b-${framework}-${quant}-${technique}-spark02-${DATE}.json"
 
-    # Skip if already complete
-    if [[ -f "$output" ]]; then
+    # Skip if any date-variant of this spark02 run is already complete
+    local existing
+    existing=$(ls "$RESULTS_DIR"/qwen35-27b-${framework}-${quant}-${technique}-spark02-[0-9]*.json 2>/dev/null | head -1 || true)
+    if [[ -n "$existing" ]]; then
         local progress done total
         progress=$(python3 -c "
 import json, sys
 try:
-    d = json.load(open('$output'))
+    d = json.load(open('$existing'))
     print(d.get('progress', '0/0'))
 except Exception:
     print('0/0')
@@ -196,7 +200,7 @@ except Exception:
         done=$(echo "$progress" | cut -d/ -f1)
         total=$(echo "$progress" | cut -d/ -f2)
         if [[ "$done" == "$total" && "$total" != "0" ]]; then
-            log "SKIP: $output already complete ($progress)"
+            log "SKIP: $existing already complete ($progress)"
             return 0
         fi
     fi

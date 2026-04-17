@@ -1721,7 +1721,9 @@ function buildIslOslDatasets(data, colors, activeCombo, yField, xMode, numGpus) 
       const yVal = yField === "throughput_per_gpu"
         ? l.throughput_tok_s / numGpus
         : l[yField];
-      return { x: xVal, y: yVal, concurrency: l.concurrency, throughput: l.throughput_tok_s };
+      return { x: xVal, y: yVal, concurrency: l.concurrency, throughput: l.throughput_tok_s,
+               throughput_per_gpu: l.throughput_tok_s / numGpus,
+               ttft_p50_ms: l.ttft_p50_ms, itl_p50_ms: l.itl_p50_ms };
     });
     return {
       label: key, data: pts,
@@ -1749,11 +1751,13 @@ function makeChartOptions(yField, yLabel, xMode, accentColor) {
       tooltip: {
         callbacks: {
           title: (items) => items[0].dataset.label,
-          label: (item) => [
-            ` c=${item.raw.concurrency}`,
-            ` Throughput: ${item.raw.throughput.toFixed(1)} tok/s`,
-            ` ${yLabel}: ${item.raw.y.toFixed(2)} ${yUnit}`,
-          ],
+          label: (item) => {
+            const r = item.raw;
+            const lines = [` c=${r.concurrency}`, ` Throughput/GPU: ${r.throughput_per_gpu.toFixed(1)} tok/s/GPU`];
+            if (r.ttft_p50_ms != null) lines.push(` TTFT p50: ${r.ttft_p50_ms.toFixed(0)} ms`);
+            if (r.itl_p50_ms  != null) lines.push(` ITL  p50: ${r.itl_p50_ms.toFixed(1)} ms`);
+            return lines;
+          },
         },
         backgroundColor: "#1a1a1a", borderColor: "#333", borderWidth: 1,
         titleColor: accentColor, bodyColor: "#999", padding: 10,
