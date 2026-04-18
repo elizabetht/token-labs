@@ -26,9 +26,16 @@ import requests
 # ── Constants ────────────────────────────────────────────────────────────────
 
 SPARK01_VLLM = "/home/nvidia/src/github.com/sara4dev/ai-dynamo-the-hard-way/.venv/bin/vllm"
+SPARK02_VLLM = "/home/nvidia/bench-venv/bin/vllm"
 SPARK01_HOST = "nvidia@192.168.1.76"
+SPARK02_HOST = "nvidia@192.168.1.77"
 PROM_URL     = "http://10.111.136.60:9090"
 NAMESPACE    = "token-labs"
+
+NODE_CONFIG = {
+    "spark-01": {"host": SPARK01_HOST, "vllm": SPARK01_VLLM, "prom_hostname": "spark-01", "hardware": "DGX Spark GB10 spark-01 (SM 12.1, 128GB)"},
+    "spark-02": {"host": SPARK02_HOST, "vllm": SPARK02_VLLM,  "prom_hostname": "spark-02", "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)"},
+}
 
 COMBOS = [
     (1024, 1024),   # balanced — general chat
@@ -37,7 +44,7 @@ COMBOS = [
 ]
 CONCURRENCY_LEVELS = [1, 8, 32]
 
-HARDWARE = "DGX Spark GB10 spark-01 (SM 12.1, 128GB)"
+HARDWARE = "DGX Spark GB10 spark-01 (SM 12.1, 128GB)"  # overridden by --node arg
 
 # Maps technique name → extra flags for each framework.
 # These are purely informational from the benchmark script's perspective —
@@ -74,15 +81,15 @@ TECHNIQUE_FLAGS = {
 
 # ── Prometheus / DCGM ────────────────────────────────────────────────────────
 
-def collect_dcgm(start_ts: float, end_ts: float) -> dict:
+def collect_dcgm(start_ts: float, end_ts: float, prom_hostname: str = "spark-01") -> dict:
     """Query Prometheus for DCGM metrics averaged over [start_ts, end_ts]."""
     metrics = {}
     queries = {
-        "gpu_util_avg_pct":  'avg_over_time(DCGM_FI_DEV_GPU_UTIL{Hostname="spark-01"}[__range__])',
-        "power_avg_w":       'avg_over_time(DCGM_FI_DEV_POWER_USAGE{Hostname="spark-01"}[__range__])',
-        "sm_clock_mhz":      'avg_over_time(DCGM_FI_DEV_SM_CLOCK{Hostname="spark-01"}[__range__])',
-        "mem_copy_util_pct": 'avg_over_time(DCGM_FI_DEV_MEM_COPY_UTIL{Hostname="spark-01"}[__range__])',
-        "energy_j":          'increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{Hostname="spark-01"}[__range__])',
+        "gpu_util_avg_pct":  f'avg_over_time(DCGM_FI_DEV_GPU_UTIL{{Hostname="{prom_hostname}"}}[__range__])',
+        "power_avg_w":       f'avg_over_time(DCGM_FI_DEV_POWER_USAGE{{Hostname="{prom_hostname}"}}[__range__])',
+        "sm_clock_mhz":      f'avg_over_time(DCGM_FI_DEV_SM_CLOCK{{Hostname="{prom_hostname}"}}[__range__])',
+        "mem_copy_util_pct": f'avg_over_time(DCGM_FI_DEV_MEM_COPY_UTIL{{Hostname="{prom_hostname}"}}[__range__])',
+        "energy_j":          f'increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION{{Hostname="{prom_hostname}"}}[__range__])',
     }
     duration = max(15, int(end_ts - start_ts))
     range_str = f"{duration}s"
@@ -109,7 +116,7 @@ def run_params(isl, osl, concurrency):
     est_req_s = max(0.1, isl / 4096.0) + osl * 0.25
     n = max(3, min(50, int(280 * concurrency / est_req_s)))
     total_est_s = math.ceil(n / concurrency) * est_req_s
-    timeout = max(300, int(total_est_s * 4 + 120))
+    timeout = max(300, int(total_est_s * 10 + 120))
     return n, timeout
 
 
@@ -137,42 +144,62 @@ def parse_output(text):
 
 # ── Warmup ───────────────────────────────────────────────────────────────────
 
-def warmup(pod, container, num_warmups, model):
+def _build_bench_cmd(framework, model, bench_url, isl, osl, num_prompts, concurrency, node_cfg, pod, container):
+    """Build the benchmark command list for the given framework."""
+    if framework == "sglang":
+        # Use kubectl exec into the sglang container — avoids needing a local vllm install
+        inner = (
+            f"HF_HUB_OFFLINE=0 python3 -m sglang.bench_serving "
+            f"--backend sglang-oai "
+            f"--base-url http://localhost:8000 "
+            f"--model '{model}' "
+            f"--dataset-name random "
+            f"--random-input-len {isl} "
+            f"--random-output-len {osl} "
+            f"--num-prompts {num_prompts} "
+            f"--max-concurrency {concurrency}"
+        )
+        return [
+            "kubectl", "exec", "-n", NAMESPACE, pod, "-c", container,
+            "--", "bash", "-c", inner,
+        ]
+    else:
+        # vllm / trtllm: SSH to node and use vllm bench serve
+        bench_cmd = (
+            f"FLASHINFER_DISABLE_VERSION_CHECK=1 {node_cfg['vllm']} bench serve "
+            f"--model '{model}' "
+            f"--base-url {bench_url} "
+            f"--dataset-name random "
+            f"--random-input-len {isl} "
+            f"--random-output-len {osl} "
+            f"--num-prompts {num_prompts} "
+            f"--max-concurrency {concurrency}"
+        )
+        return ["ssh", "-o", "StrictHostKeyChecking=no", node_cfg["host"], bench_cmd]
+
+
+def warmup(pod, container, num_warmups, model, node_cfg, framework="vllm"):
     """Send warmup requests to heat up the model before measurement."""
     pod_ip = get_pod_ip(pod)
     bench_url = f"http://{pod_ip}:8000" if pod_ip else "http://localhost:8000"
-    ssh_cmd = (
-        f"FLASHINFER_DISABLE_VERSION_CHECK=1 {SPARK01_VLLM} bench serve "
-        f"--model '{model}' --base-url {bench_url} "
-        f"--dataset-name random --random-input-len 128 --random-output-len 64 "
-        f"--num-prompts {num_warmups} --max-concurrency 1"
+    cmd = _build_bench_cmd(
+        framework, model, bench_url, 128, 64, num_warmups, 1, node_cfg, pod, container
     )
-    subprocess.run(
-        ["ssh", "-o", "StrictHostKeyChecking=no", SPARK01_HOST, ssh_cmd],
-        capture_output=True, text=True, timeout=300,
-    )
+    subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     print(f"  Warmup done ({num_warmups} requests)", flush=True)
 
 
 # ── Benchmark ────────────────────────────────────────────────────────────────
 
-def run_bench(pod, isl, osl, concurrency, framework, model):
+def run_bench(pod, isl, osl, concurrency, framework, model, node_cfg, container=""):
     np, to = run_params(isl, osl, concurrency)
 
     pod_ip = get_pod_ip(pod)
     bench_url = f"http://{pod_ip}:8000" if pod_ip else "http://localhost:8000"
 
-    bench_cmd = (
-        f"FLASHINFER_DISABLE_VERSION_CHECK=1 {SPARK01_VLLM} bench serve "
-        f"--model '{model}' "
-        f"--base-url {bench_url} "
-        f"--dataset-name random "
-        f"--random-input-len {isl} "
-        f"--random-output-len {osl} "
-        f"--num-prompts {np} "
-        f"--max-concurrency {concurrency}"
+    cmd = _build_bench_cmd(
+        framework, model, bench_url, isl, osl, np, concurrency, node_cfg, pod, container
     )
-    cmd = ["ssh", "-o", "StrictHostKeyChecking=no", SPARK01_HOST, bench_cmd]
 
     print(
         f"  → {framework} ISL{isl}/OSL{osl} c={concurrency} "
@@ -211,6 +238,8 @@ def main():
     parser.add_argument("--output",       help="Path to output JSON file")
     parser.add_argument("--num-warmups",  type=int, default=5,
                         help="Number of warmup requests before measurement (default: 5)")
+    parser.add_argument("--node", choices=["spark-01", "spark-02"], default="spark-01",
+                        help="Node running the inference pod (controls SSH target and DCGM labels)")
 
     args = parser.parse_args()
 
@@ -230,6 +259,7 @@ def main():
     if missing:
         parser.error(f"Missing required arguments: {', '.join('--' + m for m in missing)}")
 
+    node_cfg = NODE_CONFIG[args.node]
     output_path = args.output
 
     # ── Resume from partial results ──
@@ -246,7 +276,7 @@ def main():
     print(f"Starting at {done}/{total}", flush=True)
 
     # ── Warmup ──
-    warmup(args.pod, args.container, args.num_warmups, args.model)
+    warmup(args.pod, args.container, args.num_warmups, args.model, node_cfg, framework=args.framework)
 
     # ── Benchmark loop ──
     for isl, osl in COMBOS:
@@ -264,10 +294,11 @@ def main():
 
         for c in remaining:
             metrics, start_ts, end_ts = run_bench(
-                args.pod, isl, osl, c, args.framework, args.model
+                args.pod, isl, osl, c, args.framework, args.model, node_cfg,
+                container=args.container,
             )
             if metrics:
-                dcgm = collect_dcgm(start_ts, end_ts)
+                dcgm = collect_dcgm(start_ts, end_ts, node_cfg["prom_hostname"])
                 metrics["concurrency"] = c
                 metrics["dcgm"] = dcgm
                 levels.append(metrics)
@@ -288,7 +319,7 @@ def main():
                 "framework":     args.framework,
                 "quantization":  args.quantization,
                 "technique":     args.technique,
-                "hardware":      HARDWARE,
+                "hardware":      node_cfg["hardware"],
                 "timestamp":     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "progress":      f"{done}/{total}",
                 "combos":        results,
