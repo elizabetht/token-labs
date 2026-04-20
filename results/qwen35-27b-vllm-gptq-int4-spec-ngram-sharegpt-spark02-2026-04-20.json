@@ -1,0 +1,64 @@
+{
+  "model": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+  "framework": "vllm",
+  "quantization": "gptq-int4",
+  "technique": "spec-ngram",
+  "dataset": "sharegpt",
+  "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)",
+  "timestamp": "2026-04-20T22:05:54Z",
+  "progress": "3/3",
+  "combos": {
+    "sharegpt": {
+      "isl": 0,
+      "osl": 0,
+      "dataset": "sharegpt",
+      "levels": [
+        {
+          "throughput_tok_s": 8.21,
+          "ttft_p50_ms": 286.22,
+          "ttft_p99_ms": 894.03,
+          "itl_p50_ms": 120.67,
+          "itl_p99_ms": 123.3,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 43.32,
+            "sm_clock_mhz": 2448.79,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 45419872.36
+          }
+        },
+        {
+          "throughput_tok_s": 48.55,
+          "ttft_p50_ms": 647.55,
+          "ttft_p99_ms": 4420.85,
+          "itl_p50_ms": 129.51,
+          "itl_p99_ms": 398.76,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 80.0,
+            "power_avg_w": 41.58,
+            "sm_clock_mhz": 2449.33,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 7343215.05
+          }
+        },
+        {
+          "throughput_tok_s": 111.05,
+          "ttft_p50_ms": 1055.42,
+          "ttft_p99_ms": 6067.92,
+          "itl_p50_ms": 172.22,
+          "itl_p99_ms": 627.28,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 50.83,
+            "sm_clock_mhz": 2437.89,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 12716844.94
+          }
+        }
+      ]
+    }
+  }
+}

@@ -33,8 +33,8 @@ PROM_URL     = "http://10.111.136.60:9090"
 NAMESPACE    = "token-labs"
 
 NODE_CONFIG = {
-    "spark-01": {"host": SPARK01_HOST, "vllm": SPARK01_VLLM, "prom_hostname": "spark-01", "hardware": "DGX Spark GB10 spark-01 (SM 12.1, 128GB)"},
-    "spark-02": {"host": SPARK02_HOST, "vllm": SPARK02_VLLM,  "prom_hostname": "spark-02", "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)"},
+    "spark-01": {"host": SPARK01_HOST, "vllm": SPARK01_VLLM, "prom_hostname": "spark-01", "hardware": "DGX Spark GB10 spark-01 (SM 12.1, 128GB)", "ld_path": ""},
+    "spark-02": {"host": SPARK02_HOST, "vllm": SPARK02_VLLM,  "prom_hostname": "spark-02", "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)", "ld_path": "", "kubectl_bench": True},
 }
 
 COMBOS = [
@@ -60,6 +60,8 @@ TECHNIQUE_FLAGS = {
         "spec-mtp":       ["--speculative-config", '{"method":"deep_seek_mtp","num_speculative_tokens":3}'],
         "kv-fp8+lmcache": ["--kv-cache-dtype", "fp8", "--kv-offloading-backend", "lmcache", "--kv-offloading-size", "8"],
         "kv-fp8+spec":    ["--kv-cache-dtype", "fp8", "--speculative-config", '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4}'],
+        "multi-step":     ["--num-scheduler-steps", "8"],
+        "torch-compile":  ["--compilation-config", '{"level":3}'],
     },
     "sglang": {
         "baseline":         [],
@@ -144,34 +146,49 @@ def parse_output(text):
 
 # ── Warmup ───────────────────────────────────────────────────────────────────
 
-def _build_bench_cmd(framework, model, bench_url, isl, osl, num_prompts, concurrency, node_cfg, pod, container):
+def _build_bench_cmd(framework, model, bench_url, isl, osl, num_prompts, concurrency, node_cfg, pod, container, dataset="random"):
     """Build the benchmark command list for the given framework."""
-    if framework == "sglang":
-        # Use kubectl exec into the sglang container — avoids needing a local vllm install
-        inner = (
-            f"HF_HUB_OFFLINE=0 python3 -m sglang.bench_serving "
-            f"--backend sglang-oai "
-            f"--base-url http://localhost:8000 "
-            f"--model '{model}' "
-            f"--dataset-name random "
-            f"--random-input-len {isl} "
-            f"--random-output-len {osl} "
-            f"--num-prompts {num_prompts} "
-            f"--max-concurrency {concurrency}"
-        )
+    random_flags = f"--random-input-len {isl} --random-output-len {osl} " if dataset == "random" else ""
+    dataset_path_flag = "--dataset-path /model-cache/sharegpt.json " if dataset == "sharegpt" else ""
+
+    if framework == "sglang" or node_cfg.get("kubectl_bench"):
+        # Run bench inside the pod via kubectl exec — avoids host CUDA version dependency
+        if framework == "sglang":
+            inner = (
+                f"HF_HUB_OFFLINE=0 python3 -m sglang.bench_serving "
+                f"--backend sglang-oai "
+                f"--base-url http://localhost:8000 "
+                f"--model '{model}' "
+                f"--dataset-name {dataset} "
+                f"{dataset_path_flag}"
+                f"{random_flags}"
+                f"--num-prompts {num_prompts} "
+                f"--max-concurrency {concurrency}"
+            )
+        else:
+            inner = (
+                f"HF_HUB_OFFLINE=0 FLASHINFER_DISABLE_VERSION_CHECK=1 vllm bench serve "
+                f"--model '{model}' "
+                f"--base-url http://localhost:8000 "
+                f"--dataset-name {dataset} "
+                f"{dataset_path_flag}"
+                f"{random_flags}"
+                f"--num-prompts {num_prompts} "
+                f"--max-concurrency {concurrency}"
+            )
         return [
             "kubectl", "exec", "-n", NAMESPACE, pod, "-c", container,
             "--", "bash", "-c", inner,
         ]
     else:
         # vllm / trtllm: SSH to node and use vllm bench serve
+        ld_prefix = f"LD_LIBRARY_PATH={node_cfg['ld_path']}:${{LD_LIBRARY_PATH:-}} " if node_cfg.get("ld_path") else ""
         bench_cmd = (
-            f"FLASHINFER_DISABLE_VERSION_CHECK=1 {node_cfg['vllm']} bench serve "
+            f"{ld_prefix}HF_HUB_OFFLINE=0 FLASHINFER_DISABLE_VERSION_CHECK=1 {node_cfg['vllm']} bench serve "
             f"--model '{model}' "
             f"--base-url {bench_url} "
-            f"--dataset-name random "
-            f"--random-input-len {isl} "
-            f"--random-output-len {osl} "
+            f"--dataset-name {dataset} "
+            f"{random_flags}"
             f"--num-prompts {num_prompts} "
             f"--max-concurrency {concurrency}"
         )
@@ -191,14 +208,17 @@ def warmup(pod, container, num_warmups, model, node_cfg, framework="vllm"):
 
 # ── Benchmark ────────────────────────────────────────────────────────────────
 
-def run_bench(pod, isl, osl, concurrency, framework, model, node_cfg, container=""):
+def run_bench(pod, isl, osl, concurrency, framework, model, node_cfg, container="", dataset="random", num_prompts_override=None):
     np, to = run_params(isl, osl, concurrency)
+    if num_prompts_override is not None:
+        np = num_prompts_override
+        to = max(1200, to) if dataset == "sharegpt" else max(600, to)
 
     pod_ip = get_pod_ip(pod)
     bench_url = f"http://{pod_ip}:8000" if pod_ip else "http://localhost:8000"
 
     cmd = _build_bench_cmd(
-        framework, model, bench_url, isl, osl, np, concurrency, node_cfg, pod, container
+        framework, model, bench_url, isl, osl, np, concurrency, node_cfg, pod, container, dataset=dataset
     )
 
     print(
@@ -240,6 +260,8 @@ def main():
                         help="Number of warmup requests before measurement (default: 5)")
     parser.add_argument("--node", choices=["spark-01", "spark-02"], default="spark-01",
                         help="Node running the inference pod (controls SSH target and DCGM labels)")
+    parser.add_argument("--dataset", default="random", choices=["random", "sharegpt"],
+                        help="Benchmark dataset: random (synthetic) or sharegpt (real conversations)")
 
     args = parser.parse_args()
 
@@ -271,16 +293,17 @@ def main():
     except FileNotFoundError:
         results = {}
 
-    total = len(COMBOS) * len(CONCURRENCY_LEVELS)
+    active_combos = [(0, 0)] if args.dataset == "sharegpt" else COMBOS
+    total = len(active_combos) * len(CONCURRENCY_LEVELS)
     done  = sum(len(v.get("levels", [])) for v in results.values())
-    print(f"Starting at {done}/{total}", flush=True)
+    print(f"Starting at {done}/{total} (dataset={args.dataset})", flush=True)
 
     # ── Warmup ──
     warmup(args.pod, args.container, args.num_warmups, args.model, node_cfg, framework=args.framework)
 
     # ── Benchmark loop ──
-    for isl, osl in COMBOS:
-        key = f"ISL{isl}/OSL{osl}"
+    for isl, osl in active_combos:
+        key = "sharegpt" if args.dataset == "sharegpt" else f"ISL{isl}/OSL{osl}"
         existing_levels = results.get(key, {}).get("levels", [])
         completed_c = {lv["concurrency"] for lv in existing_levels}
         remaining = [c for c in CONCURRENCY_LEVELS if c not in completed_c]
@@ -293,9 +316,10 @@ def main():
         levels = list(existing_levels)
 
         for c in remaining:
+            np_override = max(40, c * 4) if args.dataset == "sharegpt" else None
             metrics, start_ts, end_ts = run_bench(
                 args.pod, isl, osl, c, args.framework, args.model, node_cfg,
-                container=args.container,
+                container=args.container, dataset=args.dataset, num_prompts_override=np_override,
             )
             if metrics:
                 dcgm = collect_dcgm(start_ts, end_ts, node_cfg["prom_hostname"])
@@ -312,13 +336,14 @@ def main():
                 )
 
             done += 1
-            results[key] = {"isl": isl, "osl": osl, "levels": levels}
+            results[key] = {"isl": isl, "osl": osl, "dataset": args.dataset, "levels": levels}
 
             payload = {
                 "model":         args.model,
                 "framework":     args.framework,
                 "quantization":  args.quantization,
                 "technique":     args.technique,
+                "dataset":       args.dataset,
                 "hardware":      node_cfg["hardware"],
                 "timestamp":     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "progress":      f"{done}/{total}",

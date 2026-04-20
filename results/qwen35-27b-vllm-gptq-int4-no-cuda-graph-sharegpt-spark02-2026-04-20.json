@@ -1,0 +1,34 @@
+{
+  "model": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+  "framework": "vllm",
+  "quantization": "gptq-int4",
+  "technique": "no-cuda-graph",
+  "dataset": "sharegpt",
+  "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)",
+  "timestamp": "2026-04-20T23:04:50Z",
+  "progress": "1/3",
+  "combos": {
+    "sharegpt": {
+      "isl": 0,
+      "osl": 0,
+      "dataset": "sharegpt",
+      "levels": [
+        {
+          "throughput_tok_s": 8.15,
+          "ttft_p50_ms": 291.48,
+          "ttft_p99_ms": 897.62,
+          "itl_p50_ms": 121.52,
+          "itl_p99_ms": 124.26,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 95.72,
+            "power_avg_w": 42.89,
+            "sm_clock_mhz": 2453.82,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 45555789.19
+          }
+        }
+      ]
+    }
+  }
+}

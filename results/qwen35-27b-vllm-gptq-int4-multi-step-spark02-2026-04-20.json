@@ -1,0 +1,164 @@
+{
+  "model": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+  "framework": "vllm",
+  "quantization": "gptq-int4",
+  "technique": "multi-step",
+  "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)",
+  "timestamp": "2026-04-20T14:29:03Z",
+  "progress": "9/9",
+  "combos": {
+    "ISL1024/OSL1024": {
+      "isl": 1024,
+      "osl": 1024,
+      "levels": [
+        {
+          "throughput_tok_s": 8.15,
+          "ttft_p50_ms": 1042.05,
+          "ttft_p99_ms": 1044.05,
+          "itl_p50_ms": 121.78,
+          "itl_p99_ms": 124.23,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 88.32,
+            "power_avg_w": 44.05,
+            "sm_clock_mhz": 2457.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 16089576.03
+          }
+        },
+        {
+          "throughput_tok_s": 57.1,
+          "ttft_p50_ms": 8001.37,
+          "ttft_p99_ms": 8002.26,
+          "itl_p50_ms": 132.32,
+          "itl_p99_ms": 135.79,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 40.95,
+            "sm_clock_mhz": 2449.2,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 6792343.91
+          }
+        },
+        {
+          "throughput_tok_s": 102.48,
+          "ttft_p50_ms": 18776.64,
+          "ttft_p99_ms": 24704.76,
+          "itl_p50_ms": 182.75,
+          "itl_p99_ms": 191.29,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 47.71,
+            "sm_clock_mhz": 2439.7,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 16310909.07
+          }
+        }
+      ]
+    },
+    "ISL4096/OSL1024": {
+      "isl": 4096,
+      "osl": 1024,
+      "levels": [
+        {
+          "throughput_tok_s": 7.95,
+          "ttft_p50_ms": 3135.13,
+          "ttft_p99_ms": 3135.51,
+          "itl_p50_ms": 122.71,
+          "itl_p99_ms": 125.27,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 40.27,
+            "sm_clock_mhz": 2453.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 16090988.78
+          }
+        },
+        {
+          "throughput_tok_s": 51.83,
+          "ttft_p50_ms": 14815.12,
+          "ttft_p99_ms": 15727.75,
+          "itl_p50_ms": 139.08,
+          "itl_p99_ms": 142.63,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 41.22,
+            "sm_clock_mhz": 2457.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 7213349.16
+          }
+        },
+        {
+          "throughput_tok_s": 82.05,
+          "ttft_p50_ms": 39344.13,
+          "ttft_p99_ms": 75952.54,
+          "itl_p50_ms": 210.09,
+          "itl_p99_ms": 597.2,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 52.4,
+            "sm_clock_mhz": 2436.59,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 22151811.31
+          }
+        }
+      ]
+    },
+    "ISL1024/OSL4096": {
+      "isl": 1024,
+      "osl": 4096,
+      "levels": [
+        {
+          "throughput_tok_s": 8.17,
+          "ttft_p50_ms": 298.54,
+          "ttft_p99_ms": 301.86,
+          "itl_p50_ms": 122.24,
+          "itl_p99_ms": 124.9,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 94.08,
+            "power_avg_w": 42.08,
+            "sm_clock_mhz": 2456.08,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 62760385.74
+          }
+        },
+        {
+          "throughput_tok_s": 23.78,
+          "ttft_p50_ms": 824.68,
+          "ttft_p99_ms": 825.03,
+          "itl_p50_ms": 125.91,
+          "itl_p99_ms": 129.29,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 39.01,
+            "sm_clock_mhz": 2457.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 20147414.61
+          }
+        },
+        {
+          "throughput_tok_s": 58.76,
+          "ttft_p50_ms": 1928.42,
+          "ttft_p99_ms": 1928.8,
+          "itl_p50_ms": 135.71,
+          "itl_p99_ms": 141.27,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 40.13,
+            "sm_clock_mhz": 2457.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 22481954.51
+          }
+        }
+      ]
+    }
+  }
+}

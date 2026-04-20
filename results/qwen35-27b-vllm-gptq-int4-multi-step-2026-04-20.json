@@ -1,0 +1,88 @@
+{
+  "model": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+  "framework": "vllm",
+  "quantization": "gptq-int4",
+  "technique": "multi-step",
+  "hardware": "DGX Spark GB10 spark-01 (SM 12.1, 128GB)",
+  "timestamp": "2026-04-20T05:11:04Z",
+  "progress": "9/9",
+  "combos": {
+    "ISL1024/OSL1024": {
+      "isl": 1024,
+      "osl": 1024,
+      "levels": [
+        {
+          "throughput_tok_s": 8.29,
+          "ttft_p50_ms": 1028.38,
+          "ttft_p99_ms": 1028.91,
+          "itl_p50_ms": 119.84,
+          "itl_p99_ms": 122.54,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 44.48,
+            "sm_clock_mhz": 2539.42,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 21144260.07
+          }
+        },
+        {
+          "throughput_tok_s": 59.06,
+          "ttft_p50_ms": 5624.58,
+          "ttft_p99_ms": 5912.43,
+          "itl_p50_ms": 129.71,
+          "itl_p99_ms": 132.77,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 41.54,
+            "sm_clock_mhz": 2541.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 11857898.71
+          }
+        },
+        {
+          "throughput_tok_s": 104.43,
+          "ttft_p50_ms": 18572.09,
+          "ttft_p99_ms": 24558.89,
+          "itl_p50_ms": 179.46,
+          "itl_p99_ms": 187.8,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 45.8,
+            "sm_clock_mhz": 2536.42,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 20949742.97
+          }
+        }
+      ]
+    },
+    "ISL4096/OSL1024": {
+      "isl": 4096,
+      "osl": 1024,
+      "levels": [
+        {
+          "throughput_tok_s": 8.05,
+          "ttft_p50_ms": 1690.99,
+          "ttft_p99_ms": 3075.09,
+          "itl_p50_ms": 120.59,
+          "itl_p99_ms": 123.93,
+          "concurrency": 1,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 42.51,
+            "sm_clock_mhz": 2541.0,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 15947747.75
+          }
+        }
+      ]
+    },
+    "ISL1024/OSL4096": {
+      "isl": 1024,
+      "osl": 4096,
+      "levels": []
+    }
+  }
+}

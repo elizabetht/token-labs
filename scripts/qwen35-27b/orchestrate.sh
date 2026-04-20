@@ -24,6 +24,7 @@ PHASE=${PHASE:-A}
 BEST_FRAMEWORK=${BEST_FRAMEWORK:-vllm}
 BEST_QUANT=${BEST_QUANT:-fp8}
 BEST_MODEL=${BEST_MODEL:-Qwen/Qwen3.5-27B-FP8}
+BEST_NODE=${BEST_NODE:-spark-01}   # spark-01 or spark-02
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
@@ -161,6 +162,7 @@ except Exception:
         --technique   "$technique" \
         --pod         "$pod" \
         --container   "$container" \
+        --node        spark-01 \
         --output      "$output" \
         --num-warmups 10
 
@@ -245,6 +247,7 @@ except Exception:
         --technique   "$technique" \
         --pod         "$pod" \
         --container   "$container" \
+        --node        spark-02 \
         --output      "$output" \
         --num-warmups 10
 
@@ -284,22 +287,26 @@ run_phase_a() {
 
 # ── Phase B: Technique Sweep on best Phase A winner ──────────────────────────
 run_phase_b() {
-    log "=== PHASE B: Technique Sweep on best=$BEST_FRAMEWORK/$BEST_QUANT ==="
-    local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
-    local node_suffix; [[ "$BEST_FRAMEWORK" == "vllm" ]] && node_suffix="spark01" || node_suffix="spark02"
+    log "=== PHASE B: Technique Sweep on best=$BEST_FRAMEWORK/$BEST_QUANT node=$BEST_NODE ==="
+    local node_suffix; [[ "$BEST_NODE" == "spark-02" ]] && node_suffix="spark02" || node_suffix="spark01"
+    local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}.yaml"
+    # Fall back to non-node-suffix manifest if node-specific one doesn't exist
+    [[ -f "$manifest" ]] || manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
     local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}"
 
     local techniques
     if [[ "$BEST_FRAMEWORK" == "vllm" ]]; then
-        techniques="no-cuda-graph kv-fp8 lmcache-8g lmcache-20g spec-ngram spec-mtp"
+        techniques="no-cuda-graph kv-fp8 lmcache-8g lmcache-20g spec-ngram spec-mtp multi-step torch-compile"
     elif [[ "$BEST_FRAMEWORK" == "sglang" ]]; then
         techniques="no-cuda-graph kv-fp8 spec-ngram spec-mtp overlap-schedule"
     else
         techniques="kv-fp8"
     fi
 
+    local runner; [[ "$node_suffix" == "spark02" ]] && runner="run_benchmark_spark02" || runner="run_benchmark"
+
     for technique in $techniques; do
-        run_benchmark \
+        $runner \
             "$manifest" \
             "${pod_base}-leader" \
             "$BEST_FRAMEWORK" \
@@ -312,18 +319,83 @@ run_phase_b() {
 
 # ── Phase C: Best Combination ────────────────────────────────────────────────
 run_phase_c() {
-    log "=== PHASE C: Best Combination ==="
-    local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
-    local node_suffix; [[ "$BEST_FRAMEWORK" == "vllm" ]] && node_suffix="spark01" || node_suffix="spark02"
+    log "=== PHASE C: Best Combination node=$BEST_NODE ==="
+    local node_suffix; [[ "$BEST_NODE" == "spark-02" ]] && node_suffix="spark02" || node_suffix="spark01"
+    local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}.yaml"
+    [[ -f "$manifest" ]] || manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
     local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}"
+    local runner; [[ "$node_suffix" == "spark02" ]] && runner="run_benchmark_spark02" || runner="run_benchmark"
 
     if [[ "$BEST_FRAMEWORK" == "vllm" ]]; then
-        run_benchmark "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+lmcache"
-        run_benchmark "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+spec"
+        $runner "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+lmcache"
+        $runner "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+spec"
     elif [[ "$BEST_FRAMEWORK" == "sglang" ]]; then
-        run_benchmark "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+overlap"
-        run_benchmark "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+spec"
+        $runner "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+overlap"
+        $runner "$manifest" "${pod_base}-leader" "$BEST_FRAMEWORK" "$BEST_FRAMEWORK" "$BEST_MODEL" "$BEST_QUANT" "kv-fp8+spec"
     fi
+}
+
+# ── Phase D: ShareGPT real-workload sweep ────────────────────────────────────
+run_phase_d() {
+    log "=== PHASE D: ShareGPT sweep on best=$BEST_FRAMEWORK/$BEST_QUANT node=$BEST_NODE ==="
+    local node_suffix; [[ "$BEST_NODE" == "spark-02" ]] && node_suffix="spark02" || node_suffix="spark01"
+    local manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}.yaml"
+    [[ -f "$manifest" ]] || manifest="$DEPLOY_DIR/pods-${BEST_FRAMEWORK}-${BEST_QUANT}.yaml"
+    local pod_base="qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${node_suffix}"
+    local runner; [[ "$node_suffix" == "spark02" ]] && runner="run_benchmark_spark02" || runner="run_benchmark"
+
+    local techniques="baseline kv-fp8 spec-ngram spec-mtp no-cuda-graph"
+    for technique in $techniques; do
+        local output="$RESULTS_DIR/qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${technique}-sharegpt-${node_suffix}-${DATE}.json"
+        local existing
+        existing=$(ls "$RESULTS_DIR"/qwen35-27b-${BEST_FRAMEWORK}-${BEST_QUANT}-${technique}-sharegpt-${node_suffix}-[0-9]*.json 2>/dev/null | head -1 || true)
+        if [[ -n "$existing" ]]; then
+            local done total progress
+            progress=$(python3 -c "import json,sys; d=json.load(open('$existing')); print(d.get('progress','0/0'))" 2>/dev/null || echo "0/0")
+            done=$(echo "$progress" | cut -d/ -f1); total=$(echo "$progress" | cut -d/ -f2)
+            if [[ "$done" == "$total" && "$total" != "0" ]]; then
+                log "SKIP: $existing already complete ($progress)"; continue
+            fi
+        fi
+
+        log "=== START (sharegpt): technique=$technique ==="
+        teardown_pod "${pod_base}-leader" || true
+
+        local extra_args=""
+        local fw_upper; fw_upper=$(echo "$BEST_FRAMEWORK" | tr '[:lower:]' '[:upper:]')
+        if [[ "$technique" != "baseline" ]]; then
+            extra_args=$(python3 "$SCRIPTS_DIR/bench.py" \
+                --print-technique-flags "$BEST_FRAMEWORK" "$technique" 2>/dev/null \
+                | python3 -c "import json,sys; flags=json.load(sys.stdin); print(' '.join(flags))" || echo "")
+        fi
+
+        if [[ -n "$extra_args" ]]; then
+            local tmp; tmp=$(mktemp --suffix=.yaml)
+            sed "s|\(EXTRA_${fw_upper}_ARGS.*value:\s*\)\"\"|\1\"${extra_args}\"|g" "$manifest" > "$tmp"
+            kubectl apply -f "$tmp" -n "$NAMESPACE"; rm -f "$tmp"
+        else
+            kubectl apply -f "$manifest" -n "$NAMESPACE"
+        fi
+
+        if ! wait_pod_ready "${pod_base}-leader" "$BEST_FRAMEWORK" 1800; then
+            log "ERROR: ${pod_base}-leader not ready, skipping"; teardown_pod "${pod_base}-leader"; continue
+        fi
+
+        python3 "$SCRIPTS_DIR/bench.py" \
+            --framework    "$BEST_FRAMEWORK" \
+            --model        "$BEST_MODEL" \
+            --quantization "$BEST_QUANT" \
+            --technique    "$technique" \
+            --dataset      sharegpt \
+            --pod          "${pod_base}-leader" \
+            --container    "$BEST_FRAMEWORK" \
+            --node         "$BEST_NODE" \
+            --output       "$output" \
+            --num-warmups  5
+
+        teardown_pod "${pod_base}-leader"
+        log "=== DONE (sharegpt): $output ==="
+    done
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -337,8 +409,9 @@ main() {
         A)   run_phase_a ;;
         B)   run_phase_b ;;
         C)   run_phase_c ;;
-        ALL) run_phase_a; run_phase_b; run_phase_c ;;
-        *)   echo "Usage: PHASE={A|B|C|ALL} $0"; exit 1 ;;
+        D)   run_phase_d ;;
+        ALL) run_phase_a; run_phase_b; run_phase_c; run_phase_d ;;
+        *)   echo "Usage: PHASE={A|B|C|D|ALL} $0"; exit 1 ;;
     esac
 
     log "All done. Run: python3 $SCRIPTS_DIR/aggregate.py"
