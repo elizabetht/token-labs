@@ -1,75 +1,100 @@
 """
-Model Aggregator — dynamically discovers inference backends via k8s service labels.
-Any Service in the token-labs namespace with label `token-labs/model: "true"` is
-automatically included. No config change needed when adding or removing models.
+Model Aggregator — returns a fixed list of models available through the token-labs gateway.
+Hardcoded to show qwen35-27b and nemotron-120b; no outbound calls needed since gateway
+returns empty data while backends initialize.
 """
-import asyncio
 import time
+import asyncio
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from kubernetes import client, config
 
 app = FastAPI()
 
-NAMESPACE = "token-labs"
-LABEL_SELECTOR = "token-labs/model=true"
-DISCOVERY_TTL = 30  # seconds between k8s service list refreshes
+# Envoy gateway service URL (within cluster)
+GATEWAY_URL = "http://envoy-token-labs-token-labs-gateway-bd0838a6.envoy-gateway-system.svc.cluster.local"
+GATEWAY_HOST = "api.tokenlabs.run"
 
-_backends_cache: list = []
-_backends_ts: float = 0.0
+# Known models with their gateway routing headers
+STATIC_MODELS = [
+    {
+        "id": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+        "object": "model",
+        "owned_by": "token-labs",
+        "routing_header": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+    },
+    {
+        "id": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+        "object": "model",
+        "owned_by": "token-labs",
+        "routing_header": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",
+    },
+]
+
+# Cache live model data with a 30s TTL to avoid hammering backends
+_cache: list = []
+_cache_ts: float = 0.0
+CACHE_TTL = 30.0
+_http_client: httpx.AsyncClient | None = None
 
 
-def discover_backends() -> list[tuple[str, str]]:
-    """List services labelled token-labs/model=true and return (name, base_url) pairs."""
-    global _backends_cache, _backends_ts
-    now = time.monotonic()
-    if now - _backends_ts < DISCOVERY_TTL and _backends_cache:
-        return _backends_cache
+@app.on_event("startup")
+async def startup():
+    global _http_client
+    _http_client = httpx.AsyncClient(timeout=5.0)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    global _http_client
+    if _http_client:
+        await _http_client.aclose()
+
+
+async def fetch_live_model(routing_header: str) -> dict | None:
+    """Try to get live model data from the gateway; return None on failure."""
     try:
-        config.load_incluster_config()
-    except config.ConfigException:
-        config.load_kube_config()
-    v1 = client.CoreV1Api()
-    svcs = v1.list_namespaced_service(namespace=NAMESPACE, label_selector=LABEL_SELECTOR)
-    backends = [
-        (
-            svc.metadata.name,
-            f"http://{svc.metadata.name}.{NAMESPACE}.svc.cluster.local:{svc.spec.ports[0].port}",
+        r = await _http_client.get(
+            f"{GATEWAY_URL}/v1/models",
+            headers={"Host": GATEWAY_HOST, "x-ai-eg-model": routing_header},
         )
-        for svc in svcs.items
-    ]
-    _backends_cache = backends
-    _backends_ts = now
-    return backends
-
-
-async def fetch_models(http_client: httpx.AsyncClient, name: str, base_url: str) -> list:
-    try:
-        r = await http_client.get(f"{base_url}/v1/models", timeout=3.0)
         if r.status_code == 200:
-            return r.json().get("data", [])
+            data = r.json().get("data", [])
+            if data:
+                return data[0]
     except Exception:
         pass
-    return []
+    return None
+
+
+async def get_models() -> list:
+    global _cache, _cache_ts
+    now = time.monotonic()
+    if now - _cache_ts < CACHE_TTL and _cache:
+        return _cache
+
+    results = await asyncio.gather(*[
+        fetch_live_model(m["routing_header"]) for m in STATIC_MODELS
+    ])
+
+    models = []
+    for i, live in enumerate(results):
+        if live:
+            models.append(live)
+        else:
+            # Fall back to static entry (strip routing_header key)
+            m = STATIC_MODELS[i]
+            models.append({"id": m["id"], "object": m["object"], "owned_by": m["owned_by"]})
+
+    _cache = models
+    _cache_ts = now
+    return models
 
 
 @app.get("/v1/models")
 async def list_models():
-    backends = discover_backends()
-    async with httpx.AsyncClient() as http_client:
-        results = await asyncio.gather(*[
-            fetch_models(http_client, name, url) for name, url in backends
-        ])
-    models = []
-    seen: set[str] = set()
-    for backend_models in results:
-        for m in backend_models:
-            mid = m.get("id", "")
-            if mid and mid not in seen:
-                seen.add(mid)
-                models.append(m)
-    return JSONResponse({"object": "list", "data": models})
+    data = await get_models()
+    return JSONResponse({"object": "list", "data": data})
 
 
 @app.get("/health")
