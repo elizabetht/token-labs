@@ -82,3 +82,18 @@ Full Phase B (framework + quantization sweep), Phase C (combo techniques: kv-fp8
 ---
 
 The answer to "which vllm optimization should I use on a single DGX Spark GB10?" is: spec-ngram for a free +1.6%, everything else is noise. The real lever is concurrency — get to c=32 before tuning anything else.
+
+---
+
+**Phase E (planned): speculative decoding at low concurrency**
+
+All Phase D spec decoding runs were at c=1/8/32 against a compute-saturated system. The untested regime is c=1–4 where the GB10 is memory-bandwidth-bound and speculative decoding has real upside. Planned techniques:
+
+| Variant | Draft source | Expected gain regime |
+|---|---|---|
+| spec-draft (small model) | Qwen2.5-1.5B or 3B | c=1–4, latency-focused |
+| Eagle | Lightweight head trained on Qwen3.5-27B activations | c=1–8 |
+| Medusa | Multi-head parallel drafts, no separate model | c=1–4 |
+| spec-ngram (baseline) | n-gram prompt lookup | all concurrencies (already done) |
+
+Hypothesis: at c=1 on ShareGPT, a draft model (1.5B–3B) could push TTFT below 150ms and decode latency toward 2–3x speedup. Eagle and Medusa avoid the memory overhead of a second model but require fine-tuning heads on the target model. Worth quantifying before concluding spec decoding is ineffective on GB10.

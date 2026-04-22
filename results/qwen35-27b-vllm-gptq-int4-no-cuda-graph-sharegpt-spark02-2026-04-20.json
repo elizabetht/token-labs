@@ -5,8 +5,8 @@
   "technique": "no-cuda-graph",
   "dataset": "sharegpt",
   "hardware": "DGX Spark GB10 spark-02 (SM 12.1, 128GB)",
-  "timestamp": "2026-04-20T23:04:50Z",
-  "progress": "1/3",
+  "timestamp": "2026-04-20T23:12:34Z",
+  "progress": "3/3",
   "combos": {
     "sharegpt": {
       "isl": 0,
@@ -26,6 +26,36 @@
             "sm_clock_mhz": 2453.82,
             "mem_copy_util_pct": 0.0,
             "energy_j": 45555789.19
+          }
+        },
+        {
+          "throughput_tok_s": 47.16,
+          "ttft_p50_ms": 654.01,
+          "ttft_p99_ms": 4383.02,
+          "itl_p50_ms": 130.08,
+          "itl_p99_ms": 400.83,
+          "concurrency": 8,
+          "dcgm": {
+            "gpu_util_avg_pct": 81.23,
+            "power_avg_w": 40.6,
+            "sm_clock_mhz": 2449.92,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 8228073.75
+          }
+        },
+        {
+          "throughput_tok_s": 109.17,
+          "ttft_p50_ms": 1055.9,
+          "ttft_p99_ms": 5976.72,
+          "itl_p50_ms": 173.76,
+          "itl_p99_ms": 638.27,
+          "concurrency": 32,
+          "dcgm": {
+            "gpu_util_avg_pct": 96.0,
+            "power_avg_w": 50.94,
+            "sm_clock_mhz": 2436.67,
+            "mem_copy_util_pct": 0.0,
+            "energy_j": 14211436.74
           }
         }
       ]

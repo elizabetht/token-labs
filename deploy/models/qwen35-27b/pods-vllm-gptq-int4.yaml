@@ -73,7 +73,7 @@ spec:
     - name: OTEL_SERVICE_NAME
       value: "qwen35-27b-vllm-gptq-int4"
     - name: EXTRA_VLLM_ARGS
-      value: ""
+      value: "--speculative-config '{\"method\":\"ngram\",\"num_speculative_tokens\":5,\"prompt_lookup_max\":4}'"
     volumeMounts:
     - name: model-cache
       mountPath: /model-cache
