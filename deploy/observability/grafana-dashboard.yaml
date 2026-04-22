@@ -229,19 +229,19 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.50, rate(vllm:time_per_output_token_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
+              "expr": "histogram_quantile(0.50, rate(vllm:inter_token_latency_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
               "legendFormat": "{{job}} {{instance}} p50 ITL",
               "refId": "A"
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.95, rate(vllm:time_per_output_token_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
+              "expr": "histogram_quantile(0.95, rate(vllm:inter_token_latency_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
               "legendFormat": "{{job}} {{instance}} p95 ITL",
               "refId": "B"
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.99, rate(vllm:time_per_output_token_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
+              "expr": "histogram_quantile(0.99, rate(vllm:inter_token_latency_seconds_bucket{job=~\"$job\", instance=~\"$instance\"}[1m]))",
               "legendFormat": "{{job}} {{instance}} p99 ITL",
               "refId": "C"
             }
