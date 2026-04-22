@@ -284,14 +284,14 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "vllm:gpu_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"}",
+              "expr": "vllm:kv_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"}",
               "legendFormat": "{{job}} {{instance}} KV cache %",
               "refId": "A"
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "vllm:cpu_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"}",
-              "legendFormat": "{{job}} {{instance}} CPU cache %",
+              "expr": "sglang_cache_hit_rate{job=~\"$job\", instance=~\"$instance\"}",
+              "legendFormat": "{{job}} {{instance}} SGLang cache hit rate",
               "refId": "B"
             }
           ],
@@ -324,7 +324,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "vllm:gpu_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"} * on(instance) group_left() (container_memory_usage_bytes{namespace=\"token-labs\"} > 0)",
+              "expr": "vllm:kv_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"} * on(instance) group_left() (container_memory_usage_bytes{namespace=\"token-labs\"} > 0)",
               "legendFormat": "{{job}} {{instance}} GPU mem (proxy)",
               "refId": "A"
             }
