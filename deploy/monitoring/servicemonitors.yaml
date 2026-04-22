@@ -1,26 +1,6 @@
 # ServiceMonitors for token-labs inference backends
 # Label release: kube-prometheus-stack required for discovery by the Prometheus instance.
-# vLLM exposes /metrics natively. SGLang requires --enable-metrics flag (added to pod spec).
-# TRT-LLM /metrics returns []; availability tracked via kube_pod_status_ready only.
-
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: deepseek-r1-7b-vllm
-  namespace: token-labs
-  labels:
-    app: deepseek-r1-7b-vllm
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      app: deepseek-r1-7b-vllm
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
+# vLLM exposes /metrics natively.
 
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -35,49 +15,6 @@ spec:
   selector:
     matchLabels:
       app: nemotron-120b-vllm
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
-
----
----
-# TRT-LLM metrics at /prometheus/metrics (requires --return_perf_metrics flag and PROMETHEUS_MULTIPROC_DIR env).
-# /metrics returns [] (iteration stats JSON, not Prometheus). Actual endpoint is /prometheus/metrics.
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: qwen25-7b-trtllm-spark02
-  namespace: token-labs
-  labels:
-    app: qwen25-7b-trtllm-spark02
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      app: qwen25-7b-trtllm-spark02
-  endpoints:
-  - port: http
-    path: /prometheus/metrics
-    interval: 15s
-    scrapeTimeout: 10s
-
----
-# SGLang metrics enabled via --enable-metrics flag in pod spec.
-# Exposes sglang:* metrics at /metrics on port 8000.
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: llama-31-8b-sglang
-  namespace: token-labs
-  labels:
-    app: llama-31-8b-sglang
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      app: llama-31-8b-sglang
   endpoints:
   - port: http
     path: /metrics
@@ -102,49 +39,5 @@ spec:
   endpoints:
   - port: http
     path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
-
----
-# Qwen3.5-27B SGLang ServiceMonitor
-# Requires --enable-metrics flag in pod spec.
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: qwen35-27b-sglang
-  namespace: monitoring
-  labels:
-    release: kube-prometheus-stack
-spec:
-  namespaceSelector:
-    matchNames: [token-labs]
-  selector:
-    matchLabels:
-      app: qwen35-27b-sglang
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
-
----
-# Qwen3.5-27B TRT-LLM ServiceMonitor
-# TRT-LLM metrics at /prometheus/metrics (requires --return_perf_metrics and PROMETHEUS_MULTIPROC_DIR env).
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: qwen35-27b-trtllm
-  namespace: monitoring
-  labels:
-    release: kube-prometheus-stack
-spec:
-  namespaceSelector:
-    matchNames: [token-labs]
-  selector:
-    matchLabels:
-      app: qwen35-27b-trtllm
-  endpoints:
-  - port: http
-    path: /prometheus/metrics
     interval: 15s
     scrapeTimeout: 10s

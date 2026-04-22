@@ -1,0 +1,23 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: cors-policy
+  namespace: token-labs
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+  cors:
+    allowOrigins:
+    - "https://www.tokenlabs.run"
+    - "https://tokenlabs.run"
+    allowMethods:
+    - GET
+    - POST
+    - OPTIONS
+    allowHeaders:
+    - Content-Type
+    - Authorization
+    - x-api-key
+    maxAge: 86400s
