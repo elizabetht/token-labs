@@ -30,14 +30,6 @@ decode:
     tensor: 1
   create: true
   replicas: 1
-  startupProbe:
-    httpGet:
-      path: /health
-      port: 8000
-    initialDelaySeconds: 180
-    periodSeconds: 20
-    failureThreshold: 180
-    timeoutSeconds: 10
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -55,6 +47,22 @@ decode:
       image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
       imagePullPolicy: IfNotPresent
       modelCommand: vllmServe
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 180
+        periodSeconds: 20
+        failureThreshold: 180
+        timeoutSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        failureThreshold: 3
+        timeoutSeconds: 10
       args:
         - --max-model-len
         - "16384"
