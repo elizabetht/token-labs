@@ -324,7 +324,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "vllm:kv_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"} * on(instance) group_left() (container_memory_usage_bytes{namespace=\"token-labs\"} > 0)",
+              "expr": "vllm:kv_cache_usage_perc{job=~\"$job\", instance=~\"$instance\"}",
               "legendFormat": "{{job}} {{instance}} GPU mem (proxy)",
               "refId": "A"
             }
