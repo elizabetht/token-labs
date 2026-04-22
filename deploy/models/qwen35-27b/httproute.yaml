@@ -11,14 +11,15 @@ spec:
     namespace: token-labs
   rules:
   - backendRefs:
-    - name: qwen35-27b-vllm
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: gaie-qwen35-27b
       port: 8000
-      weight: 1
     matches:
     - headers:
       - name: x-ai-eg-model
         type: Exact
-        value: Qwen/Qwen3.5-27B
+        value: Qwen/Qwen3.5-27B-GPTQ-Int4
       path:
         type: PathPrefix
         value: /v1/

@@ -1,0 +1,39 @@
+# llm-d helmfile — Qwen3.5-27B GPTQ-Int4, single-node
+#
+# Architecture:
+#   spark-02: decode-only (TP=1, 1 replica, no P/D disaggregation)
+#   KV transfer: none (single node)
+#   Gateway: Envoy at 192.168.1.200, model service at 192.168.1.201
+#
+# Model: Qwen/Qwen3.5-27B-GPTQ-Int4
+#   - 27B params, GPTQ-Int4 (gptq_marlin kernel), ~14GB weights
+#   - Fits in one GB10 (128GB unified memory), gpu-memory-util 0.85
+#   - spec-ngram enabled (+1.6% throughput on ShareGPT vs baseline)
+
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  - name: gaie-qwen35-27b
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+
+  - name: ms-qwen35-27b
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-qwen35-27b
+    values:
+      - modelservice-values.yaml

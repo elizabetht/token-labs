@@ -1,23 +1,64 @@
-# AIGatewayRoute — multi-model inference routing via Envoy AI Gateway
+# AIGatewayRoute — multi-model inference routing via Envoy AI Gateway v0.2.0
 #
-# How it works:
-#   1. Client sends POST /v1/chat/completions with JSON body {"model": "...", ...}
-#   2. EAG's AI filter reads the "model" field and sets x-ai-eg-model header
-#   3. AIGatewayRoute rules match on x-ai-eg-model → route to the correct InferencePool
-#   4. The InferencePool's llm-d EPP picks the optimal vLLM pod (KV-cache aware)
-#
-# This replaces the old HTTPRoute + BBR (Body Based Router) pattern.
-# No ConfigMaps, no ext_proc sidecar — EAG handles body parsing natively.
-#
-# InferencePool backendRefs:
-#   llm-d-inferencepool-qwen35-397b  → spark-01+02  (Qwen3.5-397B-A17B-NVFP4 PP=2)
-#   gaie-gemma4-26b                  → spark-01 prefill / spark-02 decode (PD disagg)
+# Flow: POST /v1/chat/completions → EAG reads "model" field → sets x-ai-eg-model header
+#       → AIGatewayRoute matches header → routes to AIServiceBackend → EG Backend → Service
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: qwen35-27b-vllm-backend
+  namespace: token-labs
+spec:
+  endpoints:
+  - fqdn:
+      hostname: qwen35-27b-vllm.token-labs.svc.cluster.local
+      port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: qwen35-27b-gptq
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: qwen35-27b-vllm-backend
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: nemotron-120b-vllm-backend
+  namespace: token-labs
+spec:
+  endpoints:
+  - fqdn:
+      hostname: nemotron-120b-vllm.token-labs.svc.cluster.local
+      port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: nemotron-120b-nvfp4
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: nemotron-120b-vllm-backend
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
   name: llm-inference
   namespace: token-labs
 spec:
+  schema:
+    name: OpenAI
   llmRequestCosts:
     - metadataKey: llm_input_token
       type: InputToken
@@ -25,50 +66,23 @@ spec:
       type: OutputToken
     - metadataKey: llm_total_token
       type: TotalToken
-    - metadataKey: llm_cached_input_token
-      type: CachedInputToken
-  parentRefs:
+  targetRefs:
   - name: token-labs-gateway
-    namespace: token-labs
     kind: Gateway
     group: gateway.networking.k8s.io
   rules:
-  # ── Qwen3.5-397B-A17B-NVFP4 (PP=2 across spark-01 + spark-02) ──────────────
   - matches:
     - headers:
       - type: Exact
         name: x-ai-eg-model
-        value: nvidia/Qwen3.5-397B-A17B-NVFP4
+        value: Qwen/Qwen3.5-27B-GPTQ-Int4
     backendRefs:
-    - group: inference.networking.k8s.io
-      kind: InferencePool
-      name: llm-d-inferencepool-qwen35-397b
-    timeouts:
-      request: 600s     # longer timeout for 397B model inference
+    - name: qwen35-27b-gptq
 
-  # ── gpt-oss-120gb (PP=2 across spark-01 + spark-02) ─────────────────────
-  # Replace "org/gpt-oss-120gb" with the actual HuggingFace model ID.
   - matches:
     - headers:
       - type: Exact
         name: x-ai-eg-model
-        value: org/gpt-oss-120gb
+        value: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
     backendRefs:
-    - group: inference.networking.k8s.io
-      kind: InferencePool
-      name: llm-d-inferencepool-gpt-oss
-    timeouts:
-      request: 600s     # longer timeout for 120B model inference
-
-  # ── Gemma 4 26B A4B (PD disaggregated: spark-01 prefill / spark-02 decode) ──
-  - matches:
-    - headers:
-      - type: Exact
-        name: x-ai-eg-model
-        value: google/gemma-4-26B-A4B
-    backendRefs:
-    - group: inference.networking.k8s.io
-      kind: InferencePool
-      name: gaie-gemma4-26b
-    timeouts:
-      request: 300s
+    - name: nemotron-120b-nvfp4

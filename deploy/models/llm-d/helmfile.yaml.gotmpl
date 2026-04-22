@@ -38,28 +38,69 @@ releases:
   # PVCs:  kubectl apply -f deploy/qwen35-397b/model-cache-pvcs.yaml
   # LWS:   kubectl apply -f deploy/qwen35-397b/leaderworkerset.yaml
   # This release only creates the InferencePool + EPP for routing.
-  - name: llm-d-inferencepool-qwen35-397b
-    namespace: token-labs
-    chart: gaie/inferencepool
-    version: v1.3.0
-    needs:
-    - token-labs/llm-d-infra
-    values:
-    - ../qwen35-397b/inferencepool-values.yaml
-
+  # - name: llm-d-inferencepool-qwen35-397b
+  #   namespace: token-labs
+  #   chart: gaie/inferencepool
+  #   version: v1.3.0
+  #   needs:
+  #   - token-labs/llm-d-infra
+  #   values:
+  #   - ../qwen35-397b/inferencepool-values.yaml
 
   # ── gpt-oss-120gb PP=2 (spark-01 + spark-02, LeaderWorkerSet) ─────────────
   # PVCs: kubectl apply -f deploy/gpt-oss/model-cache-pvcs.yaml
   # LWS:  kubectl apply -f deploy/gpt-oss/leaderworkerset.yaml
   # This release only creates the InferencePool + EPP for routing.
-  - name: llm-d-inferencepool-gpt-oss
+  # - name: llm-d-inferencepool-gpt-oss
+  #   namespace: token-labs
+  #   chart: gaie/inferencepool
+  #   version: v1.3.0
+  #   needs:
+  #   - token-labs/llm-d-infra
+  #   values:
+  #   - ../gpt-oss/inferencepool-values.yaml
+
+  # ── Qwen3.5-27B GPTQ-Int4 (single-node, spark-02) ────────────────────────────
+  # PVCs: already exist (model-cache-qwen35-27b-spark-02)
+  # Weights: pre-cached on PVC (~14GB GPTQ-Int4)
+  - name: gaie-qwen35-27b
     namespace: token-labs
     chart: gaie/inferencepool
-    version: v1.3.0
+    version: v1.4.0
     needs:
     - token-labs/llm-d-infra
     values:
-    - ../gpt-oss/inferencepool-values.yaml
+    - ../qwen35-27b/gaie-values.yaml
+
+  - name: ms-qwen35-27b
+    namespace: token-labs
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    needs:
+    - token-labs/gaie-qwen35-27b
+    values:
+    - ../qwen35-27b/modelservice-values.yaml
+
+  # ── Nemotron-3-Super-120B NVFP4 (single-node, spark-01) ───────────────────────
+  # PVCs: already exist (model-cache-nemotron-120b-spark-01)
+  # Weights: pre-cached on PVC (74.8GB NVFP4)
+  - name: gaie-nemotron-120b
+    namespace: token-labs
+    chart: gaie/inferencepool
+    version: v1.4.0
+    needs:
+    - token-labs/llm-d-infra
+    values:
+    - ../nemotron-120b/gaie-values.yaml
+
+  - name: ms-nemotron-120b
+    namespace: token-labs
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    needs:
+    - token-labs/gaie-nemotron-120b
+    values:
+    - ../nemotron-120b/modelservice-values.yaml
 
   # ── Gemma 4 26B A4B (PD disaggregated, spark-01 prefill / spark-02 decode) ─
   # This release is managed by deploy/gemma4-26b/helmfile.yaml.gotmpl

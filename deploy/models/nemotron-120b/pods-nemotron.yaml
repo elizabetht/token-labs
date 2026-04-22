@@ -42,7 +42,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: nemotron-120b-vllm-leader
+  name: nemotron-120b-vllm-nvfp4-spark01-leader
   namespace: token-labs
   labels:
     app: nemotron-120b-vllm
@@ -59,7 +59,7 @@ spec:
     effect: NoSchedule
   containers:
   - name: vllm
-    image: vllm/vllm-openai:cu130-nightly
+    image: vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d
     imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true

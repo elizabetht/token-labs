@@ -23,8 +23,8 @@ spec:
     effect: NoSchedule
   containers:
   - name: vllm
-    image: vllm/vllm-openai:cu130-nightly
-    imagePullPolicy: Always
+    image: vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d
+    imagePullPolicy: IfNotPresent
     securityContext:
       privileged: true
     ports:
