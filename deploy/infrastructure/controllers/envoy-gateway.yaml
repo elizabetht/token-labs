@@ -40,4 +40,7 @@ spec:
         provider:
           type: Kubernetes
         extensionApis:
+          enableBackend: true
           enableEnvoyPatchPolicy: true
+          enabledAPIs:
+          - InferenceExtension
