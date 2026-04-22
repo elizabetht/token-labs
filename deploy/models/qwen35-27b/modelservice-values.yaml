@@ -36,7 +36,7 @@ decode:
           - matchExpressions:
               - key: kubernetes.io/hostname
                 operator: In
-                values: ["spark-02"]
+                values: ["spark-01"]
   tolerations:
     - key: nvidia.com/gpu
       operator: Exists
