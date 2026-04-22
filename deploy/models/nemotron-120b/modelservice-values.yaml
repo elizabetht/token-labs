@@ -1,0 +1,109 @@
+# ModelService values — Nemotron-3-Super-120B NVFP4, single-node decode-only
+#
+# No P/D disaggregation — single GB10 on spark-01 handles full prefill+decode.
+# VLLM_NVFP4_GEMM_BACKEND=marlin required: SM 12.1 (GB10) uses Marlin GEMM for NVFP4.
+# VLLM_USE_FLASHINFER_MOE_FP4=0: FlashInfer FP4 MoE kernels not supported on single-GPU SM121.
+# 74.8GB weights pre-cached on PVC (model-cache-nemotron-120b-spark-01).
+
+multinode: false
+
+modelArtifacts:
+  uri: "hf://nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
+  size: 80Gi
+  authSecretName: "llm-d-hf-token"
+  name: "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: nemotron-120b
+    llm-d.ai/hardware-variant: "gpu"
+    llm-d.ai/accelerator-vendor: "nvidia"
+
+routing:
+  servicePort: 8000
+  proxy:
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+    connector: nixlv2
+    secure: false
+
+decode:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 180
+    periodSeconds: 20
+    failureThreshold: 180
+    timeoutSeconds: 10
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["spark-01"]
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: vllm
+      image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
+      imagePullPolicy: IfNotPresent
+      modelCommand: vllmServe
+      args:
+        - --max-model-len
+        - "16384"
+        - --gpu-memory-utilization
+        - "0.85"
+        - --enable-prefix-caching
+        - --enable-chunked-prefill
+        - --max-num-batched-tokens
+        - "8192"
+        - --trust-remote-code
+        - --language-model-only
+        - --otlp-traces-endpoint
+        - http://tempo.monitoring:4317
+      env:
+        - name: HF_HOME
+          value: "/model-cache"
+        - name: HF_HUB_CACHE
+          value: "/model-cache/hub"
+        - name: HF_HUB_OFFLINE
+          value: "1"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
+        - name: HF_HUB_DISABLE_XET
+          value: "1"
+        - name: VLLM_NVFP4_GEMM_BACKEND
+          value: "marlin"
+        - name: VLLM_USE_FLASHINFER_MOE_FP4
+          value: "0"
+        - name: OTEL_SERVICE_NAME
+          value: "nemotron-120b-vllm-nvfp4"
+      resources:
+        requests:
+          cpu: "8"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "12"
+          memory: 120Gi
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+        - name: shm
+          mountPath: /dev/shm
+  volumes:
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-nemotron-120b-spark-01
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 16Gi
