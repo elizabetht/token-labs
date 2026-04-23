@@ -1,7 +1,8 @@
 # ModelService values — Qwen3.6-27B FP8, single-node decode-only
 #
-# No P/D disaggregation — single GB10 on spark-02 handles full prefill+decode.
-# spec-ngram enabled: +1.6% throughput on ShareGPT vs baseline (Phase D benchmark).
+# No P/D disaggregation — single GB10 on spark-01 handles full prefill+decode.
+# enforce-eager + num-gpu-blocks-override=2048 skips memory profiling pass
+# to prevent ARM64 CPU saturation on startup (kubelet heartbeat starvation).
 
 multinode: false
 
@@ -72,12 +73,11 @@ decode:
         - --enable-chunked-prefill
         - --max-num-batched-tokens
         - "8192"
-        - --speculative-config
-        - '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4}'
+        - --num-gpu-blocks-override
+        - "2048"
+        - --enforce-eager
         - --trust-remote-code
         - --language-model-only
-        - --otlp-traces-endpoint
-        - http://tempo.monitoring:4317
       env:
         - name: HF_HOME
           value: "/model-cache"
