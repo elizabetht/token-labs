@@ -1,0 +1,115 @@
+# ModelService values — Qwen3.6-27B FP8, single-node decode-only
+#
+# No P/D disaggregation — single GB10 on spark-02 handles full prefill+decode.
+# spec-ngram enabled: +1.6% throughput on ShareGPT vs baseline (Phase D benchmark).
+
+multinode: false
+
+modelArtifacts:
+  uri: "hf://Qwen/Qwen3.6-27B-FP8"
+  size: 20Gi
+  authSecretName: "llm-d-hf-token"
+  name: "Qwen/Qwen3.6-27B-FP8"
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: qwen36-27b
+    llm-d.ai/hardware-variant: "gpu"
+    llm-d.ai/accelerator-vendor: "nvidia"
+
+routing:
+  servicePort: 8000
+  proxy:
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+    connector: nixlv2
+    secure: false
+
+decode:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["spark-01"]
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: vllm
+      image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
+      imagePullPolicy: IfNotPresent
+      modelCommand: vllmServe
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 120
+        periodSeconds: 20
+        failureThreshold: 60
+        timeoutSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        failureThreshold: 3
+        timeoutSeconds: 10
+      args:
+        - --max-model-len
+        - "16384"
+        - --gpu-memory-utilization
+        - "0.85"
+        - --quantization
+        - fp8
+        - --enable-prefix-caching
+        - --enable-chunked-prefill
+        - --max-num-batched-tokens
+        - "8192"
+        - --speculative-config
+        - '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4}'
+        - --trust-remote-code
+        - --language-model-only
+        - --otlp-traces-endpoint
+        - http://tempo.monitoring:4317
+      env:
+        - name: HF_HOME
+          value: "/model-cache"
+        - name: HF_HUB_CACHE
+          value: "/model-cache/hub"
+        - name: HF_HUB_OFFLINE
+          value: "0"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
+        - name: HF_HUB_DISABLE_XET
+          value: "1"
+        - name: OTEL_SERVICE_NAME
+          value: "qwen36-27b-vllm-fp8"
+      resources:
+        requests:
+          cpu: "8"
+          memory: 32Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "12"
+          memory: 120Gi
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+        - name: shm
+          mountPath: /dev/shm
+  volumes:
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-qwen36-27b-spark-02
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 16Gi

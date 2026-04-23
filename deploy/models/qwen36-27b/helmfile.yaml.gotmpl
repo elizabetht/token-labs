@@ -1,0 +1,33 @@
+# llm-d helmfile — Qwen3.6-27B FP8, single-node
+#
+# Architecture:
+#   spark-01: decode-only (TP=1, 1 replica, no P/D disaggregation)
+#   Model: Qwen/Qwen3.6-27B-FP8
+
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  - name: gaie-qwen36-27b
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+
+  - name: ms-qwen36-27b
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-qwen36-27b
+    values:
+      - modelservice-values.yaml

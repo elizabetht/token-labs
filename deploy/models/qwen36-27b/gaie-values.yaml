@@ -1,0 +1,62 @@
+# InferencePool + EPP — Qwen3.6-27B FP8
+# EPP is amd64-only; pinned to controller via nodeAffinity
+
+inferencePool:
+  targetPorts:
+    - number: 8000
+  modelServerType: vllm
+  modelServers:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+      llm-d.ai/model: qwen36-27b
+
+inferenceExtension:
+  replicas: 1
+  image:
+    hub: ghcr.io/llm-d
+    name: llm-d-inference-scheduler
+    tag: v0.7.1
+    pullPolicy: IfNotPresent
+  extProcPort: 9002
+  pluginsConfigFile: "pd-config.yaml"
+  pluginsCustomConfig:
+    pd-config.yaml: |
+      apiVersion: inference.networking.x-k8s.io/v1alpha1
+      kind: EndpointPickerConfig
+      plugins:
+        - type: prefix-cache-scorer
+          parameters:
+            maxPrefixBlocksToMatch: 256
+            lruCapacityPerServer: 31250
+        - type: queue-scorer
+        - type: decode-filter
+        - type: max-score-picker
+      schedulingProfiles:
+        - name: default
+          plugins:
+            - pluginRef: decode-filter
+            - pluginRef: max-score-picker
+            - pluginRef: prefix-cache-scorer
+            - pluginRef: queue-scorer
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values: ["amd64"]
+
+provider:
+  name: none

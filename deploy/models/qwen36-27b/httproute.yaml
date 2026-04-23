@@ -1,0 +1,27 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: qwen36-27b-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+    namespace: token-labs
+  rules:
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: gaie-qwen36-27b
+      port: 8000
+    matches:
+    - headers:
+      - name: x-ai-eg-model
+        type: Exact
+        value: Qwen/Qwen3.6-27B-FP8
+      path:
+        type: PathPrefix
+        value: /v1/
+    timeouts:
+      request: 600s

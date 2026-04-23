@@ -10,7 +10,7 @@ GATEWAY_HOST = "api.tokenlabs.run"
 REFRESH_INTERVAL = 28.0
 
 STATIC_MODELS = [
-    {"id": "Qwen/Qwen3.5-27B-GPTQ-Int4",                        "object": "model", "owned_by": "token-labs", "routing_header": "Qwen/Qwen3.5-27B-GPTQ-Int4"},
+    {"id": "Qwen/Qwen3.6-27B-FP8",  "object": "model", "owned_by": "token-labs", "routing_header": "Qwen/Qwen3.6-27B-FP8"},
     {"id": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",     "object": "model", "owned_by": "token-labs", "routing_header": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"},
 ]
 
