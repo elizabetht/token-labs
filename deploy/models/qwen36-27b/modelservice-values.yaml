@@ -50,9 +50,9 @@ decode:
         httpGet:
           path: /v1/models
           port: 8000
-        initialDelaySeconds: 120
-        periodSeconds: 20
-        failureThreshold: 60
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        failureThreshold: 180
         timeoutSeconds: 10
       readinessProbe:
         httpGet:
