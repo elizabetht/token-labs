@@ -73,8 +73,6 @@ decode:
         - --enable-chunked-prefill
         - --max-num-batched-tokens
         - "8192"
-        - --num-gpu-blocks-override
-        - "2048"
         - --enforce-eager
         - --trust-remote-code
         - --language-model-only
@@ -89,8 +87,10 @@ decode:
           value: "1"
         - name: HF_HUB_DISABLE_XET
           value: "1"
-        - name: OTEL_SERVICE_NAME
-          value: "qwen36-27b-vllm-fp8"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: VLLM_LOGGING_LEVEL
+          value: "DEBUG"
       resources:
         requests:
           cpu: "8"
