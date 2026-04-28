@@ -1,0 +1,33 @@
+# llm-d helmfile — DeepSeek-R1-Distill-Qwen-32B FP16, single-node
+#
+# Architecture:
+#   spark-01: decode-only (TP=1, 1 replica, no P/D disaggregation)
+#   Model: deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  - name: gaie-deepseek-r1-32b
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+
+  - name: ms-deepseek-r1-32b
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-deepseek-r1-32b
+    values:
+      - modelservice-values.yaml
