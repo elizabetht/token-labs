@@ -3,51 +3,79 @@
 # Flow: POST /v1/chat/completions → EAG reads "model" field → sets x-ai-eg-model header
 #       → AIGatewayRoute matches header → routes to AIServiceBackend → EG Backend → Service
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deepseek-r1-32b-vllm
+  namespace: token-labs
+spec:
+  selector:
+    llm-d.ai/model: deepseek-r1-32b
+    llm-d.ai/role: decode
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: Backend
 metadata:
-  name: qwen35-27b-vllm-backend
+  name: deepseek-r1-32b-vllm-backend
   namespace: token-labs
 spec:
   endpoints:
   - fqdn:
-      hostname: qwen35-27b-vllm.token-labs.svc.cluster.local
+      hostname: deepseek-r1-32b-vllm.token-labs.svc.cluster.local
       port: 8000
 ---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIServiceBackend
 metadata:
-  name: qwen35-27b-gptq
+  name: deepseek-r1-32b
   namespace: token-labs
 spec:
   schema:
     name: OpenAI
   backendRef:
-    name: qwen35-27b-vllm-backend
+    name: deepseek-r1-32b-vllm-backend
     kind: Backend
     group: gateway.envoyproxy.io
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemotron-nano-nvfp4-vllm
+  namespace: token-labs
+spec:
+  selector:
+    llm-d.ai/model: nemotron-nano-nvfp4
+    llm-d.ai/role: decode
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: Backend
 metadata:
-  name: nemotron-120b-vllm-backend
+  name: nemotron-nano-nvfp4-vllm-backend
   namespace: token-labs
 spec:
   endpoints:
   - fqdn:
-      hostname: nemotron-120b-vllm.token-labs.svc.cluster.local
+      hostname: nemotron-nano-nvfp4-vllm.token-labs.svc.cluster.local
       port: 8000
 ---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIServiceBackend
 metadata:
-  name: nemotron-120b-nvfp4
+  name: nemotron-nano-nvfp4
   namespace: token-labs
 spec:
   schema:
     name: OpenAI
   backendRef:
-    name: nemotron-120b-vllm-backend
+    name: nemotron-nano-nvfp4-vllm-backend
     kind: Backend
     group: gateway.envoyproxy.io
 ---
@@ -75,14 +103,13 @@ spec:
     - headers:
       - type: Exact
         name: x-ai-eg-model
-        value: Qwen/Qwen3.5-27B-GPTQ-Int4
+        value: deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
     backendRefs:
-    - name: qwen35-27b-gptq
-
+    - name: deepseek-r1-32b
   - matches:
     - headers:
       - type: Exact
         name: x-ai-eg-model
-        value: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+        value: nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
     backendRefs:
-    - name: nemotron-120b-nvfp4
+    - name: nemotron-nano-nvfp4

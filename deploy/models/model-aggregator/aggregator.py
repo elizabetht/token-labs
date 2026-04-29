@@ -10,8 +10,8 @@ GATEWAY_HOST = "api.tokenlabs.run"
 REFRESH_INTERVAL = 28.0
 
 STATIC_MODELS = [
-    {"id": "Qwen/Qwen3.6-27B-FP8",  "object": "model", "owned_by": "token-labs", "routing_header": "Qwen/Qwen3.6-27B-FP8"},
-    {"id": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4",     "object": "model", "owned_by": "token-labs", "routing_header": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", "object": "model", "owned_by": "token-labs", "routing_header": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"},
+    {"id": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4", "object": "model", "owned_by": "token-labs", "routing_header": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4"},
 ]
 
 _cache: list = [{"id": m["id"], "object": m["object"], "owned_by": m["owned_by"]} for m in STATIC_MODELS]
