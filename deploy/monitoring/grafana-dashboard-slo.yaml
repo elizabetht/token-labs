@@ -125,7 +125,7 @@ data:
           },
           "targets": [
             {
-              "expr": "max by (pod, namespace) (kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\", pod=~\"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader\"})",
+              "expr": "max by (pod, namespace) (kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\", pod=~\"ms-deepseek-r1-32b.*|ms-nemotron-nano-nvfp4.*\"})",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }

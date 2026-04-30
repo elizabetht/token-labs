@@ -26,7 +26,7 @@ spec:
         max by (pod, namespace) (
           kube_pod_status_ready{
             namespace="token-labs",
-            pod=~"nemotron-120b-vllm-leader|deepseek-r1-7b-vllm-leader|llama-31-8b-sglang-leader|qwen25-7b-trtllm-spark02-leader",
+            pod=~"ms-deepseek-r1-32b.*|ms-nemotron-nano-nvfp4.*",
             condition="true"
           }
         )
@@ -139,18 +139,18 @@ spec:
 
   # ---------------------------------------------------------------------------
   # SLO-2: TTFT p99 latency
-  # Small models (7B/8B): p99 TTFT <= 500ms
-  # Nemotron 120B: p99 TTFT <= 3000ms
+  # DeepSeek-R1-32B (spark-01): p99 TTFT <= 3000ms (32B reasoning model)
+  # Nemotron-Nano-NVFP4 (spark-02): p99 TTFT <= 1500ms (30B A3B MoE NVFP4)
   # ---------------------------------------------------------------------------
   - name: token-labs.slo.ttft
     rules:
 
-    # Small model TTFT SLO violation
+    # DeepSeek-R1-32B TTFT SLO violation
     - alert: TokenLabsTTFTSLOViolation
       expr: |
         token_labs:ttft_p99:rate5m{
-          model_name!~".*Nemotron.*|.*120B.*"
-        } > 0.5
+          model_name=~".*deepseek.*|.*DeepSeek.*"
+        } > 3.0
       for: 5m
       labels:
         severity: critical
@@ -160,33 +160,33 @@ spec:
         summary: "TTFT p99 SLO violated for {{ $labels.model_name }}"
         description: >
           Model {{ $labels.model_name }} p99 TTFT is {{ $value | humanizeDuration }}
-          over the last 5 minutes, exceeding the 500ms SLO target.
-          Check for queue depth (vllm:num_requests_waiting) and KV cache pressure.
+          over the last 5 minutes, exceeding the 3000ms SLO target.
+          Check for queue depth (vllm:num_requests_waiting) and KV cache pressure on spark-01.
 
-    # Nemotron TTFT SLO violation (higher threshold)
-    - alert: TokenLabsNemotronTTFTSLOViolation
+    # Nemotron-Nano-NVFP4 TTFT SLO violation
+    - alert: TokenLabsNemotronNanoTTFTSLOViolation
       expr: |
         token_labs:ttft_p99:rate5m{
-          model_name=~".*Nemotron.*|.*120B.*"
-        } > 3.0
+          model_name=~".*[Nn]emotron.*[Nn]ano.*|.*nemotron-nano.*"
+        } > 1.5
       for: 5m
       labels:
         severity: critical
         slo: ttft
         team: token-labs
       annotations:
-        summary: "Nemotron TTFT p99 SLO violated"
+        summary: "Nemotron-Nano-NVFP4 TTFT p99 SLO violated"
         description: >
-          Nemotron-120B p99 TTFT is {{ $value | humanizeDuration }} over the last
-          5 minutes, exceeding the 3000ms SLO target. Single-GPU 120B MoE —
-          check for KV cache exhaustion or GPU memory pressure on spark-01.
+          Nemotron-Nano-NVFP4 p99 TTFT is {{ $value | humanizeDuration }} over the last
+          5 minutes, exceeding the 1500ms SLO target. 30B A3B MoE on spark-02 —
+          check for KV cache exhaustion or GPU memory pressure.
 
-    # TTFT warning: 80% of SLO threshold (early warning before violation)
+    # TTFT warning: 80% of SLO threshold for DeepSeek-R1-32B
     - alert: TokenLabsTTFTApproachingSLO
       expr: |
         token_labs:ttft_p99:rate5m{
-          model_name!~".*Nemotron.*|.*120B.*"
-        } > 0.4
+          model_name=~".*deepseek.*|.*DeepSeek.*"
+        } > 2.4
       for: 5m
       labels:
         severity: warning
@@ -196,7 +196,7 @@ spec:
         summary: "TTFT p99 approaching SLO threshold for {{ $labels.model_name }}"
         description: >
           Model {{ $labels.model_name }} p99 TTFT is {{ $value | humanizeDuration }},
-          above the 400ms warning threshold (SLO: 500ms).
+          above the 2400ms warning threshold (SLO: 3000ms).
 
   # ---------------------------------------------------------------------------
   # SLO-3: HTTP 5xx error rate < 1%

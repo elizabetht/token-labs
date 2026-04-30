@@ -1,27 +1,27 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-qwen35-27b-bench
+  name: grafana-dashboard-model-bench
   namespace: monitoring
   labels:
     grafana_dashboard: "1"
 data:
-  qwen35-27b-bench.json: |
+  model-bench.json: |
     {
-      "uid": "qwen35-27b-bench",
-      "title": "Qwen3.5-27B Benchmark Dashboard",
+      "uid": "model-bench",
+      "title": "Token Labs Model Benchmark Dashboard",
       "schemaVersion": 38,
-      "version": 1,
+      "version": 2,
       "refresh": "30s",
       "time": { "from": "now-6h", "to": "now" },
       "timezone": "browser",
-      "tags": ["token-labs", "benchmark", "qwen"],
+      "tags": ["token-labs", "benchmark", "deepseek", "nemotron"],
       "panels": [
         {
           "id": 1,
           "type": "timeseries",
-          "title": "GPU Utilization",
-          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+          "title": "GPU Utilization — spark-01 (DeepSeek-R1-32B)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "options": {
             "tooltip": { "mode": "multi" },
@@ -47,7 +47,42 @@ data:
           "targets": [
             {
               "expr": "DCGM_FI_DEV_GPU_UTIL{Hostname=\"spark-01\"}",
-              "legendFormat": "{{gpu}} GPU {{UUID}}",
+              "legendFormat": "spark-01 GPU {{UUID}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "GPU Utilization — spark-02 (Nemotron-Nano-NVFP4)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "custom": { "lineWidth": 2 },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 80 },
+                  { "color": "red", "value": 95 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "expr": "DCGM_FI_DEV_GPU_UTIL{Hostname=\"spark-02\"}",
+              "legendFormat": "spark-02 GPU {{UUID}}",
               "refId": "A"
             }
           ]
@@ -71,8 +106,8 @@ data:
           },
           "targets": [
             {
-              "expr": "DCGM_FI_DEV_POWER_USAGE{Hostname=\"spark-01\"}",
-              "legendFormat": "{{gpu}} GPU {{UUID}}",
+              "expr": "DCGM_FI_DEV_POWER_USAGE{Hostname=~\"spark-01|spark-02\"}",
+              "legendFormat": "{{Hostname}} GPU {{UUID}}",
               "refId": "A"
             }
           ]
@@ -97,8 +132,8 @@ data:
           },
           "targets": [
             {
-              "expr": "DCGM_FI_DEV_SM_CLOCK{Hostname=\"spark-01\"}",
-              "legendFormat": "{{gpu}} GPU {{UUID}}",
+              "expr": "DCGM_FI_DEV_SM_CLOCK{Hostname=~\"spark-01|spark-02\"}",
+              "legendFormat": "{{Hostname}} GPU {{UUID}}",
               "refId": "A"
             }
           ]
@@ -124,12 +159,12 @@ data:
           },
           "targets": [
             {
-              "expr": "vllm:gpu_cache_usage_perc{namespace=\"token-labs\"}",
+              "expr": "vllm:gpu_cache_usage_perc{namespace=\"token-labs\", job=~\".*deepseek-r1-32b.*|.*nemotron-nano-nvfp4.*\"}",
               "legendFormat": "{{pod}}",
               "refId": "A"
             },
             {
-              "expr": "vllm_gpu_cache_usage_perc{namespace=\"token-labs\"}",
+              "expr": "vllm_gpu_cache_usage_perc{namespace=\"token-labs\", job=~\".*deepseek-r1-32b.*|.*nemotron-nano-nvfp4.*\"}",
               "legendFormat": "{{pod}}",
               "refId": "B"
             }
@@ -154,7 +189,7 @@ data:
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"token-labs\"}[5m])) * 1000",
+              "expr": "histogram_quantile(0.99, rate(vllm:e2e_request_latency_seconds_bucket{namespace=\"token-labs\", job=~\".*deepseek-r1-32b.*|.*nemotron-nano-nvfp4.*\"}[5m])) * 1000",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
@@ -181,8 +216,8 @@ data:
           },
           "targets": [
             {
-              "expr": "DCGM_FI_DEV_MEM_COPY_UTIL{Hostname=\"spark-01\"}",
-              "legendFormat": "{{gpu}} GPU {{UUID}}",
+              "expr": "DCGM_FI_DEV_MEM_COPY_UTIL{Hostname=~\"spark-01|spark-02\"}",
+              "legendFormat": "{{Hostname}} GPU {{UUID}}",
               "refId": "A"
             }
           ]

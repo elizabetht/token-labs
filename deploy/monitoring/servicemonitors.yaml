@@ -3,30 +3,11 @@
 # vLLM exposes /metrics natively.
 
 ---
+# DeepSeek-R1-Distill-Qwen-32B vLLM ServiceMonitor (spark-01, helm release ms-deepseek-r1-32b)
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: nemotron-120b-vllm
-  namespace: token-labs
-  labels:
-    app: nemotron-120b-vllm
-    release: kube-prometheus-stack
-spec:
-  selector:
-    matchLabels:
-      app: nemotron-120b-vllm
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
-
----
-# Qwen3.5-27B vLLM ServiceMonitor
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: qwen35-27b-vllm
+  name: deepseek-r1-32b-vllm
   namespace: monitoring
   labels:
     release: kube-prometheus-stack
@@ -35,7 +16,28 @@ spec:
     matchNames: [token-labs]
   selector:
     matchLabels:
-      app: qwen35-27b-vllm
+      llm-d.ai/model: deepseek-r1-32b
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+
+---
+# Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 vLLM ServiceMonitor (spark-02, helm release ms-nemotron-nano-nvfp4)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nemotron-nano-nvfp4-vllm
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames: [token-labs]
+  selector:
+    matchLabels:
+      llm-d.ai/model: nemotron-nano-nvfp4
   endpoints:
   - port: http
     path: /metrics
