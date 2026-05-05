@@ -42,3 +42,4 @@ Thumbs.db
 bench_results.json
 prefill_bench.txt
 decode_bench.txt
+deploy/monitoring/incident-harness/secret.yaml

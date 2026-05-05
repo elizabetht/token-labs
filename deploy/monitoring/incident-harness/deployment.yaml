@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: incident-harness
+  namespace: monitoring
+  labels:
+    app: incident-harness
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: incident-harness
+  template:
+    metadata:
+      labels:
+        app: incident-harness
+    spec:
+      serviceAccountName: incident-harness
+      nodeSelector:
+        kubernetes.io/hostname: controller
+      containers:
+      - name: harness
+        # Build: cd incident-harness && docker build -t incident-harness:latest .
+        # Load:  docker save incident-harness:latest | ssh nvidia@192.168.1.75 'sudo ctr images import -'
+        image: incident-harness:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: incident-harness-config
+        - secretRef:
+            name: incident-harness-secrets
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "100m"
+            memory: 256Mi
+          limits:
+            cpu: "500m"
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: incident-harness
+  namespace: monitoring
+spec:
+  selector:
+    app: incident-harness
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: http

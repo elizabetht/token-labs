@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: incident-harness-config
+  namespace: monitoring
+data:
+  LOKI_URL: "http://loki.monitoring.svc.cluster.local:3100"
+  PROMETHEUS_URL: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"
+  LLM_URL: "http://192.168.1.207:8000"
+  LLM_MODEL: "Qwen/Qwen3.5-27B-GPTQ-Int4"
+  LOG_LINES: "80"
+  AUTO_RESTART: "false"

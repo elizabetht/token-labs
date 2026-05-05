@@ -1,0 +1,25 @@
+# Patch the Alertmanager config to add incident-harness as a receiver.
+# Apply AFTER the harness pod is running.
+#
+# If using kube-prometheus-stack, patch the AlertmanagerConfig CRD:
+#   kubectl apply -f this file
+#
+# The harness receives all token-labs namespace alerts.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: incident-harness-receiver
+  namespace: monitoring
+  labels:
+    alertmanagerConfig: token-labs
+spec:
+  route:
+    receiver: incident-harness
+    matchers:
+    - name: namespace
+      value: token-labs
+  receivers:
+  - name: incident-harness
+    webhookConfigs:
+    - url: "http://incident-harness.monitoring.svc.cluster.local:9000/alertmanager-webhook"
+      sendResolved: false
