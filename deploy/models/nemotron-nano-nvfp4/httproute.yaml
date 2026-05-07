@@ -1,0 +1,27 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nemotron-nano-nvfp4-route
+  namespace: token-labs
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: token-labs-gateway
+    namespace: token-labs
+  rules:
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: gaie-nemotron-nano-nvfp4
+      port: 8000
+    matches:
+    - headers:
+      - name: x-ai-eg-model
+        type: Exact
+        value: nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
+      path:
+        type: PathPrefix
+        value: /v1/
+    timeouts:
+      request: 600s

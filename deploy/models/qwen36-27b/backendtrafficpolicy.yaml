@@ -1,0 +1,14 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: qwen36-27b-timeout
+  namespace: token-labs
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: qwen36-27b-route
+  timeout:
+    http:
+      requestTimeout: 300s
+      connectionIdleTimeout: 300s
