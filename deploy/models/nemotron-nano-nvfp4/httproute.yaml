@@ -11,10 +11,16 @@ spec:
     namespace: token-labs
   rules:
   - backendRefs:
-    - group: inference.networking.x-k8s.io
-      kind: InferencePool
-      name: gaie-nemotron-nano-nvfp4
-      port: 8000
+    - group: gateway.envoyproxy.io
+      kind: Backend
+      name: nemotron-nano-nvfp4-vllm-backend
+      weight: 1
+    filters:
+    - extensionRef:
+        group: gateway.envoyproxy.io
+        kind: HTTPRouteFilter
+        name: ai-eg-host-rewrite
+      type: ExtensionRef
     matches:
     - headers:
       - name: x-ai-eg-model
