@@ -1,4 +1,4 @@
-# InferencePool + EPP — Nemotron-3-Super-120B NVFP4
+# InferencePool + EPP — Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
 # EPP is amd64-only; pinned to controller via nodeAffinity
 
 inferencePool:
@@ -8,7 +8,7 @@ inferencePool:
   modelServers:
     matchLabels:
       llm-d.ai/inference-serving: "true"
-      llm-d.ai/model: nemotron-120b
+      llm-d.ai/model: nemotron-nano-nvfp4
 
 inferenceExtension:
   replicas: 1

@@ -24,7 +24,8 @@
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:forums.developer.nvidia.com)",
       "WebFetch(domain:*)",
-      "Bash(kubectl get:*)"
+      "Bash(kubectl get:*)",
+      "Bash(wait)"
     ]
   }
 }

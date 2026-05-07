@@ -29,6 +29,8 @@ decode:
     tensor: 1
   create: true
   replicas: 1
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -43,6 +45,8 @@ decode:
       effect: NoSchedule
   containers:
     - name: vllm
+      # cu130-nightly digest — same image as nemotron-nano-nvfp4. v0.19.1's CUTLASS
+      # FP8 kernel crashes on Blackwell GB10 (sm_120) in profile_run.
       image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
       imagePullPolicy: IfNotPresent
       modelCommand: vllmServe
@@ -66,7 +70,7 @@ decode:
         - --max-model-len
         - "16384"
         - --gpu-memory-utilization
-        - "0.85"
+        - "0.80"
         - --quantization
         - fp8
         - --enable-prefix-caching
@@ -82,7 +86,7 @@ decode:
         - name: HF_HUB_CACHE
           value: "/model-cache/hub"
         - name: HF_HUB_OFFLINE
-          value: "0"
+          value: "1"
         - name: FLASHINFER_DISABLE_VERSION_CHECK
           value: "1"
         - name: HF_HUB_DISABLE_XET
@@ -93,11 +97,11 @@ decode:
           value: "DEBUG"
       resources:
         requests:
-          cpu: "8"
+          cpu: "5"
           memory: 32Gi
           nvidia.com/gpu: "1"
         limits:
-          cpu: "12"
+          cpu: "10"
           memory: 120Gi
           nvidia.com/gpu: "1"
       volumeMounts:
@@ -107,8 +111,9 @@ decode:
           mountPath: /dev/shm
   volumes:
     - name: model-cache
-      persistentVolumeClaim:
-        claimName: model-cache-qwen36-27b-spark-02
+      hostPath:
+        path: /opt/models/qwen36-27b-cache
+        type: Directory
     - name: shm
       emptyDir:
         medium: Memory

@@ -1,0 +1,33 @@
+# llm-d helmfile — Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4, single-node
+#
+# Architecture:
+#   spark-02: decode-only (TP=1, 1 replica, no P/D disaggregation)
+#   Model: nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
+
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  - name: gaie-nemotron-nano-nvfp4
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+
+  - name: ms-nemotron-nano-nvfp4
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-nemotron-nano-nvfp4
+    values:
+      - modelservice-values.yaml
