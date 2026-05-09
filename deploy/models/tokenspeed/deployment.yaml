@@ -1,0 +1,106 @@
+# TokenSpeed — LightSeek Foundation inference engine on DGX Spark (GB10 / SM 12.1)
+#
+# Build notes:
+#   - initContainer builds tokenspeed from source (no pre-built arm64+SM12.1 image)
+#   - FLASHINFER_CUDA_ARCH_LIST must include "12.1" for GB10 compute capability
+#   - apache-tvm-ffi must be installed before tokenspeed-kernel (not in base image)
+#   - virtualenv (not pip --target) required: flashinfer/cutlass use .pth path injection
+#   - KVStore check patched: GB10 unified memory makes psutil.available negative
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokenspeed
+  namespace: token-labs
+  labels:
+    app: tokenspeed
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tokenspeed
+  template:
+    metadata:
+      labels:
+        app: tokenspeed
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: spark-01
+      volumes:
+        - name: build
+          emptyDir: {}
+        - name: hf-cache
+          hostPath:
+            path: /home/nvidia/.cache/huggingface
+            type: Directory
+      initContainers:
+        - name: build-tokenspeed
+          image: lightseekorg/tokenspeed-runner:latest
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "=== Creating virtualenv ==="
+              python3 -m venv /build/venv --system-site-packages
+              . /build/venv/bin/activate
+              echo "=== Installing tvm_ffi ==="
+              pip install apache-tvm-ffi -q
+              echo "=== Cloning tokenspeed ==="
+              git clone --depth=1 https://github.com/lightseekorg/tokenspeed /build/src
+              cd /build/src
+              echo "=== Installing tokenspeed-kernel ==="
+              MAX_JOBS=8 FLASHINFER_CUDA_ARCH_LIST="9.0a 10.0a 12.1" TOKENSPEED_KERNEL_BACKEND=cuda \
+                pip install tokenspeed-kernel/python/ --no-build-isolation -q
+              echo "=== Installing tokenspeed-scheduler ==="
+              pip install tokenspeed-scheduler/ -q
+              echo "=== Installing tokenspeed Python package ==="
+              pip install ./python --no-build-isolation -q
+              echo "=== Patching KVStore host memory check ==="
+              sed -i 's/if requested_bytes > available_bytes:/if available_bytes > 0 and requested_bytes > available_bytes:/' \
+                /build/venv/lib/python3.12/site-packages/tokenspeed/runtime/cache/kv_cache_host.py
+              echo "=== Build complete ==="
+          env:
+            - name: PIP_BREAK_SYSTEM_PACKAGES
+              value: "1"
+          volumeMounts:
+            - name: build
+              mountPath: /build
+      containers:
+        - name: serve
+          image: lightseekorg/tokenspeed-runner:latest
+          command:
+            - sh
+            - -c
+            - |
+              . /build/venv/bin/activate
+              python3 -m tokenspeed.cli serve \
+                /hf-cache/hub/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca \
+                --host 0.0.0.0 \
+                --port 8000 \
+                --tensor-parallel-size 1 \
+                --disable-kvstore \
+                --kvstore-ratio 0
+          env:
+            - name: VIRTUAL_ENV
+              value: /build/venv
+            - name: HF_HOME
+              value: /hf-cache
+            - name: HUGGINGFACE_HUB_CACHE
+              value: /hf-cache/hub
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              memory: "16Gi"
+            requests:
+              memory: "8Gi"
+          volumeMounts:
+            - name: build
+              mountPath: /build
+            - name: hf-cache
+              mountPath: /hf-cache

@@ -79,6 +79,43 @@ spec:
     kind: Backend
     group: gateway.envoyproxy.io
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tokenspeed-test
+  namespace: token-labs
+spec:
+  selector:
+    app: tokenspeed
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: tokenspeed-backend
+  namespace: token-labs
+spec:
+  endpoints:
+  - fqdn:
+      hostname: tokenspeed-test.token-labs.svc.cluster.local
+      port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: tokenspeed
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: tokenspeed-backend
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -113,3 +150,10 @@ spec:
         value: nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
     backendRefs:
     - name: nemotron-nano-nvfp4
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: Qwen3-0.6B
+    backendRefs:
+    - name: tokenspeed
