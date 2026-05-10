@@ -45,9 +45,10 @@ decode:
       effect: NoSchedule
   containers:
     - name: vllm
-      # cu130-nightly digest — same image as nemotron-nano-nvfp4. v0.19.1's CUTLASS
-      # FP8 kernel crashes on Blackwell GB10 (sm_120) in profile_run.
-      image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
+      # Custom image compiled with TORCH_CUDA_ARCH_LIST=12.1a for GB10 Blackwell (sm_121).
+      # Eliminates vllm_c rms_norm Python fallback (84 dispatches/fwd pass → ~132s TTFT).
+      # vLLM v0.19.0, CUDA 13.0.2, FlashInfer nightly cubin, sbsa/ARM64.
+      image: "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0"
       imagePullPolicy: IfNotPresent
       modelCommand: vllmServe
       startupProbe:
