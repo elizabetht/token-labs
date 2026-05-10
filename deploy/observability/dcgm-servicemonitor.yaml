@@ -14,5 +14,5 @@ spec:
       app: nvidia-dcgm-exporter
   endpoints:
   - port: gpu-metrics
-    interval: 15s
+    interval: 60s
     path: /metrics

@@ -20,8 +20,8 @@ spec:
   endpoints:
   - port: http
     path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
+    interval: 60s
+    scrapeTimeout: 15s
 
 ---
 # Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4 vLLM ServiceMonitor (spark-02, helm release ms-nemotron-nano-nvfp4)
@@ -41,5 +41,5 @@ spec:
   endpoints:
   - port: http
     path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
+    interval: 60s
+    scrapeTimeout: 15s

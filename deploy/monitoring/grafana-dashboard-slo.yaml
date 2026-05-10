@@ -9,61 +9,96 @@ data:
   token-labs-slo.json: |
     {
       "uid": "token-labs-slo",
-      "title": "token-labs SLO Dashboard",
-      "schemaVersion": 38,
-      "version": 3,
-      "refresh": "30s",
-      "time": { "from": "now-3h", "to": "now" },
-      "timezone": "browser",
+      "title": "Token Labs — SLO & Error Budget",
       "tags": ["token-labs", "slo"],
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "timezone": "browser",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "time": {"from": "now-6h", "to": "now"},
+      "timepicker": {},
+      "templating": {
+        "list": [
+          {
+            "current": {},
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "definition": "label_values(vllm:num_requests_running{namespace=\"token-labs\"}, model_name)",
+            "hide": 0,
+            "includeAll": true,
+            "allValue": ".*",
+            "multi": true,
+            "label": "Model",
+            "name": "model",
+            "options": [],
+            "query": {
+              "query": "label_values(vllm:num_requests_running{namespace=\"token-labs\"}, model_name)",
+              "refId": "StandardVariableQuery"
+            },
+            "refresh": 2,
+            "regex": "",
+            "sort": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "annotations": {"list": []},
       "panels": [
         {
           "id": 1,
+          "type": "row",
+          "title": "SLO Status",
+          "collapsed": false,
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
           "type": "stat",
           "title": "Model Availability (1h)",
-          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 5, "w": 6, "x": 0, "y": 1},
           "options": {
-            "reduceOptions": { "calcs": ["lastNotNull"] },
-            "orientation": "auto",
-            "textMode": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"]},
             "colorMode": "background",
             "graphMode": "none",
+            "textMode": "auto",
+            "orientation": "auto",
             "justifyMode": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "min": 0,
-              "max": 1,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "red", "value": null },
-                  { "color": "yellow", "value": 0.995 },
-                  { "color": "green", "value": 0.999 }
+                  {"color": "red", "value": null},
+                  {"color": "yellow", "value": 0.995},
+                  {"color": "green", "value": 0.999}
                 ]
-              },
-              "mappings": []
+              }
             },
             "overrides": []
           },
           "targets": [
             {
-              "expr": "max by (pod) (token_labs:pod_available:rate1h)",
-              "legendFormat": "{{pod}}",
-              "refId": "A"
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "max by (model_name) (token_labs:pod_available:rate1h)",
+              "refId": "A",
+              "legendFormat": "{{model_name}}"
             }
           ]
         },
         {
-          "id": 2,
+          "id": 3,
           "type": "gauge",
           "title": "Error Budget Remaining (30d)",
-          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 5, "w": 6, "x": 6, "y": 1},
           "options": {
-            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "reduceOptions": {"calcs": ["lastNotNull"]},
             "orientation": "auto",
             "showThresholdLabels": false,
             "showThresholdMarkers": true
@@ -76,35 +111,72 @@ data:
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "red", "value": null },
-                  { "color": "yellow", "value": 0.25 },
-                  { "color": "green", "value": 0.5 }
+                  {"color": "red", "value": null},
+                  {"color": "yellow", "value": 0.25},
+                  {"color": "green", "value": 0.5}
                 ]
-              },
-              "mappings": []
+              }
             },
             "overrides": []
           },
           "targets": [
             {
-              "expr": "clamp_min(1 - (1 - max by (pod) (avg_over_time(token_labs:pod_available:bool[30d]))) / 0.005, 0)",
-              "legendFormat": "{{pod}}",
-              "refId": "A"
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "clamp_min(1 - (1 - avg(avg_over_time(token_labs:pod_available:bool[30d]))) / 0.005, 0)",
+              "refId": "A",
+              "legendFormat": "error budget remaining"
             }
           ]
         },
         {
-          "id": 3,
+          "id": 4,
           "type": "stat",
-          "title": "Pod Status",
-          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "title": "Current Error Rate",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 5, "w": 6, "x": 12, "y": 1},
           "options": {
-            "reduceOptions": { "calcs": ["lastNotNull"] },
-            "orientation": "auto",
-            "textMode": "auto",
+            "reduceOptions": {"calcs": ["lastNotNull"]},
             "colorMode": "background",
             "graphMode": "none",
+            "textMode": "auto",
+            "orientation": "auto",
+            "justifyMode": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 0.01},
+                  {"color": "red", "value": 0.05}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "max(token_labs:error_rate:rate5m{model_name=~\"$model\"})",
+              "refId": "A",
+              "legendFormat": "error rate"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Pod Ready Count",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 5, "w": 6, "x": 18, "y": 1},
+          "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"]},
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "auto",
+            "orientation": "auto",
             "justifyMode": "auto"
           },
           "fieldConfig": {
@@ -113,47 +185,9 @@ data:
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "red", "value": null },
-                  { "color": "green", "value": 1 }
-                ]
-              },
-              "mappings": [
-                { "type": "value", "options": { "0": { "text": "NOT READY", "color": "red" }, "1": { "text": "READY", "color": "green" } } }
-              ]
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "expr": "max by (pod, namespace) (kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\", pod=~\"ms-deepseek-r1-32b.*|ms-nemotron-nano-nvfp4.*\"})",
-              "legendFormat": "{{pod}}",
-              "refId": "A"
-            }
-          ]
-        },
-        {
-          "id": 4,
-          "type": "timeseries",
-          "title": "Availability Burn Rate (1h)",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "options": {
-            "tooltip": { "mode": "multi" },
-            "legend": { "displayMode": "list", "placement": "bottom" }
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percentunit",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 10,
-                "spanNulls": false
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "red", "value": 0.072 }
+                  {"color": "red", "value": null},
+                  {"color": "yellow", "value": 1},
+                  {"color": "green", "value": 2}
                 ]
               }
             },
@@ -161,76 +195,46 @@ data:
           },
           "targets": [
             {
-              "expr": "1 - max by (pod) (token_labs:pod_available:rate1h)",
-              "legendFormat": "{{pod}} burn rate",
-              "refId": "A"
-            }
-          ],
-          "alert": null
-        },
-        {
-          "id": 5,
-          "type": "timeseries",
-          "title": "p99 TTFT by Model",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "options": {
-            "tooltip": { "mode": "multi" },
-            "legend": { "displayMode": "list", "placement": "bottom" }
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "s",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 10,
-                "spanNulls": false
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 0.5 },
-                  { "color": "red", "value": 3.0 }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "expr": "token_labs:ttft_p99:rate5m",
-              "legendFormat": "{{model_name}}",
-              "refId": "A"
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(kube_pod_status_ready{namespace=\"token-labs\", condition=\"true\"} * on(pod) group_left() kube_pod_labels{namespace=\"token-labs\", label_llm_d_ai_inference_serving=\"true\"})",
+              "refId": "A",
+              "legendFormat": "ready pods"
             }
           ]
         },
         {
           "id": 6,
+          "type": "row",
+          "title": "Burn Rate & TTFT",
+          "collapsed": false,
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 6}
+        },
+        {
+          "id": 7,
           "type": "timeseries",
-          "title": "KV Cache Utilization",
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "title": "Availability Burn Rate (1h)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
           "options": {
-            "tooltip": { "mode": "multi" },
-            "legend": { "displayMode": "list", "placement": "bottom" }
+            "tooltip": {"mode": "multi", "sort": "none"},
+            "legend": {"displayMode": "list", "placement": "bottom"}
           },
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "min": 0,
-              "max": 1,
               "custom": {
+                "drawStyle": "line",
                 "lineWidth": 2,
                 "fillOpacity": 10,
-                "spanNulls": false
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear"
               },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "yellow", "value": 0.8 },
-                  { "color": "red", "value": 0.9 }
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 0.072}
                 ]
               }
             },
@@ -238,52 +242,222 @@ data:
           },
           "targets": [
             {
-              "expr": "token_labs:kv_cache_usage:current",
-              "legendFormat": "{{model}}",
-              "refId": "A"
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "1 - max by (model_name) (token_labs:pod_available:rate1h)",
+              "refId": "A",
+              "legendFormat": "{{model_name}} burn rate"
             }
           ]
         },
         {
-          "id": 7,
-          "type": "table",
-          "title": "Active Alerts",
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "id": 8,
+          "type": "timeseries",
+          "title": "TTFT p99 by Model",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
           "options": {
-            "footer": { "show": false },
-            "showHeader": true,
-            "sortBy": [{ "displayName": "alertname", "desc": false }]
+            "tooltip": {"mode": "multi", "sort": "none"},
+            "legend": {"displayMode": "list", "placement": "bottom"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 1},
+                  {"color": "red", "value": 3}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "token_labs:ttft_p99:rate5m{model_name=~\"$model\"}",
+              "refId": "A",
+              "legendFormat": "{{model_name}}"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "type": "row",
+          "title": "KV Cache & Error Rate",
+          "collapsed": false,
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15}
+        },
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "KV Cache Utilization",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "options": {
+            "tooltip": {"mode": "multi", "sort": "none"},
+            "legend": {"displayMode": "list", "placement": "bottom"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 0.8},
+                  {"color": "red", "value": 0.9}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "token_labs:kv_cache_usage:current{model_name=~\"$model\"}",
+              "refId": "A",
+              "legendFormat": "{{model_name}}"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Error Rate",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "options": {
+            "tooltip": {"mode": "multi", "sort": "none"},
+            "legend": {"displayMode": "list", "placement": "bottom"}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 0.01},
+                  {"color": "red", "value": 0.05}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "token_labs:error_rate:rate5m{model_name=~\"$model\"}",
+              "refId": "A",
+              "legendFormat": "{{model_name}} error rate"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "type": "row",
+          "title": "Active Alerts",
+          "collapsed": false,
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24}
+        },
+        {
+          "id": 13,
+          "type": "table",
+          "title": "Firing Alerts",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 25},
+          "options": {
+            "cellHeight": "sm",
+            "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false},
+            "showHeader": true
           },
           "fieldConfig": {
             "defaults": {
               "custom": {
                 "align": "auto",
-                "displayMode": "auto"
-              }
+                "cellOptions": {"type": "auto"},
+                "inspect": false
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "1": {"text": "FIRING", "color": "red", "index": 0}
+                  }
+                }
+              ]
             },
             "overrides": [
               {
-                "matcher": { "id": "byName", "options": "Value" },
+                "matcher": {"id": "byName", "options": "Value"},
                 "properties": [
-                  { "id": "custom.displayMode", "value": "color-background" },
-                  { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } },
-                  { "id": "mappings", "value": [{ "type": "value", "options": { "1": { "text": "FIRING", "color": "red" } } }] }
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {"type": "color-background"}
+                  }
                 ]
+              },
+              {
+                "matcher": {"id": "byName", "options": "__name__"},
+                "properties": [{"id": "custom.hidden", "value": true}]
               }
             ]
           },
           "targets": [
             {
-              "expr": "ALERTS{job=~\".*token-labs.*\", alertstate=\"firing\"}",
-              "legendFormat": "{{alertname}} / {{pod}}",
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "ALERTS{alertstate=\"firing\"}",
               "refId": "A",
               "instant": true,
               "format": "table"
             }
           ],
           "transformations": [
-            { "id": "organize", "options": { "excludeByName": { "__name__": true, "job": false }, "renameByName": { "alertname": "Alert", "pod": "Pod", "severity": "Severity", "Value": "State" } } }
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {"__name__": true, "Time": false},
+                "renameByName": {
+                  "alertname": "Alert",
+                  "severity": "Severity",
+                  "pod": "Pod",
+                  "namespace": "Namespace"
+                }
+              }
+            }
           ]
         }
       ]
