@@ -80,7 +80,6 @@ decode:
         - "8192"
         - --enforce-eager
         - --trust-remote-code
-        - --language-model-only
       env:
         - name: HF_HOME
           value: "/model-cache"
