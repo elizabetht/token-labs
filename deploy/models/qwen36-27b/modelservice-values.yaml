@@ -45,10 +45,10 @@ decode:
       effect: NoSchedule
   containers:
     - name: vllm
-      # Custom image compiled with TORCH_CUDA_ARCH_LIST=12.1a for GB10 Blackwell (sm_121).
-      # Eliminates vllm_c rms_norm Python fallback (84 dispatches/fwd pass → ~132s TTFT).
-      # vLLM v0.19.0, CUDA 13.0.2, FlashInfer nightly cubin, sbsa/ARM64.
-      image: "ghcr.io/elizabetht/token-labs/vllm-serve:v0.4.0"
+      # Upstream vllm/vllm-openai image — pinned digest known to support qwen3_5 architecture.
+      # vllm-serve:v0.4.0 crashes with "does not recognize qwen3_5 architecture" (transformers too old).
+      # TODO: rebuild vllm-serve:v0.5.0 with updated transformers supporting qwen3_5 for GB10 Blackwell optimizations.
+      image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
       imagePullPolicy: IfNotPresent
       modelCommand: vllmServe
       startupProbe:
