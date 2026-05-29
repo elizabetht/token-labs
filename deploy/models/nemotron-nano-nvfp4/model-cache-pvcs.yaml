@@ -1,5 +1,5 @@
 ---
-# spark-02 PVC (original — kept for reference; spark-02 currently NotReady)
+# spark-02 PVC — model cache for Nemotron-Nano-NVFP4 on spark-02
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -7,23 +7,6 @@ metadata:
   namespace: token-labs
   annotations:
     volume.kubernetes.io/selected-node: spark-02
-spec:
-  accessModes:
-  - ReadWriteOnce
-  storageClassName: longhorn-model-cache
-  resources:
-    requests:
-      storage: 200Gi
-
----
-# spark-01 PVC — used while spark-02 is offline; model weights re-downloaded on first boot
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: model-cache-nemotron-nano-nvfp4-spark-01
-  namespace: token-labs
-  annotations:
-    volume.kubernetes.io/selected-node: spark-01
 spec:
   accessModes:
   - ReadWriteOnce

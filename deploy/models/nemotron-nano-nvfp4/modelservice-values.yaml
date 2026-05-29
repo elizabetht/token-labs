@@ -1,7 +1,6 @@
 # ModelService values — nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4
 #
-# NVFP4 quantized model (~15 GiB weights). Targets spark-01 GB10 (96 GiB HBM).
-# (Originally spark-02; moved to spark-01 because spark-02 is NotReady/unreachable.)
+# NVFP4 quantized model (~15 GiB weights). Targets spark-02 GB10 (96 GiB HBM).
 # --dtype auto lets vllm auto-detect NVFP4 on Blackwell.
 # enforce-eager avoids memory profiling pass starvation on ARM64.
 # HF_HUB_OFFLINE=0 for first boot so weights can be downloaded to PVC cache.
@@ -32,7 +31,7 @@ decode:
   create: true
   replicas: 1
   nodeSelector:
-    kubernetes.io/hostname: spark-01
+    kubernetes.io/hostname: spark-02
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -40,7 +39,7 @@ decode:
           - matchExpressions:
               - key: kubernetes.io/hostname
                 operator: In
-                values: ["spark-01"]
+                values: ["spark-02"]
   tolerations:
     - key: nvidia.com/gpu
       operator: Exists
@@ -96,7 +95,7 @@ decode:
           value: "DEBUG"
       resources:
         requests:
-          cpu: "3"      # reduced from 8; spark-01 has limited headroom (qwen36-27b also running)
+          cpu: "8"
           memory: 32Gi
           nvidia.com/gpu: "1"
         limits:
@@ -111,7 +110,7 @@ decode:
   volumes:
     - name: model-cache
       persistentVolumeClaim:
-        claimName: model-cache-nemotron-nano-nvfp4-spark-01
+        claimName: model-cache-nemotron-nano-nvfp4-spark-02
     - name: shm
       emptyDir:
         medium: Memory
