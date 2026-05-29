@@ -116,6 +116,46 @@ spec:
     kind: Backend
     group: gateway.envoyproxy.io
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen3-06b-vllm
+  namespace: token-labs
+  labels:
+    llm-d.ai/model: qwen3-0.6b
+spec:
+  selector:
+    llm-d.ai/model: qwen3-0.6b
+    llm-d.ai/role: decode
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: qwen3-06b-vllm-backend
+  namespace: token-labs
+spec:
+  endpoints:
+  - fqdn:
+      hostname: qwen3-06b-vllm.token-labs.svc.cluster.local
+      port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: qwen3-06b
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: qwen3-06b-vllm-backend
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
 apiVersion: aigateway.envoyproxy.io/v1alpha1
 kind: AIGatewayRoute
 metadata:
@@ -157,3 +197,10 @@ spec:
         value: Qwen3-0.6B
     backendRefs:
     - name: tokenspeed
+  - matches:
+    - headers:
+      - type: Exact
+        name: x-ai-eg-model
+        value: Qwen/Qwen3-0.6B
+    backendRefs:
+    - name: qwen3-06b

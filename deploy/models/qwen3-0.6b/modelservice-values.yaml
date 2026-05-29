@@ -1,0 +1,112 @@
+# ModelService values — Qwen3-0.6B FP16, single-node decode-only on spark-01
+#
+# Tiny model (~1.2 GiB FP16) sharing GPU with qwen36-27b.
+# gpu_memory_utilization: 0.5 leaves headroom for the larger model.
+# enforce-eager avoids memory profiling pass on startup.
+# HF_HUB_OFFLINE: "0" for first boot to allow model download.
+
+multinode: false
+
+modelArtifacts:
+  uri: "hf://Qwen/Qwen3-0.6B"
+  size: 5Gi
+  authSecretName: "llm-d-hf-token"
+  name: "Qwen/Qwen3-0.6B"
+  labels:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: qwen3-0.6b
+    llm-d.ai/hardware-variant: "gpu"
+    llm-d.ai/accelerator-vendor: "nvidia"
+
+routing:
+  servicePort: 8000
+  proxy:
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.7.1
+    connector: nixlv2
+    secure: false
+
+decode:
+  parallelism:
+    tensor: 1
+  create: true
+  replicas: 1
+  strategy:
+    type: Recreate
+  nodeSelector:
+    kubernetes.io/hostname: spark-01
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["spark-01"]
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: vllm
+      image: "vllm/vllm-openai@sha256:a97ffd8f5699075f6a963e2d43af11b5bc7083f8c66ffcea4bcad92b524a260d"
+      imagePullPolicy: IfNotPresent
+      modelCommand: vllmServe
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        failureThreshold: 60
+        timeoutSeconds: 10
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: 8000
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        failureThreshold: 3
+        timeoutSeconds: 10
+      args:
+        - --gpu-memory-utilization
+        - "0.5"
+        - --enforce-eager
+        - --trust-remote-code
+        - --enable-prefix-caching
+      env:
+        - name: HF_HOME
+          value: "/model-cache"
+        - name: HF_HUB_CACHE
+          value: "/model-cache/hub"
+        - name: HF_HUB_OFFLINE
+          value: "0"
+        - name: FLASHINFER_DISABLE_VERSION_CHECK
+          value: "1"
+        - name: HF_HUB_DISABLE_XET
+          value: "1"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: VLLM_LOGGING_LEVEL
+          value: "DEBUG"
+      resources:
+        requests:
+          cpu: "2"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: 20Gi
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: model-cache
+          mountPath: /model-cache
+        - name: shm
+          mountPath: /dev/shm
+  volumes:
+    - name: model-cache
+      persistentVolumeClaim:
+        claimName: model-cache-qwen3-0.6b-spark-01
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 4Gi

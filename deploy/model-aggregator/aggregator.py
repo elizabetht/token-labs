@@ -5,29 +5,25 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
-GATEWAY_URL = "http://envoy-token-labs-token-labs-gateway-bd0838a6.envoy-gateway-system.svc.cluster.local"
-GATEWAY_HOST = "api.tokenlabs.run"
 REFRESH_INTERVAL = 28.0
 
 STATIC_MODELS = [
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", "object": "model", "owned_by": "token-labs", "routing_header": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"},
-    {"id": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4", "object": "model", "owned_by": "token-labs", "routing_header": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4"},
+    {"id": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-NVFP4", "object": "model", "owned_by": "token-labs", "probe_url": "http://nemotron-nano-nvfp4-vllm.token-labs.svc.cluster.local:8000/v1/models"},
+    {"id": "Qwen/Qwen3.6-27B-FP8", "object": "model", "owned_by": "token-labs", "probe_url": "http://qwen36-27b-vllm.token-labs.svc.cluster.local:8000/v1/models"},
+    {"id": "Qwen/Qwen3-0.6B", "object": "model", "owned_by": "token-labs", "probe_url": "http://qwen3-06b-vllm.token-labs.svc.cluster.local:8000/v1/models"},
 ]
 
 _cache: list = [{"id": m["id"], "object": m["object"], "owned_by": m["owned_by"]} for m in STATIC_MODELS]
 _http_client: httpx.AsyncClient | None = None
 
 
-async def fetch_live_model(routing_header: str) -> dict | None:
+async def fetch_live_model(model: dict) -> dict | None:
     try:
-        r = await _http_client.get(
-            f"{GATEWAY_URL}/v1/models",
-            headers={"Host": GATEWAY_HOST, "x-ai-eg-model": routing_header},
-        )
+        r = await _http_client.get(model["probe_url"])
         if r.status_code == 200:
             data = r.json().get("data", [])
             if data:
-                return data[0]
+                return {"id": model["id"], "object": "model", "owned_by": model["owned_by"]}
     except Exception:
         pass
     return None
@@ -35,7 +31,7 @@ async def fetch_live_model(routing_header: str) -> dict | None:
 
 async def refresh_cache():
     global _cache
-    results = await asyncio.gather(*[fetch_live_model(m["routing_header"]) for m in STATIC_MODELS])
+    results = await asyncio.gather(*[fetch_live_model(m) for m in STATIC_MODELS])
     models = []
     for i, live in enumerate(results):
         if live:

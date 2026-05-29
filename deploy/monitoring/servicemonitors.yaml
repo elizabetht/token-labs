@@ -64,3 +64,24 @@ spec:
     path: /metrics
     interval: 15s
     scrapeTimeout: 10s
+
+---
+# Qwen3-0.6B vLLM ServiceMonitor (spark-01, helm release ms-qwen3-0.6b)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: qwen3-06b-vllm
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames: [token-labs]
+  selector:
+    matchLabels:
+      llm-d.ai/model: qwen3-0.6b
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
