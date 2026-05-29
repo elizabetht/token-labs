@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen36-27b-vllm
+  namespace: token-labs
+  labels:
+    llm-d.ai/model: qwen36-27b
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    llm-d.ai/model: qwen36-27b
+    llm-d.ai/role: decode
