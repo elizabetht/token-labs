@@ -1,7 +1,7 @@
 # ModelService values — Qwen3-0.6B FP16, single-node decode-only on spark-01
 #
-# Tiny model (~1.2 GiB FP16) sharing GPU with qwen36-27b.
-# gpu_memory_utilization: 0.5 leaves headroom for the larger model.
+# Tiny model (~1.2 GiB FP16) sharing GPU with qwen36-27b (~109 GiB).
+# gpu_memory_utilization: 0.08 (~9.5 GiB) fits within the ~10.5 GiB free.
 # enforce-eager avoids memory profiling pass on startup.
 # HF_HUB_OFFLINE: "0" for first boot to allow model download.
 
@@ -69,7 +69,7 @@ decode:
         timeoutSeconds: 10
       args:
         - --gpu-memory-utilization
-        - "0.5"
+        - "0.08"
         - --enforce-eager
         - --trust-remote-code
         - --enable-prefix-caching
@@ -95,7 +95,7 @@ decode:
           nvidia.com/gpu: "1"
         limits:
           cpu: "4"
-          memory: 20Gi
+          memory: 12Gi
           nvidia.com/gpu: "1"
       volumeMounts:
         - name: model-cache
