@@ -44,10 +44,10 @@ spec:
               imagePullPolicy: IfNotPresent
               resources:
                 requests:
-                  cpu: "2"
+                  cpu: "1"
                   memory: 4Gi
                 limits:
-                  cpu: "4"
+                  cpu: "2"
                   memory: 8Gi
 
     # Decode worker holding the weights and the GPU.
@@ -76,20 +76,19 @@ spec:
             - name: main
               image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1-cuda13
               imagePullPolicy: IfNotPresent
+              # The operator forces command: ["/bin/sh","-c"] on the "main"
+              # container, so args MUST be a single shell string. A YAML list
+              # here silently degrades to running bare `python3` with the rest
+              # bound to $0/$1/... — the container starts and never serves.
               args:
-                - python3
-                - -m
-                - dynamo.vllm
-                - --model
-                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
-                - --served-model-name
-                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-dynamo
-                - --max-model-len
-                - "65536"
-                - --gpu-memory-utilization
-                - "0.55"
-                - --enforce-eager
-                - --trust-remote-code
+                - >-
+                  python3 -m dynamo.vllm
+                  --model nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+                  --served-model-name nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-dynamo
+                  --max-model-len 65536
+                  --gpu-memory-utilization 0.55
+                  --enforce-eager
+                  --trust-remote-code
               env:
                 - name: HF_HOME
                   value: /hf-cache
@@ -105,13 +104,17 @@ spec:
                       optional: true
                 - name: PYTHONUNBUFFERED
                   value: "1"
+              # spark-02 has 20 allocatable CPU with ~11.5 already requested by
+              # system daemons, leaving ~8.4. frontend(1) + decode(6) fits;
+              # the gang scheduler admits all-or-nothing, so overshooting here
+              # leaves both pods SchedulingGated indefinitely.
               resources:
                 requests:
-                  cpu: "8"
+                  cpu: "6"
                   memory: 24Gi
                   nvidia.com/gpu: "1"
                 limits:
-                  cpu: "16"
+                  cpu: "12"
                   memory: 96Gi
                   nvidia.com/gpu: "1"
               volumeMounts:
