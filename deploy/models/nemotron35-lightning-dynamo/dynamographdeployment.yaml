@@ -1,0 +1,119 @@
+# Nemotron-3.5-Lightning-30B-A3B-NVFP4 — NVIDIA Dynamo on spark-02
+#
+# Same weights as the spark-01 vLLM deployment, served through a different
+# runtime so the two engines can be compared head-to-head on identical
+# hardware. Distinct served-model-name so the gateway can address each.
+#
+# API shape notes (dynamo-operator 1.2.1, CRD nvidia.com/v1beta1):
+#   - v1beta1 replaced v1alpha1's ten per-component pod fields (resources,
+#     envs, extraPodSpec, ...) with a single `podTemplate` holding a native
+#     corev1.PodTemplateSpec. The operator injects its defaults into the
+#     container named exactly "main" and strategic-merges overrides by name.
+#   - component `type` enum: frontend | worker | prefill | decode | planner | epp
+#   - An aggregated (non-disaggregated) graph is frontend + decode. Splitting
+#     into prefill+decode needs 2 GPUs; spark-02 has one GB10.
+#
+# Image: 1.2.1-cuda13 matches the installed operator version and has a
+# linux/arm64 variant (verified against nvcr.io) — required for GB10 aarch64.
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: nemotron35-lightning-dynamo
+  namespace: token-labs
+  labels:
+    token-labs/engine: dynamo
+spec:
+  backendFramework: vllm
+  components:
+    # OpenAI-compatible HTTP frontend. Pinned to spark-02 alongside the worker
+    # to keep the NATS round-trip on-node.
+    - name: frontend
+      type: frontend
+      replicas: 1
+      podTemplate:
+        metadata:
+          labels:
+            token-labs/engine: dynamo
+            llm-d.ai/model: nemotron35-lightning-dynamo
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: spark-02
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1-cuda13
+              imagePullPolicy: IfNotPresent
+              resources:
+                requests:
+                  cpu: "2"
+                  memory: 4Gi
+                limits:
+                  cpu: "4"
+                  memory: 8Gi
+
+    # Decode worker holding the weights and the GPU.
+    - name: decode
+      type: decode
+      replicas: 1
+      sharedMemorySize: 16Gi
+      podTemplate:
+        metadata:
+          labels:
+            token-labs/engine: dynamo
+            llm-d.ai/model: nemotron35-lightning-dynamo
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: spark-02
+          tolerations:
+            - key: nvidia.com/gpu
+              operator: Exists
+              effect: NoSchedule
+          volumes:
+            - name: hf-cache
+              hostPath:
+                path: /home/nvidia/.cache/huggingface
+                type: Directory
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.2.1-cuda13
+              imagePullPolicy: IfNotPresent
+              args:
+                - python3
+                - -m
+                - dynamo.vllm
+                - --model
+                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+                - --served-model-name
+                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-dynamo
+                - --max-model-len
+                - "65536"
+                - --gpu-memory-utilization
+                - "0.55"
+                - --enforce-eager
+                - --trust-remote-code
+              env:
+                - name: HF_HOME
+                  value: /hf-cache
+                - name: HF_HUB_CACHE
+                  value: /hf-cache/hub
+                - name: HF_HUB_DISABLE_XET
+                  value: "1"
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: llm-d-hf-token
+                      key: HF_TOKEN
+                      optional: true
+                - name: PYTHONUNBUFFERED
+                  value: "1"
+              resources:
+                requests:
+                  cpu: "8"
+                  memory: 24Gi
+                  nvidia.com/gpu: "1"
+                limits:
+                  cpu: "16"
+                  memory: 96Gi
+                  nvidia.com/gpu: "1"
+              volumeMounts:
+                - name: hf-cache
+                  mountPath: /hf-cache

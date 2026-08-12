@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemotron35-lightning-vllm
+  namespace: token-labs
+  labels:
+    app: nemotron35-lightning-vllm
+    llm-d.ai/model: nemotron35-lightning-vllm
+    token-labs/engine: vllm
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  selector:
+    app: nemotron35-lightning-vllm
