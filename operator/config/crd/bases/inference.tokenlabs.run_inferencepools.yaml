@@ -1,0 +1,149 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: inferencepools.inference.tokenlabs.run
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+spec:
+  group: inference.tokenlabs.run
+  names:
+    kind: InferencePool
+    listKind: InferencePoolList
+    plural: inferencepools
+    singular: inferencepool
+    shortNames:
+    - ipool
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Model
+      type: string
+      jsonPath: .spec.model.repository
+    - name: Replicas
+      type: integer
+      jsonPath: .spec.resources.replicas
+    - name: Ready
+      type: string
+      jsonPath: '.status.conditions[?(@.type=="Ready")].status'
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+    schema:
+      openAPIV3Schema:
+        description: InferencePool manages the lifecycle of a vLLM model deployment,
+          its llm-d proxy, and Gateway routing as a single declarative unit.
+        type: object
+        required:
+        - spec
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InferencePoolSpec defines the desired state of InferencePool.
+            type: object
+            required:
+            - model
+            - resources
+            properties:
+              model:
+                description: Model describes the model artifact to serve.
+                type: object
+                required:
+                - repository
+                properties:
+                  repository:
+                    description: Repository is the HuggingFace model repo identifier,
+                      e.g. "meta-llama/Meta-Llama-3-70B".
+                    type: string
+                  quantization:
+                    description: Quantization is the quantization format, e.g. "fp8",
+                      "bfloat16".
+                    type: string
+                    default: bfloat16
+              resources:
+                description: Resources describes GPU type and replica count.
+                type: object
+                required:
+                - replicas
+                properties:
+                  gpuType:
+                    description: GPUType is the GPU product label selector, e.g.
+                      "nvidia-h100".
+                    type: string
+                  replicas:
+                    description: Replicas is the number of vLLM worker pods.
+                    type: integer
+                    format: int32
+                    minimum: 1
+                    default: 1
+              gateway:
+                description: Gateway describes the external routing configuration.
+                type: object
+                required:
+                - host
+                - path
+                properties:
+                  host:
+                    description: Host is the public hostname, e.g. "api.tokenlabs.run".
+                    type: string
+                  path:
+                    description: Path is the URL path prefix, e.g. "/v1/completions".
+                    type: string
+          status:
+            description: InferencePoolStatus defines the observed state of InferencePool.
+            type: object
+            properties:
+              conditions:
+                description: Conditions store the status conditions of the InferencePool.
+                type: array
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  type: object
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  properties:
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    message:
+                      type: string
+                    observedGeneration:
+                      type: integer
+                      format: int64
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                    type:
+                      type: string
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              readyReplicas:
+                description: ReadyReplicas is the number of vLLM pods that are ready.
+                type: integer
+                format: int32
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  for this InferencePool.
+                type: integer
+                format: int64

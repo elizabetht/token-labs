@@ -1,0 +1,15 @@
+apiVersion: inference.tokenlabs.run/v1alpha1
+kind: InferencePool
+metadata:
+  name: llama3-70b-pool
+  namespace: token-labs
+spec:
+  model:
+    repository: "meta-llama/Meta-Llama-3-70B"
+    quantization: "fp8"
+  resources:
+    gpuType: "nvidia-h100"
+    replicas: 3
+  gateway:
+    host: "api.tokenlabs.run"
+    path: "/v1/completions"
