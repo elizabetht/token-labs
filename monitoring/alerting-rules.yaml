@@ -1,0 +1,62 @@
+# PrometheusRule — TokenLabs AI Factory Alerting Rules
+#
+# Alerts:
+#   - HighTTFTP95        : P95 Time-to-First-Token exceeds 2 s over a 5-minute window.
+#   - HighGPUCacheUsage  : KV-Cache utilisation on any node exceeds 95 %.
+#
+# Requires: prometheus-operator or kube-prometheus-stack
+# Namespace: token-labs (matches the ServiceMonitor namespace)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: token-labs-ai-factory-alerts
+  namespace: token-labs
+  labels:
+    app.kubernetes.io/part-of: token-labs
+    # kube-prometheus-stack picks up rules labelled with release name by default
+    role: alert-rules
+spec:
+  groups:
+  - name: token-labs.inference.latency
+    interval: 30s
+    rules:
+    # P95 Time-to-First-Token (TTFT) > 2 s
+    - alert: HighTTFTP95
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(vllm:time_to_first_token_seconds_bucket[5m])) by (le, model_name, node)
+        ) > 2
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: "P95 TTFT exceeds 2 s on {{ $labels.node }} ({{ $labels.model_name }})"
+        description: >
+          The 95th-percentile Time-to-First-Token on node {{ $labels.node }} for model
+          {{ $labels.model_name }} has been above 2 seconds for the past 5 minutes
+          (current value: {{ $value | humanizeDuration }}).
+          This likely indicates GPU memory pressure, a large KV-Cache fill, or insufficient
+          InferencePool capacity. Check KV-Cache usage and request queue depth.
+        runbook_url: "https://github.com/elizabetht/token-labs/blob/main/monitoring/README.md#runbook-high-ttft"
+
+  - name: token-labs.inference.capacity
+    interval: 30s
+    rules:
+    # KV Cache usage > 95 % on any node
+    - alert: HighGPUCacheUsage
+      expr: |
+        100 * vllm:gpu_cache_usage_perc > 95
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: "GPU KV-Cache > 95 % on {{ $labels.node }} ({{ $labels.model_name }})"
+        description: >
+          The KV-Cache on node {{ $labels.node }} for model {{ $labels.model_name }} has
+          exceeded 95 % utilisation for more than 5 minutes
+          (current value: {{ $value | humanize }}%).
+          New requests will be queued or rejected. Immediate action required:
+          scale out the InferencePool or reduce gpu-memory-utilization in vLLM args.
+        runbook_url: "https://github.com/elizabetht/token-labs/blob/main/monitoring/README.md#runbook-high-cache-usage"
