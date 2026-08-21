@@ -1,0 +1,221 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# GB10 adaptation of NVIDIA's GB200 recipe: one time-sliced GB10 worker with
+# DSpark speculative decoding. This profile is experimental, not NVIDIA-validated.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-agg-gb10-dspark-config
+  namespace: token-labs
+data:
+  speculative-config: |-
+    {
+      "method": "dspark",
+      "model": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark",
+      "num_speculative_tokens": 7,
+      "attention_backend": "TRITON_ATTN"
+    }
+  speculative-config-synthetic: |-
+    {
+      "method": "dspark",
+      "model": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark",
+      "num_speculative_tokens": 7,
+      "rejection_sample_method": "synthetic",
+      "synthetic_acceptance_length": 3.69,
+      "attention_backend": "TRITON_ATTN"
+    }
+---
+apiVersion: nvidia.com/v1beta1
+kind: DynamoGraphDeployment
+metadata:
+  name: vllm-agg-gb10-dspark
+  labels:
+    app.kubernetes.io/name: vllm-agg-gb10-dspark
+    app.kubernetes.io/part-of: dynamo
+    token-labs/scenario: nemotron35-dspark
+  namespace: token-labs
+spec:
+  backendFramework: vllm
+  components:
+    - name: Frontend
+      type: frontend
+      replicas: 1
+      podTemplate:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: spark-02
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.5.0-nemotron-3.5-lightning-dev.1
+              imagePullPolicy: IfNotPresent
+              command:
+                - python3
+              args:
+                - -m
+                - dynamo.frontend
+                - --trust-remote-code
+              env:
+                - name: POD_UID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.uid
+                - name: DYN_HTTP_BODY_LIMIT_MB
+                  value: "200"
+                - name: HF_HOME
+                  value: /model-cache
+                - name: HF_HUB_OFFLINE
+                  value: "1"
+                - name: HF_MODULES_CACHE
+                  value: /tmp/hf_modules
+                - name: NCCL_IB_DISABLE
+                  value: "1"
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 2Gi
+                limits:
+                  cpu: "2"
+                  memory: 4Gi
+              startupProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                periodSeconds: 10
+                timeoutSeconds: 60
+                failureThreshold: 60
+              volumeMounts:
+                - name: shared-model-cache
+                  mountPath: /model-cache
+          volumes:
+            - name: shared-model-cache
+              hostPath:
+                path: /home/nvidia/.cache/huggingface
+                type: Directory
+    - name: agg
+      type: worker
+      replicas: 1
+      sharedMemorySize: 40Gi
+      podTemplate:
+        spec:
+          volumes:
+            - name: shared-model-cache
+              hostPath:
+                path: /home/nvidia/.cache/huggingface
+                type: Directory
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 40Gi
+          containers:
+            - name: main
+              image: nvcr.io/nvidia/ai-dynamo/vllm-runtime:1.5.0-nemotron-3.5-lightning-dev.1
+              imagePullPolicy: IfNotPresent
+              workingDir: /workspace/
+              command:
+                - python3
+                - -m
+                - dynamo.vllm
+              args:
+                - -m
+                - dynamo.vllm
+                - --model
+                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+                - --served-model-name
+                - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+                - --trust-remote-code
+                - --tensor-parallel-size
+                - "1"
+                - --max-model-len
+                - "32768"
+                - --max-num-seqs
+                - "1"
+                - --gpu-memory-utilization
+                - "0.40"
+                - --quantization
+                - modelopt_fp4
+                - --enable-prefix-caching
+                - --mamba-cache-mode
+                - align
+                - --no-disable-hybrid-kv-cache-manager
+                - --mamba-backend
+                - flashinfer
+                - --mamba-ssm-cache-dtype
+                - float16
+                - --speculative-config=$(SPECULATIVE_CONFIG)
+                - --reasoning-parser
+                - nemotron_v3
+                - --disaggregation-mode
+                - decode
+              env:
+                - name: POD_UID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.uid
+                - name: HF_HOME
+                  value: /model-cache
+                - name: HF_HUB_OFFLINE
+                  value: "0"
+                - name: HF_MODULES_CACHE
+                  value: /tmp/hf_modules
+                - name: TRITON_CACHE_DIR
+                  value: /tmp/.triton-cache
+                - name: VLLM_CONFIG_ROOT
+                  value: /tmp/vllm-config
+                - name: VLLM_CACHE_ROOT
+                  value: /tmp/vllm-cache
+                - name: LIBRARY_PATH
+                  value: /usr/local/nvidia/lib64:/usr/local/nvidia/lib:/usr/local/cuda/compat
+                - name: VLLM_ENGINE_READY_TIMEOUT_S
+                  value: "3600"
+                - name: VLLM_OMNI_USE_QUACK_FP8
+                  value: "0"
+                - name: VLLM_WORKER_MULTIPROC_METHOD
+                  value: "spawn"
+                - name: VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS
+                  value: "1"
+                - name: SPECULATIVE_CONFIG
+                  valueFrom:
+                    configMapKeyRef:
+                      name: vllm-agg-gb10-dspark-config
+                      key: speculative-config # speculative-config-synthetic for benchmarking
+                - name: PYTHONHASHSEED
+                  value: "0"
+                - name: PYTHONUNBUFFERED
+                  value: "1"
+                - name: NCCL_IB_DISABLE
+                  value: "1"
+                - name: HF_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: hf-token
+                      key: HF_TOKEN
+              resources:
+                requests:
+                  cpu: "4"
+                  memory: 32Gi
+                  nvidia.com/gpu.shared: "1"
+                limits:
+                  cpu: "8"
+                  memory: 56Gi
+                  nvidia.com/gpu.shared: "1"
+              securityContext:
+                runAsUser: 0
+                capabilities:
+                  add:
+                    - IPC_LOCK
+                    - SYS_RESOURCE
+              startupProbe:
+                httpGet:
+                  path: /live
+                  port: 9090
+                periodSeconds: 30
+                timeoutSeconds: 20
+                failureThreshold: 120
+              volumeMounts:
+                - name: shared-model-cache
+                  mountPath: /model-cache
+                - name: dshm
+                  mountPath: /dev/shm
+          nodeSelector:
+            kubernetes.io/hostname: spark-02

@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: dynamo-platform
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  timeout: 15m0s
+  releaseName: dynamo-platform
+  targetNamespace: dynamo-system
+  chart:
+    spec:
+      chart: deploy/helm/charts/platform
+      interval: 10m0s
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: dynamo
+        namespace: flux-system
+  install:
+    createNamespace: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+      strategy: rollback
+  values:
+    dynamo-operator:
+      dynamo:
+        metrics:
+          prometheusEndpoint: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+    global:
+      grove:
+        install: true
+      kai-scheduler:

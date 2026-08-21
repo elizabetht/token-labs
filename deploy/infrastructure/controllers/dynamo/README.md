@@ -1,0 +1,29 @@
+# NVIDIA Dynamo Platform
+
+This directory owns the Dynamo controller stack, not model workloads.
+
+- `helmrelease.yaml` installs the platform through Flux.
+- `../../sources/dynamo-git.yaml` pins the official upstream repository to
+  the exact commit for `v1.3.1`; the chart is loaded from
+  `deploy/helm/charts/platform` at that revision.
+- `apply-grove-crd-fix.sh` resolves the Grove `ct` short-name collision.
+
+The root `deploy/kustomization.yaml` includes infrastructure, so reconcile from
+the controller with:
+
+```bash
+kubectl apply -k deploy
+flux reconcile source git dynamo -n flux-system
+flux reconcile helmrelease dynamo-platform -n flux-system --with-source
+kubectl -n dynamo-system get pods
+```
+
+If a fresh cluster reports the known Grove `ct` short-name collision, run
+`deploy/infrastructure/controllers/dynamo/apply-grove-crd-fix.sh`, then reconcile
+the HelmRelease again. The HelmRelease uses `CreateReplace` during install and
+upgrade so chart CRD changes are handled declaratively after that collision is
+resolved.
+
+To upgrade Dynamo, change only the commit in `../../sources/dynamo-git.yaml` in
+a reviewed PR. The chart version comes from that immutable Git revision; no
+downloaded `.tgz` is required in this repository.

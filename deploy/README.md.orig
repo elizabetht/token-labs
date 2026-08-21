@@ -139,12 +139,8 @@ deploy/
 │   ├── monitoring/
 │   └── observability/
 ├── models/                      # Active model workloads
-│   ├── nemotron-3.5-lightning-30b-a3b-nvfp4/
-│   │   ├── llm-d/
-│   │   └── dynamo/
-│   └── qwen3-30b-a3b-instruct-2507-fp8/
-│       ├── llm-d/
-│       └── dynamo/
+│   ├── nemotron35-lightning-llm-d/
+│   └── nemotron35-lightning-dynamo/
 ├── archive/                     # Retained, not actively reconciled
 │   ├── models/
 │   ├── platform/

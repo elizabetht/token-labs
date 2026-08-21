@@ -1,0 +1,14 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: dynamo
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  url: https://github.com/ai-dynamo/dynamo.git
+  ref:
+    # Exact commit for upstream release v1.3.1; change this in a reviewed PR.
+    commit: a49702e4432e7fa43cbc88175bddb31604340f19
+  ignore: |
+    /*
+    !/deploy/helm/charts/platform

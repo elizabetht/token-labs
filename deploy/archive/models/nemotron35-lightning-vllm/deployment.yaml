@@ -1,0 +1,167 @@
+# Nemotron-3.5-Lightning-30B-A3B-NVFP4 — vLLM on spark-01
+#
+# Model notes (from config.json):
+#   - architectures: NemotronHForCausalLM, model_type: nemotron_h
+#   - Hybrid Mamba-2 + MoE: 52 layers, 128 routed experts, top-6, hidden 2688
+#   - quantization_config is compressed-tensors MIXED_PRECISION (NVFP4 experts,
+#     FP8 mamba projections, FP8 KV cache). Do NOT pass --quantization; vLLM
+#     auto-detects from config.json. Forcing it breaks the mixed-precision path.
+#   - max_position_embeddings is 1048576 (1M). We cap at 65536 — the full 1M
+#     context would demand far more KV than a single GB10 can hold.
+#
+# Platform notes:
+#   - DGX Spark GB10 is aarch64 / SM 12.1. vllm-openai:v0.27.1 is a multi-arch
+#     manifest (amd64+arm64), so the tag resolves correctly on these nodes.
+#     v0.27.1 is also the version pinned by the upstream model card recipe.
+#   - Serving args below are NVIDIA's published DGX Spark (GB10) recipe from
+#     the model card, plus --safetensors-load-strategy eager.
+#   - 119 GiB *unified* CPU+GPU memory, shared with the kubelet and every other
+#     pod on this node. The model card assumes a dedicated box and recommends
+#     gpu-memory-utilization 0.91 (~108 GiB) with no --max-model-len cap
+#     (i.e. the config's full 1M context). Both are more aggressive than what
+#     this node has previously run. See TODO(human) in the args list.
+#   - CORRECTION (2026-08-12): the earlier note here blamed the unkillable-
+#     container failure on memory starvation from a high gpu-memory-utilization.
+#     That was misdiagnosed. Root cause was AppArmor: the shipped
+#     cri-containerd.apparmor.d profile permitted signal receipt only from
+#     snap.microk8s.* peers, so SIGKILL from Ubuntu 24.04's confined runc was
+#     denied and pods hung in Terminating indefinitely. Fixed on all three
+#     nodes by adding `signal (receive) peer=runc,`. Memory pressure is still a
+#     real constraint on unified memory, but it did not cause that symptom.
+#   - hostPath HF cache (not a Longhorn PVC) deliberately: RWO PVCs have caused
+#     rollout deadlocks here before, and spark-01 has 688 GiB free on /.
+#     The DSpark draft checkpoint is already present in this cache.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nemotron35-lightning-vllm
+  namespace: token-labs
+  labels:
+    app: nemotron35-lightning-vllm
+    llm-d.ai/model: nemotron35-lightning-vllm
+    token-labs/engine: vllm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nemotron35-lightning-vllm
+  template:
+    metadata:
+      labels:
+        app: nemotron35-lightning-vllm
+        llm-d.ai/model: nemotron35-lightning-vllm
+        llm-d.ai/inference-serving: "true"
+        token-labs/engine: vllm
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: spark-01
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      volumes:
+        - name: hf-cache
+          hostPath:
+            path: /home/nvidia/.cache/huggingface
+            type: Directory
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+      containers:
+        - name: vllm
+          image: docker.io/vllm/vllm-openai:v0.27.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --model
+            - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+            - --served-model-name
+            - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+            - --port
+            - "8000"
+            # --- upstream model-card recipe for DGX Spark (GB10) ---
+            # GB10 stores NVFP4 but has no native FP4 tensor-core path, so the
+            # compute path is W4A16 via Marlin. This flag is not optional here.
+            - --moe-backend
+            - marlin
+            - --kv-cache-dtype
+            - fp8
+            - --mamba-backend
+            - flashinfer
+            - --mamba-cache-mode
+            - align
+            - --enable-prefix-caching
+            # DSpark speculative decoding — tuned by NVIDIA for DGX Spark's
+            # low-concurrency profile. Draft checkpoint is already in the
+            # hostPath HF cache on spark-01, so no first-boot download.
+            - --speculative_config.model
+            - nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4-DSpark
+            - --speculative_config.num_speculative_tokens
+            - "3"
+            # Chat/agent parsing per the card.
+            - --reasoning-parser
+            - nemotron_v3
+            - --tool-call-parser
+            - qwen3_coder
+            - --enable-auto-tool-choice
+            # Requested: load safetensors shards eagerly rather than lazily.
+            - --safetensors-load-strategy
+            - eager
+            - --trust-remote-code
+            # TODO(human): memory-safety guards — see note below.
+
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: HF_HOME
+              value: /hf-cache
+            - name: HF_HUB_CACHE
+              value: /hf-cache/hub
+            - name: HF_HUB_OFFLINE
+              value: "0"
+            - name: HF_HUB_DISABLE_XET
+              value: "1"
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+                  optional: true
+            - name: FLASHINFER_DISABLE_VERSION_CHECK
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          # 21.6 GiB of weights over 52 shards on first boot; allow ~90 min
+          # before the kubelet gives up (180 * 30s).
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 180
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 10
+          resources:
+            requests:
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "16"
+              memory: 96Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /hf-cache
+            - name: shm
+              mountPath: /dev/shm

@@ -7,3 +7,5 @@ resources:
   - envoy-gateway.yaml
   # Auth and rate limiting
   - kuadrant.yaml
+  # NVIDIA Dynamo controller stack
+  - dynamo/helmrelease.yaml

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: gpu-operator
+data:
+  any: |-
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      timeSlicing:
+        # Compatibility mode: keep advertising slices as nvidia.com/gpu.
+        # Workloads request nvidia.com/gpu: 1, even though the GPU is shared
+        # rather than exclusive. This avoids changing existing pod manifests.
+        renameByDefault: false
+        failRequestsGreaterThanOne: true
+        resources:
+          # `replicas` is the number of schedulable shares per physical GPU.
+          - name: nvidia.com/gpu
+            replicas: 4

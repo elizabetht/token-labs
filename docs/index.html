@@ -263,6 +263,9 @@
     /* LIVE BADGE DEGRADED */
     .live-badge.degraded { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); color: #fbbf24; }
     .live-badge.degraded .live-dot { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+    .model-card-catalog.unverified { opacity: 0.55; filter: grayscale(0.8); }
+    .model-card-catalog.unverified:hover { opacity: 0.75; transform: none; box-shadow: none; }
+    .card-status { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #fbbf24; font-family: ui-monospace, Menlo, monospace; }
 
     /* FOOTER */
     .footer { border-top: 1px solid var(--border); padding: 32px; text-align: center; color: var(--text-muted); font-size: 12px; }
@@ -452,8 +455,8 @@
               <input type="range" id="temp-slider" min="0" max="2" step="0.05" value="0.7" oninput="document.getElementById('temp-val').textContent=parseFloat(this.value).toFixed(2)">
             </div>
             <div class="setting-row">
-              <div class="setting-row-label"><span>Max Tokens</span><span class="val" id="maxtok-val">512</span></div>
-              <input type="range" id="maxtok-slider" min="64" max="4096" step="64" value="512" oninput="document.getElementById('maxtok-val').textContent=this.value">
+              <div class="setting-row-label"><span>Max Tokens</span><span class="val" id="maxtok-val">2048</span></div>
+              <input type="range" id="maxtok-slider" min="64" max="4096" step="64" value="2048" oninput="document.getElementById('maxtok-val').textContent=this.value">
             </div>
             <div class="setting-row">
               <div class="setting-row-label"><span>Top P</span><span class="val" id="topp-val">1.00</span></div>
@@ -653,16 +656,19 @@ function modelDefaults(modelId) {
   };
 }
 
-function buildModels(ids) {
+// `verified` records whether these ids came from a successful /v1/models call.
+// The static MODEL_ENRICHMENT fallback is display metadata, not a liveness signal.
+function buildModels(ids, verified) {
   const result = {};
   for (const id of ids) {
     const enrichment = MODEL_ENRICHMENT[id] || modelDefaults(id);
-    result[id] = { ...enrichment, fullModelName: id, baseUrl: DEFAULT_API_BASE };
+    result[id] = { ...enrichment, fullModelName: id, baseUrl: DEFAULT_API_BASE, verified: !!verified };
   }
   return result;
 }
 
 let MODELS = {};
+let _modelsVerified = false;
 let selectedModelKey = null;
 let compareMode = false, compareModelKey = null;
 let messagesA = [], messagesB = [];
@@ -711,7 +717,7 @@ function renderCatalog(query, filter) {
     return;
   }
   grid.innerHTML = entries.map(([key,m]) => `
-    <div class="model-card-catalog" onclick="showDetail('${key}')">
+    <div class="model-card-catalog${m.verified ? '' : ' unverified'}" onclick="showDetail('${key}')">
       <div class="card-top">
         <div class="card-avatar" style="background:${m.avatarBg};color:${m.avatarColor};">${m.avatar}</div>
         <div>
@@ -722,11 +728,15 @@ function renderCatalog(query, filter) {
       <div class="card-desc">${m.description}</div>
       <div class="card-footer">
         ${m.tags.map((t,i)=>`<span class="tag ${m.tagColors[i]}">${t}</span>`).join("")}
-        ${m.inputPricePerM > 0 ? `<span class="card-price">$${m.inputPricePerM.toFixed(2)} in · $${m.outputPricePerM.toFixed(2)} out</span>` : '<span class="card-price">Free</span>'}
+        ${m.verified
+          ? (m.inputPricePerM > 0 ? `<span class="card-price">$${m.inputPricePerM.toFixed(2)} in · $${m.outputPricePerM.toFixed(2)} out</span>` : '<span class="card-price">Free</span>')
+          : '<span class="card-status">STATUS UNKNOWN</span>'}
       </div>
     </div>
   `).join('');
-  document.getElementById('stat-models').textContent = Object.keys(MODELS).length;
+  // Only models confirmed by a live /v1/models response count toward the headline stat.
+  const verifiedCount = Object.values(MODELS).filter(m=>m.verified).length;
+  document.getElementById('stat-models').textContent = _modelsVerified ? verifiedCount : '—';
   const prices = Object.values(MODELS).map(m=>m.inputPricePerM).filter(p=>p>0);
   const minPrice = prices.length ? Math.min(...prices) : null;
   document.getElementById('stat-min-price').textContent = minPrice != null ? `$${minPrice.toFixed(2)}` : 'Free';
@@ -747,17 +757,19 @@ async function fetchModels() {
     const headers = {};
     if (apiKey) headers["Authorization"] = "Bearer " + apiKey;
     const resp = await fetch(`${DEFAULT_API_BASE}/v1/models`, { headers });
-    if (!resp.ok) { updateLiveBadge(false); return false; }
+    if (!resp.ok) { markUnverified(); return false; }
     const data = await resp.json();
     const ids = (data.data || []).map(m => m.id).filter(Boolean);
-    if (!ids.length) { updateLiveBadge(false); return false; }
+    if (!ids.length) { markUnverified(); return false; }
 
-    const newModels = buildModels(ids);
+    const newModels = buildModels(ids, true);
     const oldKeys = Object.keys(MODELS).sort().join(",");
     const newKeys = Object.keys(newModels).sort().join(",");
-    if (oldKeys === newKeys) { updateLiveBadge(true); return true; }
+    // A verification flip (unverified -> verified) must re-render even when the id set is identical.
+    if (oldKeys === newKeys && _modelsVerified) { updateLiveBadge(true); return true; }
 
     MODELS = newModels;
+    _modelsVerified = true;
     if (!MODELS[selectedModelKey]) selectedModelKey = Object.keys(MODELS)[0] || null;
     renderCatalog(document.getElementById('catalog-search').value, catalogFilter);
     if (selectedModelKey && document.getElementById('detail-view').classList.contains('view-active')) {
@@ -767,9 +779,19 @@ async function fetchModels() {
     return true;
   } catch (e) {
     console.warn("Model fetch failed:", e);
-    updateLiveBadge(false);
+    markUnverified();
     return false;
   }
+}
+
+// The API is unreachable, so we cannot assert any model is serving. Keep the catalog
+// visible for browsing but strip every liveness claim from it and re-render.
+function markUnverified() {
+  updateLiveBadge(false);
+  if (!_modelsVerified) return;
+  _modelsVerified = false;
+  for (const m of Object.values(MODELS)) m.verified = false;
+  renderCatalog(document.getElementById('catalog-search').value, catalogFilter);
 }
 
 function schedulePoll() {
@@ -780,7 +802,9 @@ function schedulePoll() {
 async function initModels() {
   const ok = await fetchModels();
   if (!ok) {
-    MODELS = buildModels(Object.keys(MODEL_ENRICHMENT));
+    // Fallback catalog is browsable metadata only — nothing here is confirmed serving.
+    MODELS = buildModels(Object.keys(MODEL_ENRICHMENT), false);
+    _modelsVerified = false;
     selectedModelKey = Object.keys(MODELS)[0] || null;
   }
   renderCatalog('', catalogFilter);
@@ -942,6 +966,21 @@ function appendTyping(log){
   return{div:d,bubble:b};
 }
 
+// Renders the model's chain-of-thought in a dimmed, collapsible block. Reasoning
+// models emit this before the answer; without it the UI looks frozen while thinking.
+function renderThinking(bubbleEl,text){
+  let el=bubbleEl.querySelector(".thinking");
+  if(!el){
+    el=document.createElement("details");el.className="thinking";
+    el.style.cssText="opacity:.6;font-size:12px;margin-bottom:8px;white-space:pre-wrap;";
+    const sum=document.createElement("summary");sum.textContent="thinking\u2026";
+    sum.style.cssText="cursor:pointer;user-select:none;";
+    el.appendChild(sum);const body=document.createElement("div");body.className="thinking-body";
+    el.appendChild(body);bubbleEl.prepend(el);
+  }
+  el.querySelector(".thinking-body").textContent=text;
+}
+
 async function callModel(cfg,messages,bubbleEl,logEl){
   const apiKey=getApiKey();
   if(!apiKey){throw new Error("No API key set \u2014 enter your key in the top-right field.");}
@@ -961,6 +1000,8 @@ async function callModel(cfg,messages,bubbleEl,logEl){
   if(!resp.ok){const t=await resp.text();throw new Error(`${resp.status} - ${t.slice(0,200)}`);}
   let full="";
   let usage=null;
+  let reasoning="";
+  let finish="";
   if(streamOn){
     bubbleEl.textContent="";
     const reader=resp.body.getReader(),decoder=new TextDecoder();
@@ -969,13 +1010,28 @@ async function callModel(cfg,messages,bubbleEl,logEl){
       for(const line of decoder.decode(value,{stream:true}).split("\n")){
         if(!line.startsWith("data: "))continue;
         const data=line.slice(6);if(data==="[DONE]")continue;
-        try{const parsed=JSON.parse(data);const delta=parsed.choices?.[0]?.delta?.content;if(delta){full+=delta;bubbleEl.textContent=full;logEl.scrollTop=logEl.scrollHeight;}if(parsed.usage)usage=parsed.usage;}catch(_){}
+        try{const parsed=JSON.parse(data);const d=parsed.choices?.[0]?.delta;
+          // Reasoning models (e.g. Nemotron Lightning) stream delta.reasoning for the
+          // whole thinking phase before any delta.content appears. Showing only
+          // content leaves the bubble blank for 20-30s and then dumps everything.
+          if(d?.reasoning){reasoning+=d.reasoning;renderThinking(bubbleEl,reasoning);logEl.scrollTop=logEl.scrollHeight;}
+          if(d?.content){full+=d.content;bubbleEl.textContent=full;logEl.scrollTop=logEl.scrollHeight;}
+          const fr=parsed.choices?.[0]?.finish_reason;if(fr)finish=fr;
+          if(parsed.usage)usage=parsed.usage;}catch(_){}
       }
     }
   }else{
-    const json=await resp.json();full=json.choices?.[0]?.message?.content??"";bubbleEl.textContent=full;usage=json.usage||null;
+    const json=await resp.json();const m=json.choices?.[0]?.message||{};full=m.content??"";reasoning=m.reasoning||"";finish=json.choices?.[0]?.finish_reason||"";
+    if(!full&&reasoning)renderThinking(bubbleEl,reasoning);else bubbleEl.textContent=full;usage=json.usage||null;
   }
   const elapsed=(Date.now()-t0)/1000;
+  // finish_reason "length" with empty content means the reasoning trace consumed the
+  // entire budget before the answer began -- render a hint, not a blank bubble.
+  if(finish==="length"&&!full){
+    const w=document.createElement("div");w.className="token-stats";
+    w.textContent="\u26a0 Response truncated \u2014 the model ran out of tokens while reasoning. Increase Max Tokens.";
+    bubbleEl.parentElement.appendChild(w);
+  }
   if(usage&&usage.completion_tokens){
     const stats=document.createElement("div");stats.className="token-stats";
     stats.textContent=`${usage.completion_tokens} tokens · ${Math.round(usage.completion_tokens/elapsed)} tok/s`;

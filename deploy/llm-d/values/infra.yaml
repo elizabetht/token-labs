@@ -1,5 +1,0 @@
-# llm-d-infra values — Gateway API configuration for Envoy Gateway
-gateway:
-  # We manage the Gateway via deploy/gateway/gateway.yaml; disable chart-managed Gateway.
-  # (chart v1.3.x replaced 'create'/'className' with 'enabled')
-  enabled: false

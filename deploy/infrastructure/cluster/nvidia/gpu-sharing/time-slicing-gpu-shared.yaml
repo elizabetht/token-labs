@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: time-slicing-config
+  namespace: gpu-operator
+data:
+  any: |-
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      timeSlicing:
+        # Explicit shared mode: rename the advertised resource to
+        # nvidia.com/gpu.shared. Workloads must request
+        # nvidia.com/gpu.shared: 1, making shared access clear and preventing
+        # pods expecting an exclusive nvidia.com/gpu from using these slices.
+        renameByDefault: true
+        failRequestsGreaterThanOne: true
+        resources:
+          # `replicas` is the number of schedulable shares per physical GPU.
+          - name: nvidia.com/gpu
+            replicas: 3

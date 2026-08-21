@@ -276,7 +276,7 @@ kubectl create secret generic hf-token \
 
 What it does:
 1. Creates the `token-labs` namespace
-2. Runs `helmfile apply` which installs all 5 releases with values from `deploy/llm-d/values/`
+2. Runs `helmfile apply` which installs all 5 releases with values from `deploy/platform/llm-d/values/`
 3. Waits for vLLM workers to download model weights and become ready (can take several minutes on first run)
 
 Verify:
@@ -308,18 +308,18 @@ This step creates the actual networking and policy resources that wire everythin
 
 ```bash
 # Gateway + HTTPRoute
-kubectl apply -f deploy/gateway/
+kubectl apply -f deploy/platform/gateway/
 
 # Kuadrant policies
-kubectl apply -f deploy/policies/
+kubectl apply -f deploy/platform/policies/
 ```
 
-**Gateway resources** (`deploy/gateway/`):
+**Gateway resources** (`deploy/platform/gateway/`):
 - `namespace.yaml` — creates the `token-labs` namespace (idempotent)
 - `gateway.yaml` — creates a `Gateway` resource with `gatewayClassName: eg`, listening on HTTP port 80 with hostname `inference.token-labs.local`. Envoy Gateway sees this and provisions an Envoy proxy pod to handle traffic.
 - `aigatewayroute.yaml` — creates an `AIGatewayRoute` with per-model header matching (deployed in step 5). The AI Gateway controller extracts the `"model"` field from the request body and sets the `x-ai-eg-model` header. Each rule matches on this header and routes to the correct `InferencePool` backend. The InferencePool is the bridge to llm-d's EPP — when Envoy receives a matching request, it invokes the EPP via ext_proc to pick the optimal vLLM pod.
 
-**Kuadrant policies** (`deploy/policies/`):
+**Kuadrant policies** (`deploy/platform/policies/`):
 - `kuadrant.yaml` — the `Kuadrant` CR (idempotent, already created in step 3)
 - `auth-policy.yaml` — `AuthPolicy` targeting the Gateway. Configures API key authentication: Authorino validates the `Authorization: Bearer <key>` header by looking up Secrets labeled `authorino.kuadrant.io/managed-by: authorino`. On match, it extracts `kuadrant.io/groups` (tier) and `secret.kuadrant.io/user-id` (tenant ID) from annotations and passes them in the request context. An OPA policy validates the tier is one of `free`, `pro`, or `enterprise`.
 - `rate-limit-policy.yaml` — `RateLimitPolicy` targeting the Gateway. Defines per-tier request count limits (e.g., free = 10/min and 100/day). Uses `when` predicates with CEL expressions to match `auth.identity.groups` and `counters` keyed by `auth.identity.userid` for tenant isolation.
@@ -339,7 +339,7 @@ kubectl get tokenratelimitpolicy -n token-labs  # Accepted: True
 Demo tenants are provided for testing (see [Tenant Model](#tenant-model) above for full onboarding instructions):
 
 ```bash
-kubectl apply -f deploy/tenants/
+kubectl apply -f deploy/platform/tenants/
 ```
 
 This creates two demo tenants:
@@ -408,7 +408,7 @@ The stack exposes metrics from all layers via Prometheus ServiceMonitors:
 
 ```bash
 # Optional: deploy ServiceMonitors
-kubectl apply -f deploy/monitoring/service-monitors.yaml
+kubectl apply -f deploy/platform/monitoring/service-monitors.yaml
 ```
 
 | Source | Key Metrics |
@@ -440,18 +440,18 @@ Uses [lighteval](https://github.com/huggingface/lighteval) with the IFEval bench
 
 ```
 ├── deploy/
-│   ├── scripts/              # Installation scripts (run in order)
-│   │   ├── 01-install-crds.sh
-│   │   ├── 02-install-envoy-gateway.sh
-│   │   ├── 03-install-kuadrant.sh
-│   │   ├── 04-deploy-llm-d.sh
-│   │   └── 05-deploy-ai-gateway-route.sh
-│   ├── gateway/              # Gateway + AIGatewayRoute resources
-│   ├── llm-d/                # Helmfile + values for llm-d 5-release deploy
-│   │   ├── helmfile.yaml.gotmpl
-│   │   └── values/
-│   ├── policies/             # Kuadrant AuthPolicy, RateLimitPolicy, TokenRateLimitPolicy
-│   ├── tenants/              # Tenant API key Secrets (template + demos)
+│   ├── infrastructure/       # CRDs, controllers, and cluster configuration
+│   │   ├── sources/
+│   │   ├── controllers/
+│   │   ├── crds/
+│   │   └── cluster/
+│   ├── platform/             # Shared gateway, routing, policy, and telemetry
+│   │   ├── gateway/
+│   │   ├── llm-d/
+│   │   ├── policies/
+│   │   └── tenants/
+│   ├── models/               # Active inference workloads
+│   └── archive/              # Retained, non-reconciled resources
 ├── docs/
 │   ├── ARCHITECTURE.md       # Full architecture deep-dive
 │   ├── index.html            # Live demo page

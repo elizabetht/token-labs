@@ -43,3 +43,8 @@ bench_results.json
 prefill_bench.txt
 decode_bench.txt
 deploy/monitoring/incident-harness/secret.yaml
+
+# Helm value/manifest dumps -- these captured live Secret data (a Postgres password
+# and a tenant API key) and were committed to this PUBLIC repo in 337a21d.
+# Never track raw backups of rendered manifests; they contain decoded Secrets.
+deploy/archive/backups/

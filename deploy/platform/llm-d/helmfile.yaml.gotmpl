@@ -1,0 +1,15 @@
+# Shared llm-d infrastructure only. Model releases live under deploy/models/.
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+
+repositories:
+  - name: llm-d-infra
+    url: https://llm-d-incubation.github.io/llm-d-infra/
+
+releases:
+  - name: llm-d-infra
+    namespace: {{ $ns }}
+    chart: llm-d-infra/llm-d-infra
+    version: v1.4.0
+    installed: true
+    values:
+      - values/infra.yaml

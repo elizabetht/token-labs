@@ -1,0 +1,38 @@
+# AlertmanagerConfig — routes token-labs alerts to incident-harness and PagerDuty.
+#
+# Routing logic:
+#   All token-labs alerts  → incident-harness (AI enrichment + Slack)
+#   severity=critical only → pagerduty-critical (direct, as failsafe)
+#
+# The `continue: true` on the critical sub-route ensures critical alerts hit
+# BOTH receivers — PagerDuty fires even if incident-harness is degraded.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: incident-harness-receiver
+  namespace: monitoring
+  labels:
+    alertmanagerConfig: token-labs
+spec:
+  route:
+    receiver: incident-harness
+    matchers:
+    - name: namespace
+      value: token-labs
+    routes:
+    - receiver: pagerduty-critical
+      continue: true
+      matchers:
+      - name: severity
+        value: critical
+  receivers:
+  - name: incident-harness
+    webhookConfigs:
+    - url: "http://incident-harness.monitoring.svc.cluster.local:9000/alertmanager-webhook"
+      sendResolved: false
+  - name: pagerduty-critical
+    pagerdutyConfigs:
+    - routingKey:
+        name: incident-harness-secrets
+        key: PAGERDUTY_ROUTING_KEY
+      sendResolved: true

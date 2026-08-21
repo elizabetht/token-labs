@@ -101,57 +101,14 @@ See [deploy/tests/README.md](deploy/tests/README.md) for details.
 
 ```
 token-labs/
-├── ansible/                    # Phase 1: Node bootstrap
-│   ├── inventory/
-│   │   └── hosts.yml          # DGX Spark node inventory
-│   ├── roles/
-│   │   ├── bootstrap/         # OS setup + Kubernetes install
-│   │   ├── nvidia/            # NVIDIA Container Toolkit
-│   │   ├── kubeadm-init/      # Control plane initialization
-│   │   └── kubeadm-join/      # Worker node joining
-│   └── site.yml               # Main playbook
-│
-├── deploy/                    # Phase 2-3: GitOps with Flux
-│   ├── flux-system/           # Flux bootstrap manifests
-│   │   ├── gotk-sync.yaml
-│   │   └── gotk-kustomization.yaml
-│   │
-│   ├── infrastructure/        # Operators managed by Flux
-│   │   ├── sources/           # HelmRepository + GitRepository
-│   │   │   ├── helm-repositories.yaml
-│   │   │   └── git-repositories.yaml
-│   │   └── controllers/       # HelmRelease per operator
-│   │       ├── gateway-api-crds.yaml
-│   │       ├── longhorn.yaml
-│   │       ├── gpu-operator.yaml
-│   │       ├── nvidia-dra-driver.yaml
-│   │       ├── envoy-gateway.yaml
-│   │       ├── kuadrant.yaml
-│   │       └── kube-prometheus-stack.yaml
-│   │
-│   ├── cluster/               # Cluster configs
-│   │   └── nvidia/
-│   │       └── gpu-sharing/   # GPU time-slicing configs
-│   │
-│   ├── gateway/               # Gateway API resources
-│   ├── llm-d/                 # llm-d + model services
-│   ├── policies/              # Auth + rate limit policies
-│   ├── tenants/               # Tenant API keys
-│   │
-│   ├── tests/                 # Phase 4: Smoke tests
-│   │   ├── 01-test-cluster-nodes.sh
-│   │   ├── 02-test-gpu-access.sh
-│   │   ├── 03-test-inference.sh
-│   │   └── 04-test-token-quota.sh
-│   │
-│   └── scripts/               # Legacy imperative scripts
-│       ├── 01-install-crds.sh
-│       ├── 02-install-envoy-gateway.sh
-│       ├── 03-install-kuadrant.sh
-│       ├── 04-deploy-llm-d.sh
-│       └── 05-deploy-services.sh
-│
-└── README.md                  # This file
+├── deploy/
+│   ├── infrastructure/        # CRDs, controllers, cluster configuration
+│   ├── platform/              # Shared gateway, routing, policy, telemetry
+│   ├── models/                # Active inference workloads
+│   ├── archive/               # Retained, non-reconciled resources
+│   └── tests/
+├── docs/
+└── README.md
 ```
 
 ## Components

@@ -1,0 +1,66 @@
+# External OpenAI-compatible route for the Nemotron 3.5 Lightning llm-d
+# deployment. Envoy AI Gateway reads the request model, selects the
+# AIServiceBackend, and sends traffic to the llm-d routing proxy on port 8000.
+#
+# Envoy Gateway v1.4.6 does not support InferencePool backendRefs. The Service
+# therefore selects decode workers directly; migrate this backend to the
+# InferencePool after the Gateway controller gains support for that kind.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemotron35-llm-d
+  namespace: token-labs
+spec:
+  selector:
+    llm-d.ai/inference-serving: "true"
+    llm-d.ai/model: nemotron35-lightning-llm-d
+    llm-d.ai/role: decode
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: nemotron35-llm-d
+  namespace: token-labs
+spec:
+  endpoints:
+    - fqdn:
+        hostname: nemotron35-llm-d.token-labs.svc.cluster.local
+        port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: nemotron35-llm-d
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    group: gateway.envoyproxy.io
+    kind: Backend
+    name: nemotron35-llm-d
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: nemotron35-llm-d
+  namespace: token-labs
+spec:
+  schema:
+    name: OpenAI
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: token-labs-gateway
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4
+      backendRefs:
+        - name: nemotron35-llm-d

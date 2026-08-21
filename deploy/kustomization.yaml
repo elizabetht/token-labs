@@ -1,11 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # Infrastructure layer - operators managed by Flux
+  # Reconciliation scope is intentionally infrastructure-only for now.
+  # Enable platform after dependency ordering has been verified.
   - infrastructure
-  # Additional cluster resources can be added here
-  # - cluster
-  # - gateway
-  # - llm-d
-  # - policies
-  # - tenants
+  # - platform

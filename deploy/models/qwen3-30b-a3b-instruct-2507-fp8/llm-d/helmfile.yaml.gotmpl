@@ -1,0 +1,27 @@
+{{ $ns := env "NAMESPACE" | default "token-labs" }}
+{{ $mode := env "MODE" | default "disaggregated" }}
+
+repositories:
+  - name: llm-d-modelservice
+    url: https://llm-d-incubation.github.io/llm-d-modelservice/
+  - name: gaie
+    url: registry.k8s.io/gateway-api-inference-extension/charts
+    oci: true
+
+releases:
+  - name: gaie-qwen3-control-comparison
+    namespace: {{ $ns }}
+    chart: gaie/inferencepool
+    version: v1.4.0
+    installed: true
+    values:
+      - gaie-values.yaml
+  - name: llm-d-qwen3-control-{{ $mode }}
+    namespace: {{ $ns }}
+    chart: llm-d-modelservice/llm-d-modelservice
+    version: v0.4.9
+    installed: true
+    needs:
+      - {{ $ns }}/gaie-qwen3-control-comparison
+    values:
+      - {{ if eq $mode "aggregated" }}aggregated-values.yaml{{ else if eq $mode "disaggregated" }}disaggregated-values.yaml{{ else }}{{ fail "MODE must be aggregated or disaggregated" }}{{ end }}

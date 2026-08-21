@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-repositories.yaml
   - git-repositories.yaml
+  - dynamo-git.yaml

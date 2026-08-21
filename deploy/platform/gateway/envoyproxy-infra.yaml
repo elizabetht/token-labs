@@ -1,0 +1,40 @@
+# EnvoyProxy — infrastructure configuration for the token-labs gateway
+# Forces MetalLB to allocate 192.168.1.200 to the Envoy-generated LoadBalancer service.
+# Without this, the metallb.io/loadBalancerIPs annotation applied to the generated
+# service is lost on gateway reconciliation.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: token-labs-proxy-config
+  namespace: token-labs
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        annotations:
+          metallb.io/loadBalancerIPs: "192.168.1.200"
+      envoyDeployment:
+        pod:
+          # DO NOT MOVE THIS OFF `controller`. This pin is load-bearing.
+          #
+          # The generated Service is externalTrafficPolicy: Local, so kube-proxy
+          # opens NodePort 31426 ONLY on nodes holding a local endpoint. Caddy on
+          # EC2 reaches this cluster exclusively via 100.127.233.74:31426, which
+          # is `controller`'s Tailscale IP -- and controller is the only node on
+          # the tailnet (spark-01/02 have no tailscale). Move this pod to a spark
+          # node and the NodePort closes on controller: public ingress goes down.
+          #
+          # Known + accepted consequence: VIP 192.168.1.200 is never announced on
+          # the LAN. Same ETP=Local rule, other direction -- MetalLB only
+          # announces from a node with a ready endpoint, and controller carries
+          # node.kubernetes.io/exclude-from-external-load-balancers, so no node is
+          # eligible. Verify with: curl -s controller:7472/metrics |
+          # grep metallb_speaker_announced   (no .200 series = expected).
+          # The VIP is unused; all traffic takes the Tailscale NodePort path.
+          nodeSelector:
+            kubernetes.io/hostname: controller
+          tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule

@@ -1,0 +1,38 @@
+inferencePool:
+  targetPorts:
+    - number: 8000
+  modelServerType: vllm
+  modelServers:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+      llm-d.ai/model: nemotron35-lightning-llm-d
+
+inferenceExtension:
+  replicas: 1
+  image:
+    hub: ghcr.io/llm-d
+    name: llm-d-inference-scheduler
+    tag: v0.7.1
+    pullPolicy: IfNotPresent
+  extProcPort: 9002
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values: ["amd64"]
+provider:
+  name: none

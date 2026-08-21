@@ -25,7 +25,24 @@
       "WebFetch(domain:forums.developer.nvidia.com)",
       "WebFetch(domain:*)",
       "Bash(kubectl get:*)",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(kubectl -n gpu-operator logs -l app=nvidia-device-plugin-daemonset --tail=25 --prefix)",
+      "Bash(kubectl -n sara-alpaca-mcp logs ai-trading-6d78fc879c-dgxhf --tail=25)",
+      "Bash(kubectl -n sara-alpaca-mcp logs ai-trading-6d78fc879c-dgxhf --previous --tail=15)",
+      "Bash(kubectl -n monitoring describe pod tempo-0)",
+      "Bash(kubectl -n sara-alpaca-mcp describe pod ai-trading-6d78fc879c-dgxhf)",
+      "Bash(kubectl -n sara-alpaca-mcp logs ai-trading-6d78fc879c-dgxhf --all-containers --tail=30 --previous)",
+      "Bash(kubectl -n token-labs get pod llm-d-nemotron35-dspark-aggregated-llm-d-modelservice-deconpgvd -o json)",
+      "Bash(kubectl -n token-labs get svc)",
+      "Bash(kubectl -n token-labs logs llm-d-nemotron35-dspark-aggregated-llm-d-modelservice-deconpgvd -c vllm --tail=20)",
+      "Bash(kubectl -n token-labs get httproute nemotron35-llm-d -o json)",
+      "Bash(kubectl -n longhorn-system get volumes.longhorn.io -o custom-columns='NAME:.metadata.name,STATE:.status.state,ROBUSTNESS:.status.robustness')",
+      "Bash(kubectl -n token-labs get aigatewayroute nemotron35-llm-d -o json)",
+      "Bash(kubectl -n token-labs get gateway token-labs-gateway -o json)",
+      "Bash(kubectl -n token-labs get httproute model-aggregator-route -o json)",
+      "Bash(kubectl -n envoy-gateway-system logs deploy/envoy-token-labs-token-labs-gateway-bd0838a6 --tail=30)",
+      "Bash(kubectl -n token-labs logs deploy/gaie-nemotron35-dspark-comparison-epp --tail=30)",
+      "Bash(kubectl -n envoy-ai-gateway-system logs deploy/ai-gateway-controller --tail=15)"
     ]
   }
 }

@@ -153,40 +153,42 @@ class IncidentHarness:
 
     async def _notify(self, incident: Incident) -> None:
         await post_triage(self.cfg.slack_webhook_url, incident)
+        if self.cfg.pagerduty_routing_key:
+            sev = incident.classification.severity if incident.classification else "unknown"
+            if sev in ("critical", "high"):
+                from .pagerduty import trigger_incident
+                await trigger_incident(self.cfg.pagerduty_routing_key, incident)
 
 
 # ── Prompt construction ────────────────────────────────────────────────────
-#
-# TODO(human): implement _build_triage_prompt(incident) below.
-#
-# This function receives a fully-enriched Incident and must return a string
-# prompt that gives the LLM everything it needs to classify the incident.
-#
-# The LLM must respond with JSON matching this schema:
-#   {
-#     "category":        one of ["oom","cuda_error","model_crash","request_spike",
-#                                "slow_ttft","queue_buildup","healthy","unknown"],
-#     "severity":        "low" | "medium" | "high" | "critical",
-#     "summary":         "1-2 sentence diagnosis",
-#     "recommendation":  "specific next action for the on-call engineer",
-#     "auto_restartable": true | false
-#   }
-#
-# What to include in the prompt:
-#   - Alert name + pod identity
-#   - Key metrics from incident.metrics (gpu_util_pct, gpu_mem_used_gb,
-#     request_rate_1m, p99_ttft_ms, queue_depth)
-#   - Recent log lines from incident.logs
-#   - Clear instruction to respond ONLY with JSON (no markdown, no prose)
-#
-# Trade-offs to consider:
-#   - How much of the log to include? More context = better diagnosis,
-#     but long logs eat into the context window and slow the LLM.
-#   - How to format metrics? Raw floats vs human-readable ("4.2 GB used")?
-#   - Should you include the alert labels dict? Could confuse the LLM with noise.
-#   - Log tail vs log head? (The most recent lines usually have the error.)
 
 def _build_triage_prompt(incident: Incident) -> str:
-    raise NotImplementedError(
-        "Implement _build_triage_prompt(). See the TODO above for the full spec."
-    )
+    metrics_lines = []
+    for key, val in incident.metrics.items():
+        metrics_lines.append(f"  {key}: {val:.2f}" if isinstance(val, float) else f"  {key}: {val}")
+    metrics_str = "\n".join(metrics_lines) if metrics_lines else "  (no metrics available)"
+
+    # Use log tail — recent lines are most likely to contain the error
+    log_tail = "\n".join(incident.logs.splitlines()[-40:]) if incident.logs else "(no logs available)"
+
+    return f"""You are an SRE diagnosing a production incident. Respond ONLY with valid JSON — no markdown, no prose, no explanation.
+
+INCIDENT:
+  alert: {incident.alert_name}
+  pod: {incident.namespace}/{incident.pod}
+  fired_at: {incident.starts_at}
+
+METRICS:
+{metrics_str}
+
+RECENT LOGS (last 40 lines):
+{log_tail}
+
+Respond with this exact JSON schema:
+{{
+  "category":        one of ["oom","cuda_error","model_crash","request_spike","slow_ttft","queue_buildup","healthy","unknown"],
+  "severity":        "low" | "medium" | "high" | "critical",
+  "summary":         "1-2 sentence diagnosis",
+  "recommendation":  "specific next action for the on-call engineer",
+  "auto_restartable": true | false
+}}"""
